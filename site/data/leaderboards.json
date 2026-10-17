@@ -1,0 +1,67 @@
+{
+  "updated": "2026-10-17T18:00:00+02:00",
+  "weekEnd": "2026-10-19T00:00:00+02:00",
+  "server": {
+    "up": false,
+    "online": 0,
+    "max": 10,
+    "address": "practically-tusk.tun.ply.gg",
+    "names": []
+  },
+  "boards": [
+    {
+      "id": "miner",
+      "title": "Miner",
+      "desc": "Meiste abgebaute Blöcke",
+      "icon": "⛏️",
+      "unit": "Blöcke",
+      "week": [],
+      "total": []
+    },
+    {
+      "id": "builder",
+      "title": "Baumeister",
+      "desc": "Meiste platzierte Blöcke",
+      "icon": "🧱",
+      "unit": "Blöcke",
+      "week": [],
+      "total": []
+    },
+    {
+      "id": "traveler",
+      "title": "Weltreisender",
+      "desc": "Weiteste Strecke zurückgelegt",
+      "icon": "🧭",
+      "unit": "m",
+      "week": [],
+      "total": []
+    },
+    {
+      "id": "shiny",
+      "title": "Shiny-Jäger",
+      "desc": "Meiste Shiny-Fänge",
+      "icon": "✨",
+      "unit": "Shinys",
+      "week": [],
+      "total": []
+    },
+    {
+      "id": "battle",
+      "title": "Kämpfer",
+      "desc": "Meiste gewonnene Kämpfe",
+      "icon": "⚔️",
+      "unit": "Siege",
+      "week": [],
+      "total": []
+    },
+    {
+      "id": "collector",
+      "title": "Sammler",
+      "desc": "Meiste Pokédex-Arten gefangen",
+      "icon": "📖",
+      "unit": "Arten",
+      "week": [],
+      "total": []
+    }
+  ]
+}
