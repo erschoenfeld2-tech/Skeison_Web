@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   // Bewerbungen laufen ueber Supabase (nur oeffentlicher Schluessel; Einfuegen erlaubt, Lesen nicht).
-  var SUPABASE_URL = '', SUPABASE_KEY = '';
+  var SUPABASE_URL = 'https://pumdupjmmvimlxqvuymg.supabase.co', SUPABASE_KEY = 'sb_publishable_VcunJmqIHajV3s2gfUMWSQ_MlIpmkas';
   var mode = 'week', data = null, openBoardId = null;
   var $ = function (id) { return document.getElementById(id); };
   var nf = new Intl.NumberFormat('de-DE');
