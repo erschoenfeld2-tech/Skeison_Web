@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cobblemon Server</title>
 <link rel="stylesheet" href="style.css">
+<meta name="description" content="Cobblemon Server: Ranglisten, Ankündigungen und Whitelist-Bewerbung">
 </head>
 <body>
 <header class="hero">
@@ -14,6 +15,7 @@
     <div class="status-row">
       <span id="pill" class="pill off">Status wird geladen …</span>
       <button id="copy" class="copy" type="button" title="Adresse kopieren"><span id="addr">–</span> <small>kopieren</small></button>
+      <button class="btn" type="button" data-apply>Für die Whitelist bewerben</button>
     </div>
     <p id="players" class="players"></p>
     <div class="countdown" aria-live="off">
@@ -51,12 +53,34 @@
   <section id="join">
     <h2>Mitspielen</h2>
     <ol class="steps">
-      <li>Bei uns auf die <strong>Whitelist</strong> eintragen lassen.</li>
+      <li>Bei uns auf die <strong>Whitelist</strong> eintragen lassen: <button class="btn small" type="button" data-apply>Jetzt bewerben</button></li>
       <li>Das <a href="download/CobblemonServerPack.mrpack" download>Modpack herunterladen</a> und in die Modrinth App oder Prism importieren.</li>
       <li>Mit der Serveradresse oben verbinden.</li>
     </ol>
   </section>
 </main>
+
+<dialog id="applyDlg" class="dlg">
+  <form id="applyForm" method="dialog" novalidate>
+    <h2>Whitelist-Bewerbung</h2>
+    <p class="muted">Trage deine Namen ein. Wir prüfen die Bewerbung und schalten dich frei.</p>
+    <label>Minecraft-Name<input id="fMc" name="mc" required maxlength="16" autocomplete="off" placeholder="z. B. Steve_123"></label>
+    <label>Discord-Name<input id="fDc" name="dc" required maxlength="32" autocomplete="off" placeholder="z. B. steve#0 oder steve"></label>
+    <input id="fHp" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <p id="applyMsg" class="msg" role="status"></p>
+    <div class="dlg-actions"><button type="button" class="btn ghost" data-close>Abbrechen</button><button id="applySend" class="btn" type="submit">Absenden</button></div>
+  </form>
+</dialog>
+
+<dialog id="boardDlg" class="dlg wide">
+  <div class="dlg-head"><h2 id="bdTitle"></h2><button type="button" class="btn ghost" data-close aria-label="Schließen">✕</button></div>
+  <div class="dlg-tools">
+    <div class="seg" role="tablist" aria-label="Zeitraum"><button class="on" data-bmode="week" type="button">Diese Woche</button><button data-bmode="total" type="button">Gesamt</button></div>
+    <input id="bdSearch" type="search" placeholder="Spieler suchen …" autocomplete="off">
+  </div>
+  <p id="bdDesc" class="muted"></p>
+  <ul id="bdList" class="rows"></ul>
+</dialog>
 
 <footer class="wrap muted"><span id="updated"></span></footer>
 <script src="app.js"></script>

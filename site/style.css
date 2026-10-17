@@ -72,3 +72,20 @@ footer { padding: 24px 16px 48px; font-size: .85rem; }
 .cd div { min-width: 68px; text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
 .cd b { display: block; font-size: 1.7rem; font-variant-numeric: tabular-nums; color: var(--accent); line-height: 1.2; }
 .cd span { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+.btn { cursor: pointer; font: inherit; font-weight: 700; color: #1a1500; background: var(--accent); border: 1px solid transparent; border-radius: 10px; padding: 8px 16px; }
+.btn:hover { filter: brightness(1.08); } .btn:disabled { opacity: .6; cursor: default; }
+.btn.small { padding: 3px 12px; margin-left: 6px; } .btn.ghost { background: none; color: var(--text); border-color: var(--line); }
+.card { cursor: pointer; transition: border-color .15s, transform .15s; } .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.more { margin: 10px 0 0; text-align: right; color: var(--accent); font-weight: 600; font-size: .85rem; }
+.dlg { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 16px; padding: 22px; width: min(440px, calc(100vw - 32px)); }
+.dlg.wide { width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 48px); }
+.dlg::backdrop { background: rgba(5,8,20,.65); }
+.dlg h2 { margin: 0 0 6px; } .dlg label { display: block; margin-top: 14px; font-weight: 600; font-size: .9rem; }
+.dlg input { display: block; width: 100%; margin-top: 4px; padding: 9px 12px; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+.hp { position: absolute; left: -9999px; }
+.dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.dlg-head { display: flex; justify-content: space-between; align-items: center; } .dlg-head h2 { margin: 0; }
+.dlg-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0 4px; } .dlg-tools input { flex: 1; min-width: 140px; margin: 0; }
+#bdList { max-height: 55vh; overflow: auto; margin-top: 10px; }
+.msg { min-height: 1.4em; margin: 12px 0 0; font-size: .9rem; } .msg.ok { color: var(--ok); } .msg.err { color: var(--red); }
