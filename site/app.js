@@ -4,7 +4,15 @@
   var DATA_BASE = 'https://raw.githubusercontent.com/erschoenfeld2-tech/Skeison_Web/data/';
   // Bewerbungen laufen ueber Supabase (nur oeffentlicher Schluessel; Einfuegen erlaubt, Lesen nicht).
   var SUPABASE_URL = 'https://pumdupjmmvimlxqvuymg.supabase.co', SUPABASE_KEY = 'sb_publishable_VcunJmqIHajV3s2gfUMWSQ_MlIpmkas';
-  var mode = 'week', data = null, openBoardId = null;
+  // Zeitplan (alle Zeiten deutsche Zeit): Nether und End oeffnen jeweils nach den angegebenen Tagen.
+  var START = new Date('2026-10-30T15:00:00+01:00').getTime(), DAY = 86400000;
+  var MILESTONES = [
+    { id: 'start', icon: '🚀', title: 'Serverstart', at: START, text: 'Der Server geht online, die Wertungen beginnen.' },
+    { id: 'nether', icon: '🔥', title: 'Nether öffnet', at: START + 7 * DAY, text: 'Eine Woche nach Serverstart wird der Nether freigeschaltet.' },
+    { id: 'end', icon: '🌌', title: 'End öffnet', at: START + 14 * DAY, text: 'Eine Woche nach dem Nether folgt das End mit dem schwereren Enderdrachen.' }
+  ];
+  var mode = 'week', data = null, openBoardId = null, phase = null;
+  function live() { return Date.now() >= START; }
   var $ = function (id) { return document.getElementById(id); };
   var nf = new Intl.NumberFormat('de-DE');
   var COLORS = ['#ffcb05', '#7fb5ff', '#ff8a8a', '#7be0b0', '#c9a0ff', '#ffb36b', '#6fd6e8', '#f0a0d0'];
@@ -34,7 +42,7 @@
       var t = el('div'); t.appendChild(el('h3', '', b.title)); t.appendChild(el('p', '', b.desc)); head.appendChild(t);
       card.appendChild(head);
       var list = b[mode] || [];
-      if (!list.length) card.appendChild(el('p', 'empty', mode === 'week' ? 'Diese Woche noch keine Einträge.' : 'Noch keine Einträge.'));
+      if (!list.length) card.appendChild(el('p', 'empty', !live() ? 'Startet mit dem Serverstart.' : mode === 'week' ? 'Diese Woche noch keine Einträge.' : 'Noch keine Einträge.'));
       else {
         var ul = el('ul', 'rows');
         list.slice(0, 10).forEach(function (e, i) {
@@ -85,7 +93,8 @@
 
   function renderNews(list) {
     var box = $('newsList'); box.textContent = '';
-    if (!list.length) { box.appendChild(el('p', 'muted', 'Keine Ankündigungen.')); return; }
+    $('news').hidden = !list.length;
+    if (!list.length) return;
     list.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).forEach(function (n) {
       var p = el('article', 'post ' + (n.type || 'news')), h = el('h3', '', n.title || '');
       if (n.type === 'event') h.appendChild(el('span', 'badge', 'Event')); else if (n.type === 'wartung') h.appendChild(el('span', 'badge', 'Wartung'));
@@ -111,12 +120,16 @@
 
   function load() {
     fetchJson('data/leaderboards.json').then(function (d) {
+      if (!live()) { // vor dem Serverstart gibt es keine Wertung (Testdaten werden ausgeblendet)
+        d.boards.forEach(function (b) { b.week = []; b.total = []; }); d.server.names = [];
+      }
       data = d; renderStatus(d.server); renderBoards();
       var end = new Date(d.weekEnd);
+      if (!live()) $('weekInfo').textContent = 'Die Wertung startet mit dem Serverstart.'; else
       $('weekInfo').textContent = mode === 'week' ? 'Die Woche endet am ' + end.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' }) + ' um 00:00 Uhr. Danach beginnt eine neue Wertung.' : 'Gesamtstand seit Beginn der Welt.';
       $('updated').textContent = 'Zuletzt aktualisiert: ' + new Date(d.updated).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
     }).catch(function () { renderStatus(null); $('updated').textContent = 'Daten momentan nicht verfügbar.'; });
-    fetchJson('data/history.json').then(renderWinners).catch(function () { renderWinners([]); });
+    fetchJson('data/history.json').then(function (h) { renderWinners(live() ? h : []); }).catch(function () { renderWinners([]); });
   }
 
   document.querySelectorAll('.seg button[data-mode]').forEach(function (b) { b.addEventListener('click', function () { setMode(b.getAttribute('data-mode')); }); });
@@ -158,11 +171,37 @@
     if (navigator.clipboard) navigator.clipboard.writeText(a).then(done, function () {}); else done();
   });
 
+  function current() { // naechster Meilenstein und zugehoerige Phase
+    var now = Date.now();
+    for (var i = 0; i < MILESTONES.length; i++) if (now < MILESTONES[i].at) return MILESTONES[i];
+    return null;
+  }
+  var LABELS = { start: 'Server-Start in', nether: 'Nether öffnet in', end: 'End öffnet in' };
+  function renderTimeline() {
+    var ol = $('timeline'), now = Date.now(), next = current();
+    ol.textContent = '';
+    MILESTONES.forEach(function (m) {
+      var li = el('li', 'ms ' + m.id + (m.at <= now ? ' done' : m === next ? ' next' : ''));
+      li.appendChild(el('span', 'ms-ico', m.icon));
+      var b = el('div'); b.appendChild(el('h3', '', m.title));
+      b.appendChild(el('div', 'ms-date', new Date(m.at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr'));
+      b.appendChild(el('p', '', m.text)); li.appendChild(b);
+      li.appendChild(el('span', 'ms-state', m.at <= now ? 'Offen' : m === next ? 'Als Nächstes' : 'Geplant'));
+      ol.appendChild(li);
+    });
+  }
   function tick() {
-    var box = $('cd'), left = new Date(box.getAttribute('data-target')) - Date.now();
-    if (isNaN(left)) return;
-    if (left <= 0) { box.parentNode.hidden = true; return; }
-    var p = function (n) { return String(n).padStart(2, '0'); }, s = Math.floor(left / 1000);
+    var next = current(), ph = next ? next.id : 'done';
+    if (ph !== phase) { // Phasenwechsel: Farben, Beschriftung, Zeitplan und (nach Serverstart) Ranglisten neu
+      var first = phase === null; phase = ph;
+      $('hero').setAttribute('data-phase', ph);
+      $('cdBox').hidden = !next;
+      if (next) $('cdLabel').textContent = LABELS[ph];
+      renderTimeline();
+      if (!first) load();
+    }
+    if (!next) return;
+    var left = next.at - Date.now(), p = function (n) { return String(n).padStart(2, '0'); }, s = Math.floor(Math.max(left, 0) / 1000);
     $('cd-d').textContent = Math.floor(s / 86400); $('cd-h').textContent = p(Math.floor(s % 86400 / 3600));
     $('cd-m').textContent = p(Math.floor(s % 3600 / 60)); $('cd-s').textContent = p(s % 60);
   }

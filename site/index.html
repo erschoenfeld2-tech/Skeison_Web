@@ -8,7 +8,7 @@
 <meta name="description" content="Cobblemon Server: Ranglisten, Ankündigungen und Whitelist-Bewerbung">
 </head>
 <body>
-<header class="hero">
+<header class="hero" id="hero" data-phase="start">
   <div class="wrap">
     <p class="eyebrow">Cobblemon · NeoForge 1.21.1</p>
     <h1>Unser Cobblemon Server</h1>
@@ -18,9 +18,9 @@
       <button class="btn" type="button" data-apply>Für die Whitelist bewerben</button>
     </div>
     <p id="players" class="players"></p>
-    <div class="countdown" aria-live="off">
-      <p class="cd-label">Server-Start in</p>
-      <div id="cd" class="cd" data-target="2026-10-30T15:00:00+01:00">
+    <div class="countdown" id="cdBox" aria-live="off">
+      <p id="cdLabel" class="cd-label">Server-Start in</p>
+      <div id="cd" class="cd">
         <div><b id="cd-d">–</b><span>Tage</span></div><div><b id="cd-h">–</b><span>Std</span></div><div><b id="cd-m">–</b><span>Min</span></div><div><b id="cd-s">–</b><span>Sek</span></div>
       </div>
     </div>
@@ -28,7 +28,12 @@
 </header>
 
 <main class="wrap">
-  <section id="news">
+  <section id="schedule">
+    <h2>Zeitplan</h2>
+    <ol id="timeline" class="timeline"></ol>
+  </section>
+
+  <section id="news" hidden>
     <h2>Ankündigungen</h2>
     <div id="newsList" class="news"></div>
   </section>
