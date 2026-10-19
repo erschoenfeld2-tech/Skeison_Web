@@ -25,6 +25,34 @@
     v.controls.enablePan = false;
   } catch (e) { canvas.replaceWith(el('p', 'muted', '3D-Ansicht wird von diesem Browser nicht unterstützt.')); }
 
+  // Steam-Highlights aus steam.json (wird von tools/fetch-steam.js beim Deploy erzeugt)
+  function fmtH(h) { return (Math.round(h * 10) / 10).toLocaleString('de-DE') + ' Std'; }
+  function gameList(title, list, key) {
+    var f = document.createDocumentFragment(); f.appendChild(el('h4', '', title));
+    var g = el('div', 'games');
+    list.forEach(function (x) {
+      var a = el('a', 'game'); a.href = x.url; a.target = '_blank'; a.rel = 'noopener';
+      var i = el('img'); i.src = x.image; i.alt = ''; i.loading = 'lazy'; i.onerror = function () { i.style.visibility = 'hidden'; }; a.appendChild(i);
+      var d = el('div'); d.appendChild(el('b', '', x.name)); d.appendChild(el('span', '', fmtH(x[key]) + (key === 'recent' ? ' in 2 Wochen' : ' gesamt'))); a.appendChild(d); g.appendChild(a);
+    });
+    f.appendChild(g); return f;
+  }
+  fetch('steam.json', { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (s) {
+    if (s.url) $('stLink').href = s.url;
+    if (s.name) $('stName').textContent = s.name;
+    if (s.state) $('stState').textContent = s.state;
+    if (s.avatar) { var av = $('stAvatar'); av.src = s.avatar; av.hidden = false; }
+    var body = $('stBody'); body.textContent = '';
+    var st = [];
+    if (s.gameCount) st.push(['Spiele', s.gameCount]);
+    if (s.totalHours) st.push(['Spielzeit', Math.round(s.totalHours).toLocaleString('de-DE') + ' Std']);
+    if (s.level != null) st.push(['Level', s.level]);
+    if (st.length) { var dl = $('stStats'); dl.hidden = false; st.forEach(function (p) { var d = el('div'); d.appendChild(el('dt', '', p[0])); d.appendChild(el('dd', '', String(p[1]))); dl.appendChild(d); }); }
+    if (s.recent && s.recent.length) body.appendChild(gameList('Zuletzt gespielt', s.recent, 'recent'));
+    if (s.top && s.top.length) body.appendChild(gameList('Meistgespielt', s.top, 'hours'));
+    if (!body.children.length) body.appendChild(el('p', 'muted', 'Noch keine Steam-Daten verfügbar. Das Profil muss öffentlich sein.'));
+  }).catch(function () { $('stBody').textContent = ''; $('stBody').appendChild(el('p', 'muted', 'Steam-Daten momentan nicht verfügbar.')); });
+
   // GitHub-Projekte (oeffentliche Repos, zuletzt gepusht zuerst); Zwischenspeicher gegen das API-Limit
   function renderRepos(list) {
     var box = $('repos'); box.textContent = '';

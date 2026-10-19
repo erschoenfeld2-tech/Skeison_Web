@@ -27,20 +27,26 @@
 </header>
 
 <main class="wrap">
-  <section id="profil" class="profile">
-    <div class="skin">
-      <canvas id="skinCanvas" width="300" height="400" aria-label="3D-Ansicht des Minecraft-Skins Skeison"></canvas>
-      <p class="muted hint">Ziehen zum Drehen · Mausrad zum Zoomen</p>
-    </div>
-    <div class="about">
-      <h2>Skeison</h2>
-      <p class="muted">Gaming-Profil</p>
-      <p>Hi, ich bin Skeison. Hier findest du mein Minecraft-Profil, meinen Discord-Server und woran ich gerade programmiere.</p>
-      <dl class="facts">
-        <dt>Minecraft</dt><dd>Skeison</dd>
-        <dt>Spielt aktuell</dt><dd>Minecraft · Cobblemon</dd>
-        <dt>Eigener Server</dt><dd><a href="cobblemon/">Cobblemon Server</a></dd>
-      </dl>
+  <section id="profil">
+    <h2>Profil</h2>
+    <div class="profile">
+      <article class="pcard mc">
+        <div class="skin">
+          <canvas id="skinCanvas" width="300" height="400" aria-label="3D-Ansicht des Minecraft-Skins Skeison"></canvas>
+          <p class="muted hint">Ziehen zum Drehen · Mausrad zum Zoomen</p>
+        </div>
+        <div class="pinfo"><h3>Skeison</h3><p class="muted">Minecraft-Name</p></div>
+      </article>
+
+      <article class="pcard steam" id="steam">
+        <div class="steam-head">
+          <img id="stAvatar" class="avatar" alt="" width="72" height="72" hidden>
+          <div class="pinfo"><h3 id="stName">Steam</h3><p class="muted" id="stState">Steam-Profil</p></div>
+          <a class="btn small" id="stLink" href="https://steamcommunity.com/profiles/76561199246929908/" target="_blank" rel="noopener">Profil öffnen</a>
+        </div>
+        <dl class="stats" id="stStats" hidden></dl>
+        <div id="stBody"><p class="muted">Steam-Highlights werden geladen …</p></div>
+      </article>
     </div>
   </section>
 
