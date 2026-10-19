@@ -107,3 +107,4 @@ footer { padding: 24px 16px 48px; font-size: .85rem; }
 .ms.done { opacity: .65; } .ms.done .ms-state { color: var(--ok); border-color: var(--ok); }
 @media (max-width: 520px) { .ms { grid-template-columns: auto 1fr; } .ms-state { grid-column: 2; justify-self: start; } }
 [hidden] { display: none !important; }
+.back { margin: 0 0 14px; font-size: .9rem; }
