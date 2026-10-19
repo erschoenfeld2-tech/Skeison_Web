@@ -3,91 +3,73 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cobblemon Server</title>
-<link rel="stylesheet" href="style.css">
-<meta name="description" content="Cobblemon Server: Ranglisten, Ankündigungen und Whitelist-Bewerbung">
+<title>Skeison</title>
+<meta name="description" content="Skeison – Gaming-Profil, Discord, aktuelle GitHub-Projekte und der Cobblemon Server">
+<link rel="stylesheet" href="main.css">
 </head>
 <body>
-<header class="hero" id="hero" data-phase="start">
-  <div class="wrap">
-    <p class="eyebrow">Cobblemon · NeoForge 1.21.1</p>
-    <h1>Unser Cobblemon Server</h1>
-    <div class="status-row">
-      <span id="pill" class="pill off">Status wird geladen …</span>
-      <button id="copy" class="copy" type="button" title="Adresse kopieren"><span id="addr">–</span> <small>kopieren</small></button>
-      <button class="btn" type="button" data-apply>Für die Whitelist bewerben</button>
+<nav class="nav wrap">
+  <a class="brand" href="./">Skeison</a>
+  <div class="links"><a href="#profil">Profil</a><a href="#discord">Discord</a><a href="#projekte">Projekte</a><a href="cobblemon/">Cobblemon Server</a></div>
+</nav>
+
+<header class="hero wrap">
+  <a class="announce" id="announce" href="cobblemon/">
+    <span class="tag">Ankündigung</span>
+    <h1>Der Cobblemon Server startet!</h1>
+    <p>Eigener Server mit Ranglisten, Wochensiegern und Nether- und End-Freischaltung. Jetzt für die Whitelist bewerben.</p>
+    <div class="cd" id="cd" aria-live="off">
+      <div><b id="cd-d">–</b><span>Tage</span></div><div><b id="cd-h">–</b><span>Std</span></div><div><b id="cd-m">–</b><span>Min</span></div><div><b id="cd-s">–</b><span>Sek</span></div>
     </div>
-    <p id="players" class="players"></p>
-    <div class="countdown" id="cdBox" aria-live="off">
-      <p id="cdLabel" class="cd-label">Server-Start in</p>
-      <div id="cd" class="cd">
-        <div><b id="cd-d">–</b><span>Tage</span></div><div><b id="cd-h">–</b><span>Std</span></div><div><b id="cd-m">–</b><span>Min</span></div><div><b id="cd-s">–</b><span>Sek</span></div>
-      </div>
-    </div>
-  </div>
+    <p class="live" id="live" hidden>Der Server ist online – komm vorbei!</p>
+    <span class="cta">Zur Server-Seite →</span>
+  </a>
 </header>
 
 <main class="wrap">
-  <section id="schedule">
-    <h2>Zeitplan</h2>
-    <ol id="timeline" class="timeline"></ol>
-  </section>
-
-  <section id="news" hidden>
-    <h2>Ankündigungen</h2>
-    <div id="newsList" class="news"></div>
-  </section>
-
-  <section id="boards">
-    <div class="sec-head">
-      <h2>Ranglisten</h2>
-      <div class="seg" role="tablist" aria-label="Zeitraum">
-        <button class="on" data-mode="week" type="button">Diese Woche</button>
-        <button data-mode="total" type="button">Gesamt</button>
-      </div>
+  <section id="profil" class="profile">
+    <div class="skin">
+      <canvas id="skinCanvas" width="300" height="400" aria-label="3D-Ansicht des Minecraft-Skins Skeison"></canvas>
+      <p class="muted hint">Ziehen zum Drehen · Mausrad zum Zoomen</p>
     </div>
-    <p id="weekInfo" class="muted"></p>
-    <div id="cards" class="cards"></div>
+    <div class="about">
+      <h2>Skeison</h2>
+      <p class="muted">Gaming-Profil</p>
+      <p>Hi, ich bin Skeison. Hier findest du mein Minecraft-Profil, meinen Discord-Server und woran ich gerade programmiere.</p>
+      <dl class="facts">
+        <dt>Minecraft</dt><dd>Skeison</dd>
+        <dt>Spielt aktuell</dt><dd>Minecraft · Cobblemon</dd>
+        <dt>Eigener Server</dt><dd><a href="cobblemon/">Cobblemon Server</a></dd>
+      </dl>
+    </div>
   </section>
 
-  <section id="winners">
-    <h2>Wochensieger</h2>
-    <div id="winnerList" class="winners"></div>
+  <section id="discord" class="discord">
+    <div>
+      <h2>Discord</h2>
+      <p>Komm in meinen Discord-Server: Mitspielen, Fragen stellen, Neuigkeiten zum Server.</p>
+    </div>
+    <!-- Platzhalter: href durch den echten Einladungslink ersetzen, z. B. https://discord.gg/DEINCODE -->
+    <a class="btn discord-btn" id="discordLink" href="https://discord.gg/PLATZHALTER" target="_blank" rel="noopener">Discord beitreten</a>
   </section>
 
-  <section id="join">
-    <h2>Mitspielen</h2>
-    <ol class="steps">
-      <li>Bei uns auf die <strong>Whitelist</strong> eintragen lassen: <button class="btn small" type="button" data-apply>Jetzt bewerben</button></li>
-      <li>Das <a href="download/CobblemonServerPack.mrpack" download>Modpack herunterladen</a> und in die Modrinth App oder Prism importieren.</li>
-      <li>Mit der Serveradresse oben verbinden.</li>
-    </ol>
+  <section id="projekte">
+    <div class="sec-head"><h2>Aktuelle GitHub-Projekte</h2><a href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">Alle auf GitHub →</a></div>
+    <div id="repos" class="repos"><p class="muted">Projekte werden geladen …</p></div>
+  </section>
+
+  <section id="server">
+    <h2>Meine Server</h2>
+    <a class="card" href="cobblemon/">
+      <div class="ico">🎮</div>
+      <div><h3>Cobblemon Server</h3><p class="muted">Status, Zeitplan, Ranglisten, Wochensieger und Whitelist-Bewerbung.</p></div>
+      <span class="go">→</span>
+    </a>
   </section>
 </main>
 
-<dialog id="applyDlg" class="dlg">
-  <form id="applyForm" method="dialog" novalidate>
-    <h2>Whitelist-Bewerbung</h2>
-    <p class="muted">Trage deine Namen ein. Wir prüfen die Bewerbung und schalten dich frei.</p>
-    <label>Minecraft-Name<input id="fMc" name="mc" required maxlength="16" autocomplete="off" placeholder="z. B. Steve_123"></label>
-    <label>Discord-Name<input id="fDc" name="dc" required maxlength="32" autocomplete="off" placeholder="z. B. steve#0 oder steve"></label>
-    <input id="fHp" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
-    <p id="applyMsg" class="msg" role="status"></p>
-    <div class="dlg-actions"><button type="button" class="btn ghost" data-close>Abbrechen</button><button id="applySend" class="btn" type="submit">Absenden</button></div>
-  </form>
-</dialog>
-
-<dialog id="boardDlg" class="dlg wide">
-  <div class="dlg-head"><h2 id="bdTitle"></h2><button type="button" class="btn ghost" data-close aria-label="Schließen">✕</button></div>
-  <div class="dlg-tools">
-    <div class="seg" role="tablist" aria-label="Zeitraum"><button class="on" data-bmode="week" type="button">Diese Woche</button><button data-bmode="total" type="button">Gesamt</button></div>
-    <input id="bdSearch" type="search" placeholder="Spieler suchen …" autocomplete="off">
-  </div>
-  <p id="bdDesc" class="muted"></p>
-  <ul id="bdList" class="rows"></ul>
-</dialog>
-
-<footer class="wrap muted"><span id="updated"></span></footer>
-<script src="app.js"></script>
+<footer class="wrap muted">© Skeison</footer>
+<script src="assets/skinview3d.bundle.js"></script>
+<script src="main.js"></script>
 </body>
 </html>
