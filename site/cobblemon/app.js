@@ -35,7 +35,7 @@
     var cards = $('cards'); cards.textContent = '';
     if (!data) return;
     data.boards.forEach(function (b) {
-      var card = el('article', 'card spot'), head = el('header');
+      var card = el('article', 'card'), head = el('header');
       card.tabIndex = 0; card.setAttribute('role', 'button'); card.setAttribute('aria-label', b.title + ' – alle Einträge anzeigen');
       card.addEventListener('click', function () { openBoard(b.id); });
       card.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openBoard(b.id); } });
@@ -106,7 +106,7 @@
 
   function renderWinners(hist) {
     var box = $('winnerList'); box.textContent = '';
-    if (!hist.length) { var e = el('div', 'empty-box'); e.appendChild(el('span', '', '🏆')); e.appendChild(el('p', '', 'Die ersten Wochensieger stehen am Ende der ersten Woche hier.')); box.appendChild(e); return; }
+    if (!hist.length) { var e = el('div', 'empty-box'); e.appendChild(el('p', '', 'Die ersten Wochensieger stehen am Ende der ersten Woche hier.')); box.appendChild(e); return; }
     hist.slice(0, 6).forEach(function (w) {
       var c = el('div', 'win'); c.appendChild(el('h3', '', 'Woche ab ' + fmtDate(w.weekStart)));
       var ul = el('ul');

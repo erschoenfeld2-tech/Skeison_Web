@@ -59,7 +59,7 @@
   }
   function steamEmpty(text) {
     var body = $('stBody'); body.textContent = ''; body.removeAttribute('aria-busy');
-    var box = el('div', 'empty-state'); box.appendChild(el('span', 'big', '🎮')); box.appendChild(el('p', '', text));
+    var box = el('div', 'empty-state'); box.appendChild(el('p', '', text));
     box.appendChild(ext(el('a', 'btn ghost small', 'Auf Steam ansehen ↗'), $('stLink').href));
     body.appendChild(box);
   }
@@ -97,7 +97,7 @@
     var box = $('repos'); box.textContent = ''; box.removeAttribute('aria-busy');
     if (!list.length) { box.appendChild(el('p', 'muted', 'Keine öffentlichen Projekte gefunden.')); return; }
     list.forEach(function (r) {
-      var card = el('article', 'repo spot'), h = el('h3');
+      var card = el('article', 'repo'), h = el('h3');
       h.appendChild(ext(el('a', '', r.name), r.html_url));
       card.appendChild(h); card.appendChild(el('p', '', r.description || 'Keine Beschreibung.'));
       var m = el('div', 'meta');
@@ -129,7 +129,7 @@
   });
 
   // Status des Cobblemon Servers auf der Karte
-  function srv(cls, text) { var s = $('srvStatus'); s.className = 'srv ' + cls; s.textContent = ''; s.appendChild(el('span', 'ping')); s.appendChild(document.createTextNode(text)); s.hidden = false; }
+  function srv(cls, text) { var s = $('srvStatus'); s.className = 'srv ' + cls; s.textContent = ''; s.appendChild(el('span', cls === 'up' ? 'ping pulse' : 'ping')); s.appendChild(document.createTextNode(text)); s.hidden = false; }
   if (Date.now() < START) srv('soon', 'Start am ' + new Date(START).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' Uhr');
   else fetch(DATA_BASE + 'leaderboards.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (d) {
     var s = d.server || {};
@@ -140,7 +140,7 @@
   fetch('https://discord.com/api/v10/invites/' + DISCORD_INVITE + '?with_counts=true').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (d) {
     if (!d.approximate_member_count) return;
     var box = $('dcStats'), on = el('span', 'on'), all = el('span', 'all'), onN = el('b'), allN = el('b');
-    on.appendChild(el('i', 'ping')); on.appendChild(onN); on.appendChild(document.createTextNode(' online'));
+    on.appendChild(el('i', 'ping pulse')); on.appendChild(onN); on.appendChild(document.createTextNode(' online'));
     all.appendChild(allN); all.appendChild(document.createTextNode(' Mitglieder'));
     box.appendChild(on); box.appendChild(all); box.hidden = false;
     FX.count(onN, d.approximate_presence_count || 0, nf.format); FX.count(allN, d.approximate_member_count, nf.format);

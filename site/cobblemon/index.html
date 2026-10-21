@@ -31,7 +31,6 @@
 <header class="hero" id="hero" data-phase="start">
   <div class="wrap" data-stagger>
     <svg class="ball" viewBox="0 0 220 220" aria-hidden="true">
-      <circle class="orbit" cx="110" cy="110" r="106" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 9" opacity=".6"/>
       <g class="spin">
         <path d="M18 110a92 92 0 0 1 184 0z" fill="currentColor" opacity=".1"/>
         <circle cx="110" cy="110" r="92" fill="none" stroke="currentColor" stroke-width="5"/>
@@ -42,11 +41,11 @@
     </svg>
     <p class="back"><a href="../"><span class="arr">←</span> Skeison Web</a></p>
     <p class="eyebrow">Cobblemon · NeoForge 1.21.1</p>
-    <h1 class="split">Unser <span class="grad">Cobblemon</span> Server</h1>
+    <h1>Unser Cobblemon Server</h1>
     <div class="status-row">
       <span id="pill" class="pill off">Status wird geladen …</span>
       <button id="copy" class="copy" type="button" title="Adresse kopieren"><span id="addr">–</span> <small>kopieren</small></button>
-      <button class="btn magnetic" type="button" data-apply>Für die Whitelist bewerben</button>
+      <button class="btn" type="button" data-apply>Für die Whitelist bewerben</button>
     </div>
     <p id="players" class="players"></p>
     <div class="countdown" id="cdBox">
@@ -60,18 +59,18 @@
 
 <main class="wrap" id="inhalt">
   <section id="schedule">
-    <div data-reveal><p class="kicker">Roadmap</p><h2>Zeitplan</h2></div>
+    <h2 data-reveal>Zeitplan</h2>
     <ol id="timeline" class="timeline" data-stagger></ol>
   </section>
 
   <section id="news" hidden>
-    <div data-reveal><p class="kicker">Neuigkeiten</p><h2>Ankündigungen</h2></div>
+    <h2 data-reveal>Ankündigungen</h2>
     <div id="newsList" class="news" data-stagger></div>
   </section>
 
   <section id="boards">
     <div class="sec-head" data-reveal>
-      <div><p class="kicker">Wertung</p><h2>Ranglisten</h2></div>
+      <h2>Ranglisten</h2>
       <div class="seg" role="tablist" aria-label="Zeitraum">
         <button class="on" data-mode="week" type="button">Diese Woche</button>
         <button data-mode="total" type="button">Gesamt</button>
@@ -82,16 +81,16 @@
   </section>
 
   <section id="winners">
-    <div data-reveal><p class="kicker">Hall of Fame</p><h2>Wochensieger</h2></div>
+    <h2 data-reveal>Wochensieger</h2>
     <div id="winnerList" class="winners" data-stagger></div>
   </section>
 
   <section id="join">
-    <div data-reveal><p class="kicker">In 3 Schritten</p><h2>Mitspielen</h2></div>
+    <h2 data-reveal>Mitspielen</h2>
     <ol class="steps" data-stagger>
-      <li class="spot"><span class="step-ico" aria-hidden="true">📝</span><h3>Bewerben</h3><p>Bei uns auf die <strong>Whitelist</strong> eintragen lassen.</p><button class="btn small" type="button" data-apply>Jetzt bewerben</button></li>
-      <li class="spot"><span class="step-ico" aria-hidden="true">📦</span><h3>Modpack laden</h3><p>Das Modpack herunterladen und in die Modrinth App oder Prism importieren.</p><a class="btn small ghost" href="download/CobblemonServerPack.mrpack" download>Modpack herunterladen</a></li>
-      <li class="spot"><span class="step-ico" aria-hidden="true">🎮</span><h3>Verbinden</h3><p>Mit der Serveradresse oben verbinden und loslegen.</p><button class="btn small ghost" type="button" data-copy>Adresse kopieren</button></li>
+      <li><h3>Bewerben</h3><p>Bei uns auf die <strong>Whitelist</strong> eintragen lassen.</p><button class="btn small" type="button" data-apply>Jetzt bewerben</button></li>
+      <li><h3>Modpack laden</h3><p>Das Modpack herunterladen und in die Modrinth App oder Prism importieren.</p><a class="btn small ghost" href="download/CobblemonServerPack.mrpack" download>Modpack herunterladen</a></li>
+      <li><h3>Verbinden</h3><p>Mit der Serveradresse oben verbinden und loslegen.</p><button class="btn small ghost" type="button" data-copy>Adresse kopieren</button></li>
     </ol>
   </section>
 </main>
