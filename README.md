@@ -10,7 +10,7 @@ Hauptwebseite (GitHub Pages, Ordner `site/`) mit dem Cobblemon Server als Unters
 | `site/assets/` | skinview3d (MIT-Lizenz) |
 
 ## Anpassen
-- **Discord:** In `site/index.html` den Link `https://discord.gg/PLATZHALTER` durch die echte Einladung ersetzen.
-- **Skin:** `site/skin/skeison.png` durch die echte 64×64-Skin-Datei ersetzen (aktuell ein nachgebauter Platzhalter). Den Skin gibt es auf minecraft.net unter „Profil“.
+- **Discord:** Der Einladungslink steht in `site/index.html` (`discordLink`).
+- **Skin:** `site/skin/skeison.png` austauschen (64×64-PNG, z. B. von NameMC oder minecraft.net).
 - **Ankündigung:** Text in `site/index.html`, Startzeit als `START` in `site/main.js`.
-- **GitHub-Projekte:** werden live über die GitHub-API geladen (zuletzt aktualisierte, öffentliche Repos von `erschoenfeld2-tech`).
+- **GitHub-Projekte:** werden live über die GitHub-API geladen (zuletzt aktualisierte, öffentliche Repos von `erschoenfeld2-tech`). „Live ansehen“ erscheint, wenn beim Repo eine Website (Feld „Website“ in den Repo-Einstellungen) eingetragen oder GitHub Pages aktiv ist.

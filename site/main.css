@@ -49,8 +49,10 @@ section { margin: 44px 0; }
 .discord-btn { background: var(--discord); color: #fff; } .discord-btn:hover { color: #fff; }
 .sec-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 12px; } .sec-head h2 { margin: 0; }
 .repos { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
-.repo { display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; transition: border-color .15s, transform .15s; }
-.repo:hover { border-color: var(--accent); transform: translateY(-2px); color: var(--text); }
+.repo { display: flex; flex-direction: column; gap: 6px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; transition: border-color .15s, transform .15s; }
+.repo:hover { border-color: var(--accent); transform: translateY(-2px); }
+.repo h3 a { text-decoration: none; } .rlinks { display: flex; gap: 8px; margin-top: 6px; }
+.btn.ghost { background: none; color: var(--text); border: 1px solid var(--line); } .btn.ghost:hover { color: var(--text); border-color: var(--accent); }
 .repo h3 { margin: 0; font-size: 1.1rem; color: var(--accent2); } .repo p { margin: 0; color: var(--muted); font-size: .92rem; flex: 1; }
 .repo .meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: .8rem; color: var(--muted); }
 .card { display: flex; gap: 16px; align-items: center; text-decoration: none; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px; transition: border-color .15s; }
