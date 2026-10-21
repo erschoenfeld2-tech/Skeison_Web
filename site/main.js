@@ -3,27 +3,47 @@
   var GH_USER = 'erschoenfeld2-tech', MAX_REPOS = 6;
   // Serverstart (deutsche Zeit); gleicher Wert wie in cobblemon/app.js
   var START = new Date('2026-10-30T15:00:00+01:00').getTime();
+  // Live-Daten des Cobblemon Servers (Branch "data", wie auf der Server-Seite)
+  var DATA_BASE = 'https://raw.githubusercontent.com/erschoenfeld2-tech/Skeison_Web/data/';
+  var DISCORD_INVITE = 'CbkHAsBHQk';
   var $ = function (id) { return document.getElementById(id); };
+  var FX = window.FX || { roll: function (e, v) { e.textContent = v; }, count: function (e, v, f) { e.textContent = (f || String)(v); }, reduced: true };
+  var nf = new Intl.NumberFormat('de-DE');
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+  function ext(a, href) { a.href = href; a.target = '_blank'; a.rel = 'noopener'; return a; }
+
+  $('year').textContent = new Date().getFullYear();
 
   function tick() {
     var left = START - Date.now(), p = function (n) { return String(n).padStart(2, '0'); };
     $('cd').hidden = left <= 0; $('live').hidden = left > 0;
     if (left <= 0) return;
     var s = Math.floor(left / 1000);
-    $('cd-d').textContent = Math.floor(s / 86400); $('cd-h').textContent = p(Math.floor(s % 86400 / 3600));
-    $('cd-m').textContent = p(Math.floor(s % 3600 / 60)); $('cd-s').textContent = p(s % 60);
+    FX.roll($('cd-d'), Math.floor(s / 86400)); FX.roll($('cd-h'), p(Math.floor(s % 86400 / 3600)));
+    FX.roll($('cd-m'), p(Math.floor(s % 3600 / 60))); FX.roll($('cd-s'), p(s % 60));
   }
   tick(); setInterval(tick, 1000);
 
-  // 3D-Skin (Datei skin/skeison.png ersetzen, um den Skin zu wechseln)
+  // 3D-Skin (Datei skin/skeison.png ersetzen, um den Skin zu wechseln); Animation per Knopf waehlbar
   var canvas = $('skinCanvas');
   try {
-    var v = new skinview3d.SkinViewer({ canvas: canvas, width: 300, height: 400, skin: 'skin/skeison.png' });
-    v.fov = 40; v.zoom = 0.85; v.autoRotate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches; v.autoRotateSpeed = 0.6;
-    v.animation = new skinview3d.IdleAnimation();
+    var v = new skinview3d.SkinViewer({ canvas: canvas, width: 300, height: 400 });
+    v.fov = 40; v.zoom = 0.85; v.autoRotate = !FX.reduced; v.autoRotateSpeed = 0.6;
     v.controls.enablePan = false;
-  } catch (e) { canvas.replaceWith(el('p', 'muted', '3D-Ansicht wird von diesem Browser nicht unterstützt.')); }
+    var ANIMS = { idle: skinview3d.IdleAnimation, wave: skinview3d.WaveAnimation, walk: skinview3d.WalkingAnimation, run: skinview3d.RunningAnimation };
+    var setAnim = function (name) {
+      v.animation = new ANIMS[name]();
+      document.querySelectorAll('#skinAnims .chip').forEach(function (c) { var on = c.getAttribute('data-anim') === name; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
+    };
+    setAnim('idle');
+    document.querySelectorAll('#skinAnims .chip').forEach(function (c) { c.addEventListener('click', function () { setAnim(c.getAttribute('data-anim')); }); });
+    Promise.resolve(v.loadSkin('skin/skeison.png')).then(function () { canvas.classList.add('ready'); }, function () { canvas.classList.add('ready'); });
+    // Rendern pausieren, wenn der Skin nicht im Bild ist (spart Akku)
+    if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { v.renderPaused = !es[0].isIntersecting; }).observe(canvas);
+  } catch (e) {
+    $('skinAnims').hidden = true;
+    canvas.replaceWith(el('p', 'muted', '3D-Ansicht wird von diesem Browser nicht unterstützt.'));
+  }
 
   // Steam-Highlights aus steam.json (wird von tools/fetch-steam.js beim Deploy erzeugt)
   function fmtH(h) { return (Math.round(h * 10) / 10).toLocaleString('de-DE') + ' Std'; }
@@ -31,43 +51,63 @@
     var f = document.createDocumentFragment(); f.appendChild(el('h4', '', title));
     var g = el('div', 'games');
     list.forEach(function (x) {
-      var a = el('a', 'game'); a.href = x.url; a.target = '_blank'; a.rel = 'noopener';
-      var i = el('img'); i.src = x.image; i.alt = ''; i.loading = 'lazy'; i.onerror = function () { i.style.visibility = 'hidden'; }; a.appendChild(i);
-      var d = el('div'); d.appendChild(el('b', '', x.name)); d.appendChild(el('span', '', fmtH(x[key]) + (key === 'recent' ? ' in 2 Wochen' : ' gesamt'))); a.appendChild(d); g.appendChild(a);
+      var a = ext(el('a', 'game'), x.url), im = el('div', 'im');
+      var i = el('img'); i.src = x.image; i.alt = ''; i.loading = 'lazy'; i.onerror = function () { i.style.visibility = 'hidden'; }; im.appendChild(i); a.appendChild(im);
+      var d = el('div', 't'); d.appendChild(el('b', '', x.name)); d.appendChild(el('span', '', fmtH(x[key]) + (key === 'recent' ? ' in 2 Wochen' : ' gesamt'))); a.appendChild(d); g.appendChild(a);
     });
     f.appendChild(g); return f;
+  }
+  function steamEmpty(text) {
+    var body = $('stBody'); body.textContent = ''; body.removeAttribute('aria-busy');
+    var box = el('div', 'empty-state'); box.appendChild(el('span', 'big', '🎮')); box.appendChild(el('p', '', text));
+    box.appendChild(ext(el('a', 'btn ghost small', 'Auf Steam ansehen ↗'), $('stLink').href));
+    body.appendChild(box);
   }
   fetch('steam.json', { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (s) {
     if (s.url) $('stLink').href = s.url;
     if (s.name) $('stName').textContent = s.name;
     if (s.state) $('stState').textContent = s.state;
     if (s.avatar) { var av = $('stAvatar'); av.src = s.avatar; av.hidden = false; }
-    var body = $('stBody'); body.textContent = '';
+    var body = $('stBody'); body.textContent = ''; body.removeAttribute('aria-busy');
     var st = [];
-    if (s.gameCount) st.push(['Spiele', s.gameCount]);
-    if (s.totalHours) st.push(['Spielzeit', Math.round(s.totalHours).toLocaleString('de-DE') + ' Std']);
-    if (s.level != null) st.push(['Level', s.level]);
-    if (st.length) { var dl = $('stStats'); dl.hidden = false; st.forEach(function (p) { var d = el('div'); d.appendChild(el('dt', '', p[0])); d.appendChild(el('dd', '', String(p[1]))); dl.appendChild(d); }); }
+    if (s.gameCount) st.push(['Spiele', s.gameCount, nf.format]);
+    if (s.totalHours) st.push(['Spielzeit', Math.round(s.totalHours), function (n) { return nf.format(n) + ' Std'; }]);
+    if (s.level != null) st.push(['Level', s.level, String]);
+    if (st.length) {
+      var dl = $('stStats'); dl.hidden = false;
+      st.forEach(function (p) { var d = el('div'), dd = el('dd'); d.appendChild(el('dt', '', p[0])); d.appendChild(dd); dl.appendChild(d); FX.count(dd, p[1], p[2]); });
+    }
     if (s.recent && s.recent.length) body.appendChild(gameList('Zuletzt gespielt', s.recent, 'recent'));
     if (s.top && s.top.length) body.appendChild(gameList('Meistgespielt', s.top, 'hours'));
-    if (!body.children.length) body.appendChild(el('p', 'muted', 'Noch keine Steam-Daten verfügbar. Das Profil muss öffentlich sein.'));
-  }).catch(function () { $('stBody').textContent = ''; $('stBody').appendChild(el('p', 'muted', 'Steam-Daten momentan nicht verfügbar.')); });
+    if (!body.children.length) steamEmpty('Hier erscheinen bald die meistgespielten Spiele. Die Daten werden täglich aktualisiert.');
+  }).catch(function () { steamEmpty('Steam-Daten sind gerade nicht verfügbar.'); });
 
   // GitHub-Projekte (oeffentliche Repos, zuletzt gepusht zuerst); Zwischenspeicher gegen das API-Limit
+  var LANG = { JavaScript: '#f1e05a', TypeScript: '#3178c6', Python: '#3572A5', HTML: '#e34c26', CSS: '#663399', Java: '#b07219', 'C#': '#178600', 'C++': '#f34b7d', C: '#555555', Go: '#00ADD8', Rust: '#dea584', Shell: '#89e051', Batchfile: '#C1F12E', Lua: '#000080', Kotlin: '#A97BFF', PHP: '#4F5D95' };
+  var rtf = window.Intl && Intl.RelativeTimeFormat ? new Intl.RelativeTimeFormat('de', { numeric: 'auto' }) : null;
+  function ago(iso) {
+    var d = new Date(iso), days = Math.round((d - Date.now()) / 86400000);
+    if (!rtf || isNaN(d)) return d.toLocaleDateString('de-DE');
+    if (days > -1) return rtf.format(Math.round((d - Date.now()) / 3600000), 'hour');
+    if (days > -30) return rtf.format(days, 'day');
+    if (days > -365) return rtf.format(Math.round(days / 30), 'month');
+    return rtf.format(Math.round(days / 365), 'year');
+  }
   function renderRepos(list) {
-    var box = $('repos'); box.textContent = '';
+    var box = $('repos'); box.textContent = ''; box.removeAttribute('aria-busy');
     if (!list.length) { box.appendChild(el('p', 'muted', 'Keine öffentlichen Projekte gefunden.')); return; }
     list.forEach(function (r) {
-      var card = el('article', 'repo'), h = el('h3'), a = el('a', '', r.name); a.href = r.html_url; a.target = '_blank'; a.rel = 'noopener'; h.appendChild(a);
+      var card = el('article', 'repo spot'), h = el('h3');
+      h.appendChild(ext(el('a', '', r.name), r.html_url));
       card.appendChild(h); card.appendChild(el('p', '', r.description || 'Keine Beschreibung.'));
       var m = el('div', 'meta');
-      if (r.language) m.appendChild(el('span', '', r.language));
+      if (r.language) { var lg = el('span'), dot = el('i', 'lang-dot'); dot.style.setProperty('--c', LANG[r.language] || '#8b95b8'); lg.appendChild(dot); lg.appendChild(document.createTextNode(r.language)); m.appendChild(lg); }
       m.appendChild(el('span', '', '★ ' + r.stargazers_count));
-      m.appendChild(el('span', '', 'Aktualisiert ' + new Date(r.pushed_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })));
+      var upd = el('span', '', 'Aktualisiert ' + ago(r.pushed_at)); upd.title = new Date(r.pushed_at).toLocaleString('de-DE'); m.appendChild(upd);
       card.appendChild(m);
       var links = el('div', 'rlinks'), live = liveUrl(r);
-      var code = el('a', 'btn ghost small', 'Code'); code.href = r.html_url; code.target = '_blank'; code.rel = 'noopener'; links.appendChild(code);
-      if (live) { var l = el('a', 'btn small', 'Live ansehen'); l.href = live; l.target = '_blank'; l.rel = 'noopener'; links.appendChild(l); }
+      links.appendChild(ext(el('a', 'btn ghost small', 'Code'), r.html_url));
+      if (live) { var l = ext(el('a', 'btn small'), live); l.appendChild(document.createTextNode('Live ansehen ')); l.appendChild(el('span', 'arr', '↗')); links.appendChild(l); }
       card.appendChild(links); box.appendChild(card);
     });
   }
@@ -84,6 +124,25 @@
     try { sessionStorage.setItem('repos2', JSON.stringify(list)); } catch (e) {}
     renderRepos(list);
   }).catch(function () {
-    var b = $('repos'); b.textContent = ''; var p = el('p', 'muted', 'Projekte konnten nicht geladen werden. '); var a = el('a', '', 'Direkt auf GitHub ansehen'); a.href = 'https://github.com/' + GH_USER; p.appendChild(a); b.appendChild(p);
+    var b = $('repos'); b.textContent = ''; b.removeAttribute('aria-busy');
+    var p = el('p', 'muted', 'Projekte konnten nicht geladen werden. '); var a = el('a', '', 'Direkt auf GitHub ansehen'); a.href = 'https://github.com/' + GH_USER; p.appendChild(a); b.appendChild(p);
   });
+
+  // Status des Cobblemon Servers auf der Karte
+  function srv(cls, text) { var s = $('srvStatus'); s.className = 'srv ' + cls; s.textContent = ''; s.appendChild(el('span', 'ping')); s.appendChild(document.createTextNode(text)); s.hidden = false; }
+  if (Date.now() < START) srv('soon', 'Start am ' + new Date(START).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' Uhr');
+  else fetch(DATA_BASE + 'leaderboards.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (d) {
+    var s = d.server || {};
+    if (s.up) srv('up', 'Online · ' + s.online + '/' + s.max + ' Spieler'); else srv('down', 'Gerade offline');
+  }).catch(function () {});
+
+  // Mitglieder- und Online-Zahl des Discord-Servers (oeffentliche Einladungs-Info, bei Fehler ausgeblendet)
+  fetch('https://discord.com/api/v10/invites/' + DISCORD_INVITE + '?with_counts=true').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (d) {
+    if (!d.approximate_member_count) return;
+    var box = $('dcStats'), on = el('span', 'on'), all = el('span', 'all'), onN = el('b'), allN = el('b');
+    on.appendChild(el('i', 'ping')); on.appendChild(onN); on.appendChild(document.createTextNode(' online'));
+    all.appendChild(allN); all.appendChild(document.createTextNode(' Mitglieder'));
+    box.appendChild(on); box.appendChild(all); box.hidden = false;
+    FX.count(onN, d.approximate_presence_count || 0, nf.format); FX.count(allN, d.approximate_member_count, nf.format);
+  }).catch(function () {});
 })();

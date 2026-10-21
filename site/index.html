@@ -5,75 +5,146 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Skeison</title>
 <meta name="description" content="Skeison – Gaming-Profil, Discord, aktuelle GitHub-Projekte und der Cobblemon Server">
+<meta name="theme-color" content="#0e1220">
+<meta property="og:title" content="Skeison">
+<meta property="og:description" content="Gaming-Profil, Discord, GitHub-Projekte und der Cobblemon Server.">
+<meta property="og:type" content="website">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/fx.css">
 <link rel="stylesheet" href="main.css">
+<script>document.documentElement.classList.add('fx');</script>
 </head>
 <body>
-<nav class="nav wrap">
-  <a class="brand" href="./">Skeison</a>
-  <div class="links"><a href="#profil">Profil</a><a href="#discord">Discord</a><a href="#projekte">Projekte</a><a href="cobblemon/">Cobblemon Server</a></div>
-</nav>
+<a class="skip" href="#inhalt">Zum Inhalt springen</a>
+<div class="fx-bg" aria-hidden="true"><i></i><i></i><i></i><canvas></canvas></div>
 
-<header class="hero wrap">
-  <a class="announce" id="announce" href="cobblemon/">
-    <span class="tag">Ankündigung</span>
-    <h1>Der Cobblemon Server startet!</h1>
-    <p>Eigener Server mit Ranglisten, Wochensiegern und Nether- und End-Freischaltung. Jetzt für die Whitelist bewerben.</p>
-    <div class="cd" id="cd" aria-live="off">
+<div class="nav-bar">
+  <nav class="nav wrap" aria-label="Hauptnavigation">
+    <a class="brand" href="./"><span class="brand-mark">S</span>Skeison</a>
+    <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
+    <div class="links" id="navLinks">
+      <span class="nav-ind" aria-hidden="true"></span>
+      <a href="#profil">Profil</a><a href="#discord">Discord</a><a href="#projekte">Projekte</a>
+      <a class="nav-cta" href="cobblemon/">Cobblemon Server <span class="arr">→</span></a>
+    </div>
+  </nav>
+  <div class="nav-progress"></div>
+</div>
+
+<header class="hero wrap" id="top">
+  <div class="announce spot" data-tilt="3" data-stagger>
+    <svg class="ball" viewBox="0 0 220 220" aria-hidden="true">
+      <circle class="orbit" cx="110" cy="110" r="106" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 9" opacity=".6"/>
+      <g class="spin">
+        <path d="M18 110a92 92 0 0 1 184 0z" fill="currentColor" opacity=".1"/>
+        <circle cx="110" cy="110" r="92" fill="none" stroke="currentColor" stroke-width="5"/>
+        <path d="M18 110h62M140 110h62" stroke="currentColor" stroke-width="5"/>
+        <circle cx="110" cy="110" r="27" fill="none" stroke="currentColor" stroke-width="5"/>
+        <circle cx="110" cy="110" r="11" fill="currentColor"/>
+      </g>
+    </svg>
+    <span class="tag"><span class="ping"></span>Ankündigung</span>
+    <h1 class="split">Der Cobblemon Server <span class="grad">startet!</span></h1>
+    <p class="lead">Eigener Server mit Ranglisten, Wochensiegern und Nether- und End-Freischaltung. Jetzt für die Whitelist bewerben.</p>
+    <div class="cd" id="cd" role="timer" aria-label="Zeit bis zum Serverstart">
       <div><b id="cd-d">–</b><span>Tage</span></div><div><b id="cd-h">–</b><span>Std</span></div><div><b id="cd-m">–</b><span>Min</span></div><div><b id="cd-s">–</b><span>Sek</span></div>
     </div>
-    <p class="live" id="live" hidden>Der Server ist online – komm vorbei!</p>
-    <span class="cta">Zur Server-Seite →</span>
-  </a>
+    <p class="live" id="live" hidden><span class="ping"></span>Der Server ist online – komm vorbei!</p>
+    <div class="cta-row">
+      <a class="btn magnetic" href="cobblemon/#bewerben">Für die Whitelist bewerben</a>
+      <a class="btn ghost" href="cobblemon/">Zur Server-Seite <span class="arr">→</span></a>
+    </div>
+  </div>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="inhalt">
   <section id="profil">
-    <h2>Profil</h2>
-    <div class="profile">
-      <article class="pcard mc">
+    <div class="sec-head" data-reveal><div><p class="kicker">01 · Spieler</p><h2>Profil</h2></div></div>
+    <div class="profile" data-stagger>
+      <article class="pcard mc spot">
         <div class="skin">
+          <div class="pedestal" aria-hidden="true"></div>
           <canvas id="skinCanvas" width="300" height="400" aria-label="3D-Ansicht des Minecraft-Skins Skeison"></canvas>
-          <p class="muted hint">Ziehen zum Drehen · Mausrad zum Zoomen</p>
         </div>
+        <div class="chips" id="skinAnims" role="group" aria-label="Animation des Skins">
+          <button type="button" class="chip on" data-anim="idle" aria-pressed="true">Stehen</button>
+          <button type="button" class="chip" data-anim="wave" aria-pressed="false">Winken</button>
+          <button type="button" class="chip" data-anim="walk" aria-pressed="false">Laufen</button>
+          <button type="button" class="chip" data-anim="run" aria-pressed="false">Rennen</button>
+        </div>
+        <p class="muted hint"><span class="t-fine">Ziehen zum Drehen · Mausrad zum Zoomen</span><span class="t-touch">Wischen zum Drehen · Zwei Finger zum Zoomen</span></p>
         <div class="pinfo"><h3>Skeison</h3><p class="muted">Minecraft-Name</p></div>
       </article>
 
-      <article class="pcard steam" id="steam">
+      <article class="pcard steam spot" id="steam">
         <div class="steam-head">
           <img id="stAvatar" class="avatar" alt="" width="72" height="72" hidden>
           <div class="pinfo"><h3 id="stName">Steam</h3><p class="muted" id="stState">Steam-Profil</p></div>
-          <a class="btn small" id="stLink" href="https://steamcommunity.com/profiles/76561199246929908/" target="_blank" rel="noopener">Profil öffnen</a>
+          <a class="btn small" id="stLink" href="https://steamcommunity.com/profiles/76561199246929908/" target="_blank" rel="noopener">Profil öffnen <span class="arr">↗</span></a>
         </div>
         <dl class="stats" id="stStats" hidden></dl>
-        <div id="stBody"><p class="muted">Steam-Highlights werden geladen …</p></div>
+        <div id="stBody" aria-busy="true">
+          <div class="sk sk-line" style="width:38%"></div>
+          <div class="games"><div class="sk sk-game"></div><div class="sk sk-game"></div><div class="sk sk-game"></div><div class="sk sk-game"></div></div>
+        </div>
       </article>
     </div>
   </section>
 
-  <section id="discord" class="discord">
-    <div>
+  <section id="discord" class="discord spot" data-reveal>
+    <div class="dc-orb" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+    </div>
+    <div class="dc-text">
+      <p class="kicker">02 · Community</p>
       <h2>Discord</h2>
       <p>Komm in meinen Discord-Server: Mitspielen, Fragen stellen, Neuigkeiten zum Server.</p>
+      <p class="dc-stats" id="dcStats" hidden></p>
     </div>
-        <a class="btn discord-btn" id="discordLink" href="https://discord.gg/CbkHAsBHQk" target="_blank" rel="noopener">Discord beitreten</a>
+    <a class="btn discord-btn magnetic" id="discordLink" href="https://discord.gg/CbkHAsBHQk" target="_blank" rel="noopener">Discord beitreten <span class="arr">→</span></a>
   </section>
 
   <section id="projekte">
-    <div class="sec-head"><h2>Aktuelle GitHub-Projekte</h2><a href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">Alle auf GitHub →</a></div>
-    <div id="repos" class="repos"><p class="muted">Projekte werden geladen …</p></div>
+    <div class="sec-head" data-reveal>
+      <div><p class="kicker">03 · Code</p><h2>Aktuelle GitHub-Projekte</h2></div>
+      <a class="more-link" href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">Alle auf GitHub <span class="arr">→</span></a>
+    </div>
+    <div id="repos" class="repos" data-stagger aria-busy="true">
+      <div class="repo sk-card"><div class="sk sk-line" style="width:55%"></div><div class="sk sk-line"></div><div class="sk sk-line" style="width:70%"></div><div class="sk sk-btns"></div></div>
+      <div class="repo sk-card"><div class="sk sk-line" style="width:45%"></div><div class="sk sk-line"></div><div class="sk sk-line" style="width:60%"></div><div class="sk sk-btns"></div></div>
+      <div class="repo sk-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-line"></div><div class="sk sk-line" style="width:65%"></div><div class="sk sk-btns"></div></div>
+    </div>
   </section>
 
   <section id="server">
-    <h2>Meine Server</h2>
-    <a class="card" href="cobblemon/">
-      <div class="ico">🎮</div>
-      <div><h3>Cobblemon Server</h3><p class="muted">Status, Zeitplan, Ranglisten, Wochensieger und Whitelist-Bewerbung.</p></div>
-      <span class="go">→</span>
+    <div class="sec-head" data-reveal><div><p class="kicker">04 · Server</p><h2>Meine Server</h2></div></div>
+    <a class="card spot" href="cobblemon/" data-reveal>
+      <div class="ico" aria-hidden="true">🎮</div>
+      <div>
+        <h3>Cobblemon Server</h3>
+        <p class="muted">Status, Zeitplan, Ranglisten, Wochensieger und Whitelist-Bewerbung.</p>
+        <p class="srv" id="srvStatus" hidden></p>
+      </div>
+      <span class="go arr" aria-hidden="true">→</span>
     </a>
   </section>
 </main>
 
-<footer class="wrap muted">© Skeison</footer>
+<footer class="foot">
+  <div class="wrap foot-in" data-reveal>
+    <div>
+      <a class="brand" href="#top"><span class="brand-mark">S</span>Skeison</a>
+      <p class="muted">Gaming, Projekte und der Cobblemon Server.</p>
+    </div>
+    <nav class="foot-links" aria-label="Fußzeile">
+      <a href="#profil">Profil</a><a href="#discord">Discord</a><a href="#projekte">Projekte</a><a href="cobblemon/">Cobblemon Server</a>
+      <a href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div>
+  <div class="foot-big" aria-hidden="true">SKEISON</div>
+  <div class="wrap foot-bottom muted">© <span id="year">2026</span> Skeison</div>
+</footer>
+<script src="assets/fx.js"></script>
 <script src="assets/skinview3d.bundle.js"></script>
 <script src="main.js"></script>
 </body>
