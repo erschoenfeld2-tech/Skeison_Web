@@ -4,13 +4,42 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cobblemon Server</title>
-<link rel="stylesheet" href="style.css">
 <meta name="description" content="Cobblemon Server: Ranglisten, Ankündigungen und Whitelist-Bewerbung">
+<meta name="theme-color" content="#0b0f1c">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/fx.css">
+<link rel="stylesheet" href="style.css">
+<script>document.documentElement.classList.add('fx');</script>
 </head>
 <body>
+<a class="skip" href="#inhalt">Zum Inhalt springen</a>
+<div class="fx-bg" aria-hidden="true"><i></i><i></i><i></i><canvas></canvas></div>
+
+<div class="nav-bar">
+  <nav class="nav wrap" aria-label="Hauptnavigation">
+    <a class="brand" href="../"><span class="brand-mark">S</span>Skeison</a>
+    <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
+    <div class="links" id="navLinks">
+      <span class="nav-ind" aria-hidden="true"></span>
+      <a href="#schedule">Zeitplan</a><a href="#boards">Ranglisten</a><a href="#winners">Wochensieger</a><a href="#join">Mitspielen</a>
+      <a class="nav-cta" href="#bewerben" data-apply>Bewerben <span class="arr">→</span></a>
+    </div>
+  </nav>
+  <div class="nav-progress"></div>
+</div>
+
 <header class="hero" id="hero" data-phase="start">
-  <div class="wrap">
-    <p class="back"><a href="../">← Skeison Web</a></p>
+  <div class="wrap" data-stagger>
+    <svg class="ball" viewBox="0 0 220 220" aria-hidden="true">
+      <g class="spin">
+        <path d="M18 110a92 92 0 0 1 184 0z" fill="currentColor" opacity=".1"/>
+        <circle cx="110" cy="110" r="92" fill="none" stroke="currentColor" stroke-width="5"/>
+        <path d="M18 110h62M140 110h62" stroke="currentColor" stroke-width="5"/>
+        <circle cx="110" cy="110" r="27" fill="none" stroke="currentColor" stroke-width="5"/>
+        <circle cx="110" cy="110" r="11" fill="currentColor"/>
+      </g>
+    </svg>
+    <p class="back"><a href="../"><span class="arr">←</span> Skeison Web</a></p>
     <p class="eyebrow">Cobblemon · NeoForge 1.21.1</p>
     <h1>Unser Cobblemon Server</h1>
     <div class="status-row">
@@ -19,28 +48,28 @@
       <button class="btn" type="button" data-apply>Für die Whitelist bewerben</button>
     </div>
     <p id="players" class="players"></p>
-    <div class="countdown" id="cdBox" aria-live="off">
+    <div class="countdown" id="cdBox">
       <p id="cdLabel" class="cd-label">Server-Start in</p>
-      <div id="cd" class="cd">
+      <div id="cd" class="cd" role="timer">
         <div><b id="cd-d">–</b><span>Tage</span></div><div><b id="cd-h">–</b><span>Std</span></div><div><b id="cd-m">–</b><span>Min</span></div><div><b id="cd-s">–</b><span>Sek</span></div>
       </div>
     </div>
   </div>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="inhalt">
   <section id="schedule">
-    <h2>Zeitplan</h2>
-    <ol id="timeline" class="timeline"></ol>
+    <h2 data-reveal>Zeitplan</h2>
+    <ol id="timeline" class="timeline" data-stagger></ol>
   </section>
 
   <section id="news" hidden>
-    <h2>Ankündigungen</h2>
-    <div id="newsList" class="news"></div>
+    <h2 data-reveal>Ankündigungen</h2>
+    <div id="newsList" class="news" data-stagger></div>
   </section>
 
   <section id="boards">
-    <div class="sec-head">
+    <div class="sec-head" data-reveal>
       <h2>Ranglisten</h2>
       <div class="seg" role="tablist" aria-label="Zeitraum">
         <button class="on" data-mode="week" type="button">Diese Woche</button>
@@ -48,20 +77,20 @@
       </div>
     </div>
     <p id="weekInfo" class="muted"></p>
-    <div id="cards" class="cards"></div>
+    <div id="cards" class="cards" data-stagger></div>
   </section>
 
   <section id="winners">
-    <h2>Wochensieger</h2>
-    <div id="winnerList" class="winners"></div>
+    <h2 data-reveal>Wochensieger</h2>
+    <div id="winnerList" class="winners" data-stagger></div>
   </section>
 
   <section id="join">
-    <h2>Mitspielen</h2>
-    <ol class="steps">
-      <li>Bei uns auf die <strong>Whitelist</strong> eintragen lassen: <button class="btn small" type="button" data-apply>Jetzt bewerben</button></li>
-      <li>Das <a href="download/CobblemonServerPack.mrpack" download>Modpack herunterladen</a> und in die Modrinth App oder Prism importieren.</li>
-      <li>Mit der Serveradresse oben verbinden.</li>
+    <h2 data-reveal>Mitspielen</h2>
+    <ol class="steps" data-stagger>
+      <li><h3>Bewerben</h3><p>Bei uns auf die <strong>Whitelist</strong> eintragen lassen.</p><button class="btn small" type="button" data-apply>Jetzt bewerben</button></li>
+      <li><h3>Modpack laden</h3><p>Das Modpack herunterladen und in die Modrinth App oder Prism importieren.</p><a class="btn small ghost" href="download/CobblemonServerPack.mrpack" download>Modpack herunterladen</a></li>
+      <li><h3>Verbinden</h3><p>Mit der Serveradresse oben verbinden und loslegen.</p><button class="btn small ghost" type="button" data-copy>Adresse kopieren</button></li>
     </ol>
   </section>
 </main>
@@ -88,7 +117,8 @@
   <ul id="bdList" class="rows"></ul>
 </dialog>
 
-<footer class="wrap muted"><span id="updated"></span></footer>
+<footer class="foot"><div class="wrap muted foot-in"><span id="updated"></span><a href="../">← Zurück zu Skeison</a></div></footer>
+<script src="../assets/fx.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

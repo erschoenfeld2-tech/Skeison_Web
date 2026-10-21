@@ -1,0 +1,107 @@
+/* Gemeinsame Effekte und Bausteine fuer alle Seiten: Hintergrund, Navigation, Scroll-Animationen, Countdown, Toast */
+:root { --ease: cubic-bezier(.22, 1, .36, 1); --nav-h: 64px; }
+html { scroll-padding-top: calc(var(--nav-h) + 16px); }
+body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
+::selection { background: var(--accent); color: #1a1500; }
+
+/* Hintergrund: ruhige Farbflaechen oben und aufsteigende Pixel-Partikel wie in Minecraft */
+.fx-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; color: var(--accent); }
+.fx-bg i { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; background: radial-gradient(closest-side, var(--c), transparent); }
+.fx-bg i:nth-child(1) { --c: rgba(59,109,255,.22); top: -32vmax; left: -20vmax; }
+.fx-bg i:nth-child(2) { --c: rgba(255,203,5,.1); top: -30vmax; right: -26vmax; }
+.fx-bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+
+/* Feste Navigation mit unscharfem Hintergrund, Markierung des aktiven Abschnitts und Lesefortschritt */
+.nav-bar { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid transparent; transition: background-color .3s, border-color .3s; }
+.nav-bar.scrolled { background: color-mix(in srgb, var(--bg) 82%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-bottom-color: var(--line); }
+.nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; height: var(--nav-h); }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-size: 1.2rem; font-weight: 800; color: var(--text); text-decoration: none; }
+.brand:hover { color: var(--text); }
+.brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; font-weight: 900; color: #1a1500; background: var(--accent); box-shadow: inset 0 -3px 0 rgba(0,0,0,.22); }
+.links { position: relative; display: flex; align-items: center; gap: 2px; }
+.links a { position: relative; z-index: 1; padding: 8px 12px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: .95rem; transition: color .2s; }
+.links a:hover, .links a.active { color: var(--text); }
+.nav-ind { position: absolute; z-index: 0; left: 0; bottom: 2px; height: 2px; width: 0; border-radius: 2px; background: var(--accent); opacity: 0; pointer-events: none; }
+.nav-ind.ready { transition: transform .45s var(--ease), width .45s var(--ease), opacity .25s; }
+.links .nav-cta { margin-left: 10px; color: #1a1500; background: var(--accent); font-weight: 800; }
+.links .nav-cta:hover { color: #1a1500; filter: brightness(1.06); }
+.nav-progress { position: absolute; left: 0; bottom: -1px; height: 2px; width: 100%; transform-origin: 0 50%; transform: scaleX(0); background: var(--accent); opacity: .7; }
+.menu-btn { display: none; width: 42px; height: 42px; place-items: center; align-content: center; gap: 5px; padding: 0; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); }
+.menu-btn span { display: block; width: 18px; height: 2px; border-radius: 2px; background: var(--text); transition: transform .35s var(--ease), opacity .2s; }
+.nav-bar.open .menu-btn span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-bar.open .menu-btn span:nth-child(2) { opacity: 0; }
+.nav-bar.open .menu-btn span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+@media (max-width: 760px) {
+  .menu-btn { display: grid; }
+  .links { position: absolute; top: calc(100% + 6px); left: 16px; right: 16px; flex-direction: column; align-items: stretch; gap: 2px; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel);
+    box-shadow: 0 24px 48px -24px var(--shadow, rgba(0,0,0,.6)); opacity: 0; visibility: hidden; transform: translateY(-8px); transition: opacity .25s, transform .35s var(--ease), visibility .25s; }
+  .nav-bar.open .links { opacity: 1; visibility: visible; transform: none; }
+  .links a { padding: 12px; font-size: 1rem; }
+  .links a.active { background: var(--panel2); }
+  .links .nav-cta { margin: 6px 0 0; text-align: center; }
+  .nav-ind { display: none; }
+}
+
+/* Einblenden beim Scrollen: nur aktiv, wenn JavaScript laeuft (Klasse "fx" auf <html>) */
+.fx [data-reveal]:not(.in), .fx [data-stagger]:not(.in) > * { opacity: 0; }
+.fx [data-reveal].in { animation: fx-rise .7s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
+.fx [data-stagger].in > * { animation: fx-rise .7s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
+.fx [data-stagger].in > .ball, .fx [data-stagger]:not(.in) > .ball { animation: none; opacity: var(--ball-o, .14); }
+@keyframes fx-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* Buttons */
+.btn { transition: transform .2s var(--ease), filter .2s, background-color .2s, border-color .2s; }
+.btn:not(.ghost):hover { filter: brightness(1.06); }
+.btn:active { transform: translateY(1px); }
+.arr { display: inline-block; transition: transform .3s var(--ease); }
+a:hover .arr, button:hover .arr, .card:hover .arr { transform: translateX(3px); }
+
+/* Pulsierender Punkt, nur fuer echten Live-Status */
+.ping { position: relative; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.ping.pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: currentColor; animation: fx-ping 2s cubic-bezier(0,0,.2,1) infinite; }
+@keyframes fx-ping { 75%, 100% { transform: scale(2.4); opacity: 0; } }
+
+/* Countdown-Ziffern rollen */
+.cd b { position: relative; overflow: hidden; }
+.cd b .r-in { display: inline-block; animation: fx-roll-in .45s var(--ease) both; }
+.cd b .r-out { position: absolute; inset: 0; animation: fx-roll-out .45s var(--ease) both; }
+@keyframes fx-roll-in { from { transform: translateY(60%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fx-roll-out { from { transform: none; opacity: 1; } to { transform: translateY(-60%); opacity: 0; } }
+
+/* Gleitende Markierung in Umschaltern */
+.seg { position: relative; }
+.seg-ind { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 0; width: 0; border-radius: 7px; background: var(--accent); pointer-events: none; }
+.seg-ind.ready { transition: transform .4s var(--ease), width .4s var(--ease); }
+.seg.has-ind button { position: relative; z-index: 1; transition: color .25s; }
+.seg.has-ind button.on { background: transparent; color: #1a1500; }
+
+/* Lade-Platzhalter */
+.sk { position: relative; overflow: hidden; border-radius: 6px; background: color-mix(in srgb, var(--panel2) 80%, var(--line)); }
+.sk::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); animation: fx-shimmer 1.4s infinite; }
+@keyframes fx-shimmer { to { transform: translateX(100%); } }
+
+/* Meldung unten (z. B. "Adresse kopiert") */
+.toast { position: fixed; left: 50%; bottom: 24px; z-index: 100; padding: 11px 16px; border-radius: 10px; font-weight: 600; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--ok, #3ddc84);
+  box-shadow: 0 16px 40px -16px var(--shadow, rgba(0,0,0,.7)); opacity: 0; transform: translate(-50%, 16px); pointer-events: none; transition: opacity .25s, transform .4s var(--ease); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* Nach-oben-Knopf mit Fortschrittsring */
+.totop { position: fixed; right: 18px; bottom: 18px; z-index: 40; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; cursor: pointer; padding: 0; color: var(--text);
+  background: var(--panel); border: 1px solid var(--line); opacity: 0; visibility: hidden; transform: translateY(10px); transition: opacity .3s, transform .4s var(--ease), visibility .3s, border-color .2s; }
+.totop.show { opacity: 1; visibility: visible; transform: none; }
+.totop:hover { border-color: var(--accent); }
+.totop svg { position: absolute; inset: -1px; width: calc(100% + 2px); height: calc(100% + 2px); transform: rotate(-90deg); }
+.totop circle { fill: none; stroke-width: 2; }
+.totop .trk { stroke: transparent; }
+.totop .bar { stroke: var(--accent); stroke-dasharray: 100; stroke-dashoffset: 100; }
+.totop b { font-size: 1.1rem; }
+
+/* Pokeball im Kopfbereich, dreht sich langsam */
+.ball { position: absolute; z-index: -1; pointer-events: none; color: var(--accent); }
+.ball .spin { transform-box: fill-box; transform-origin: center; animation: fx-spin 90s linear infinite; }
+@keyframes fx-spin { to { transform: rotate(360deg); } }
+
+/* Bewegungen reduzieren, wenn im System eingestellt */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
