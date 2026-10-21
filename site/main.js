@@ -58,20 +58,30 @@
     var box = $('repos'); box.textContent = '';
     if (!list.length) { box.appendChild(el('p', 'muted', 'Keine öffentlichen Projekte gefunden.')); return; }
     list.forEach(function (r) {
-      var a = el('a', 'repo'); a.href = r.html_url; a.target = '_blank'; a.rel = 'noopener';
-      a.appendChild(el('h3', '', r.name)); a.appendChild(el('p', '', r.description || 'Keine Beschreibung.'));
+      var card = el('article', 'repo'), h = el('h3'), a = el('a', '', r.name); a.href = r.html_url; a.target = '_blank'; a.rel = 'noopener'; h.appendChild(a);
+      card.appendChild(h); card.appendChild(el('p', '', r.description || 'Keine Beschreibung.'));
       var m = el('div', 'meta');
       if (r.language) m.appendChild(el('span', '', r.language));
       m.appendChild(el('span', '', '★ ' + r.stargazers_count));
       m.appendChild(el('span', '', 'Aktualisiert ' + new Date(r.pushed_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })));
-      a.appendChild(m); box.appendChild(a);
+      card.appendChild(m);
+      var links = el('div', 'rlinks'), live = liveUrl(r);
+      var code = el('a', 'btn ghost small', 'Code'); code.href = r.html_url; code.target = '_blank'; code.rel = 'noopener'; links.appendChild(code);
+      if (live) { var l = el('a', 'btn small', 'Live ansehen'); l.href = live; l.target = '_blank'; l.rel = 'noopener'; links.appendChild(l); }
+      card.appendChild(links); box.appendChild(card);
     });
   }
-  var cached = null; try { cached = JSON.parse(sessionStorage.getItem('repos') || 'null'); } catch (e) {}
+  // Aktive Seite eines Projekts: eingetragene Homepage, sonst GitHub Pages (falls aktiviert)
+  function liveUrl(r) {
+    if (r.homepage && /^https?:\/\//i.test(r.homepage)) return r.homepage;
+    if (r.has_pages) return 'https://' + GH_USER + '.github.io/' + (r.name.toLowerCase() === GH_USER + '.github.io' ? '' : r.name + '/');
+    return '';
+  }
+  var cached = null; try { cached = JSON.parse(sessionStorage.getItem('repos2') || 'null'); } catch (e) {}
   if (cached) renderRepos(cached);
   else fetch('https://api.github.com/users/' + GH_USER + '/repos?sort=pushed&per_page=30').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (all) {
     var list = all.filter(function (r) { return !r.fork && !r.archived; }).slice(0, MAX_REPOS);
-    try { sessionStorage.setItem('repos', JSON.stringify(list)); } catch (e) {}
+    try { sessionStorage.setItem('repos2', JSON.stringify(list)); } catch (e) {}
     renderRepos(list);
   }).catch(function () {
     var b = $('repos'); b.textContent = ''; var p = el('p', 'muted', 'Projekte konnten nicht geladen werden. '); var a = el('a', '', 'Direkt auf GitHub ansehen'); a.href = 'https://github.com/' + GH_USER; p.appendChild(a); b.appendChild(p);
