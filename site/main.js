@@ -66,7 +66,8 @@
   fetch('steam.json', { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (s) {
     if (s.url) $('stLink').href = s.url;
     if (s.name) $('stName').textContent = s.name;
-    if (s.state) $('stState').textContent = s.state;
+    // Stand der Daten (werden beim Deploy abgerufen, nicht live)
+    if (s.updated && !isNaN(new Date(s.updated))) $('stState').textContent = 'Stand: ' + new Date(s.updated).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
     if (s.avatar) { var av = $('stAvatar'); av.src = s.avatar; av.hidden = false; }
     var body = $('stBody'); body.textContent = ''; body.removeAttribute('aria-busy');
     var st = [];

@@ -4,7 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: '17 4 * * *'   # taeglich Steam-Daten aktualisieren
+    - cron: '17 */6 * * *'   # alle 6 Stunden Steam-Daten aktualisieren
 permissions:
   contents: read
   pages: write
@@ -23,8 +23,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # Letzter erfolgreicher Steam-Stand bleibt zwischen den Laeufen erhalten (Steam blockt Abrufe manchmal)
+      - name: Letzten Steam-Stand laden
+        uses: actions/cache/restore@v4
+        with:
+          path: .steam-cache
+          key: steam-${{ github.run_id }}
+          restore-keys: steam-
       - name: Steam-Daten abrufen
         run: node tools/fetch-steam.js
+        env:
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+      - name: Steam-Stand zwischenspeichern
+        if: hashFiles('.steam-cache/steam.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .steam-cache
+          key: steam-${{ github.run_id }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
