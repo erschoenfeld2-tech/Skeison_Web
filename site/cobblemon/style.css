@@ -86,7 +86,7 @@ a { color: var(--accent2); font-weight: 600; } a:hover { color: var(--accent); }
 .cd { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; max-width: 420px; }
 .cd div { text-align: center; padding: 10px 6px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); }
 .cd b { display: block; font-size: clamp(1.6rem, 4vw, 2.3rem); font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); line-height: 1.15; }
-.cd span { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
+.cd > div > span { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; cursor: pointer; font: inherit; font-weight: 800; color: #1a1500; background: var(--accent); border: 1px solid transparent; border-radius: 8px; padding: 10px 20px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.2); }
 .btn:hover { color: #1a1500; }
@@ -121,7 +121,7 @@ body:has(.hero[data-phase="end"]) .fx-bg { color: #c49bff; } body:has(.hero[data
 .hero[data-phase="end"] { --accent: #c49bff; background: radial-gradient(900px 300px at 20% -10%, rgba(150,90,255,.38), transparent), radial-gradient(700px 260px at 90% 0%, rgba(60,20,110,.55), transparent), rgba(12,8,24,.75); }
 .hero[data-phase="end"] .cd div { border-color: #4b3480; background: #150e2b; color: #eadfff; }
 .hero[data-phase="nether"] h1, .hero[data-phase="end"] h1 { color: #fff; } .hero[data-phase="nether"] .muted, .hero[data-phase="end"] .muted, .hero[data-phase="nether"] .players, .hero[data-phase="end"] .players { color: #d6c9c0; }
-.hero[data-phase="nether"] .cd span, .hero[data-phase="end"] .cd span, .hero[data-phase="nether"] .cd-label, .hero[data-phase="end"] .cd-label { color: #d6c9c0; }
+.hero[data-phase="nether"] .cd > div > span, .hero[data-phase="end"] .cd > div > span, .hero[data-phase="nether"] .cd-label, .hero[data-phase="end"] .cd-label { color: #d6c9c0; }
 .timeline { position: relative; list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
 .timeline::before { content: ""; position: absolute; left: 43px; top: 30px; bottom: 30px; width: 2px; background: linear-gradient(var(--accent2), #ff6a2b, #c49bff); opacity: .6; }
 .ms { position: relative; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 12px; padding: 14px 18px; }
