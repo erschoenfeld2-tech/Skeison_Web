@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src https://pumdupjmmvimlxqvuymg.supabase.co; base-uri 'none'; form-action 'self'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Wunschliste · Skeison</title>
+<meta name="description" content="Wunschlisten für Freunde und Familie: Wünsche mit Bild und Preis, Freigaben für Gruppen, Reservieren ohne Doppelgeschenke.">
+<meta name="theme-color" content="#0b0f1c">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/fx.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#inhalt">Zum Inhalt springen</a>
+<div class="fx-bg" aria-hidden="true"><i></i><i></i><i></i><canvas></canvas></div>
+<div class="deco" aria-hidden="true"></div>
+
+<div class="nav-bar">
+  <nav class="nav wrap" aria-label="Hauptnavigation">
+    <a class="brand" href="../"><span class="brand-mark">S</span>Skeison</a>
+    <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
+    <div class="links" id="navLinks">
+      <span class="nav-ind" aria-hidden="true"></span>
+      <span class="out-only"><a href="./?login">Anmelden</a></span>
+      <span class="in-only nav-app">
+        <a href="./" data-nav="home">Übersicht</a><a href="./?seite=freunde" data-nav="freunde">Freunde <b class="badge" id="reqBadge" hidden></b></a><a href="./?seite=geschenke" data-nav="geschenke">Meine Geschenke</a><a href="./?seite=profil" data-nav="profil" class="me-link" id="meLink">Profil</a>
+      </span>
+      <a class="nav-cta out-only" href="./?registrieren">Konto erstellen <span class="arr">→</span></a>
+    </div>
+  </nav>
+  <div class="nav-progress"></div>
+</div>
+
+<!-- Startseite fuer Abgemeldete -->
+<div id="landing" class="out-only">
+  <header class="hero wrap">
+    <div class="hero-grid">
+      <div data-stagger>
+        <p class="back"><a href="../"><span class="arr">←</span> Skeison Web</a></p>
+        <span class="tag">Für Freunde &amp; Familie</span>
+        <h1>Wünsche teilen, <em>Überraschungen behalten.</em></h1>
+        <p class="lead">Stell dir Wunschlisten mit Bild, Preis und Einsatzzweck zusammen, gib sie nur den Menschen frei, die sie sehen sollen, und lass sie Geschenke reservieren, damit nichts doppelt unterm Baum liegt.</p>
+        <div class="cta-row">
+          <a class="btn" href="./?registrieren">Kostenlos Konto erstellen</a>
+          <a class="btn ghost" href="./?login">Ich habe schon ein Konto</a>
+        </div>
+      </div>
+      <div class="hero-demo" aria-hidden="true">
+        <div class="demo-card c1"><div class="demo-img">🎧</div><b>Kopfhörer mit ANC</b><span>Fürs Pendeln · 129 €</span><i class="demo-res">Reserviert ✓</i></div>
+        <div class="demo-card c2"><div class="demo-img">📚</div><b>Fantasy-Buchreihe</b><span>Für lange Abende · 39 €</span></div>
+        <div class="demo-card c3"><div class="demo-img">🪴</div><b>Monstera XL</b><span>Fürs Wohnzimmer · 45 €</span><i class="demo-heart">♥ Herzenswunsch</i></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap" id="inhalt">
+    <section>
+      <div class="sec-head" data-reveal><h2>Was die Wunschliste kann</h2></div>
+      <div class="features" data-stagger>
+        <article><span class="f-ico">🔗</span><h3>Produktkarten</h3><p>Link einfügen, fertig: Bild, Titel und Preis werden automatisch gelesen. Dazu ein kurzer Satz, wofür du es brauchst.</p></article>
+        <article><span class="f-ico">🤝</span><h3>Freunde per Code</h3><p>Jeder hat einen Namen mit eigenem Code wie <code>Erik#7KQ2M</code>. Sichtbar ist man nur für bestätigte Freunde.</p></article>
+        <article><span class="f-ico">🏷️</span><h3>Rollen &amp; Tags</h3><p>Markiere Freunde als Oma, Bruder oder „Uni-Clique“. Diese Kennzeichnungen siehst nur du.</p></article>
+        <article><span class="f-ico">👪</span><h3>Gruppen &amp; Freigaben</h3><p>Baue dir eigene Gruppen und entscheide pro Liste: nur ich, alle Freunde oder ausgewählte Gruppen und Personen.</p></article>
+        <article><span class="f-ico">🎁</span><h3>Reservieren</h3><p>Schenkende reservieren einen Wunsch für sich. Andere sehen es sofort, doppelte Geschenke gibt es nicht mehr.</p></article>
+        <article><span class="f-ico">🙈</span><h3>Überraschungsschutz</h3><p>Du siehst auf deinen eigenen Listen nie, was reserviert wurde. Die Überraschung bleibt.</p></article>
+        <article><span class="f-ico">🧩</span><h3>Gruppengeschenke</h3><p>Für größere Wünsche: Mehrere legen zusammen und sehen, wer schon mitmacht.</p></article>
+        <article><span class="f-ico">📅</span><h3>Anlässe &amp; Geburtstage</h3><p>Listen mit Datum und Countdown, dazu die nächsten Geburtstage deiner Freunde auf einen Blick.</p></article>
+        <article><span class="f-ico">🛒</span><h3>Geschenke-Einkaufsliste</h3><p>Alles, was du reserviert hast, mit Budget und Haken für „schon gekauft“.</p></article>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head" data-reveal><h2>Fünf Designs zur Auswahl</h2><p class="muted">Jede Liste und jede Profilkarte bekommt ihren eigenen Look.</p></div>
+      <div class="theme-show" id="themeShow" data-stagger></div>
+    </section>
+
+    <section id="auth" class="auth-sec">
+      <div class="auth-card" data-reveal>
+        <div class="seg auth-tabs" role="tablist" aria-label="Anmelden oder registrieren">
+          <button type="button" class="on" data-tab="login" role="tab" aria-selected="true">Anmelden</button>
+          <button type="button" data-tab="register" role="tab" aria-selected="false">Registrieren</button>
+        </div>
+        <form id="loginForm" class="form" novalidate>
+          <label>E-Mail<input name="email" type="email" autocomplete="username" required maxlength="200"></label>
+          <label>Passwort<input name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="72"></label>
+          <p class="msg" role="status"></p>
+          <button class="btn wide" type="submit">Anmelden</button>
+        </form>
+        <form id="registerForm" class="form" novalidate hidden>
+          <label>Anzeigename <small class="muted">so finden dich Freunde, dazu kommt dein Code</small><input name="name" required minlength="2" maxlength="24" autocomplete="nickname" placeholder="z. B. Erik"></label>
+          <label>E-Mail<input name="email" type="email" autocomplete="email" required maxlength="200"></label>
+          <label>Passwort <small class="muted">mindestens 8 Zeichen</small><input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="72"></label>
+          <label>Passwort wiederholen<input name="password2" type="password" autocomplete="new-password" required minlength="8" maxlength="72"></label>
+          <label class="invite" hidden>Einladungscode<input name="invite" autocomplete="off"></label>
+          <p class="msg" role="status"></p>
+          <button class="btn wide" type="submit">Konto erstellen</button>
+          <p class="fine muted">🔒 Dein Passwort wird nur verschlüsselt bei unserem Anmeldedienst (Supabase) gespeichert, nie im Code oder auf GitHub.</p>
+        </form>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Angemeldeter Bereich, wird von app.js gefuellt -->
+<main id="app" class="wrap in-only" aria-live="polite"></main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="muted">Wunschliste · Skeison</span>
+    <a href="../">← Zurück zu Skeison</a>
+  </div>
+</footer>
+
+<dialog id="dlg" class="dlg"></dialog>
+
+<script src="../assets/fx.js"></script>
+<script src="api.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
