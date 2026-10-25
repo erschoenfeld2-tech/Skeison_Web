@@ -6,13 +6,14 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var app = $('#app'), dlg = $('#dlg');
-  var me = null, seq = 0;
+  var me = null, isAdmin = false, seq = 0;
+  var DISCORD = 'https://discord.gg/tjVKFGMRw7';
 
   var THEMES = [
     { id: 'polarlicht', name: 'Polarlicht', desc: 'Nachthimmel mit Nordlicht und Glas-Karten' },
     { id: 'geschenkpapier', name: 'Geschenkpapier', desc: 'Packpapier, Schleife und Wünsche als Anhänger' },
-    { id: 'arcade', name: 'Pixel-Arcade', desc: 'Neon, Scanlines und Seltenheitsstufen' },
-    { id: 'schneekugel', name: 'Schneekugel', desc: 'Hell, frostig und mit fallendem Schnee' },
+    { id: 'pixel', name: 'Pixel-Inventar', desc: 'Retro-Pixel wie im Spiel, Herzenswünsche sind verzaubert' },
+    { id: 'kaufhaus', name: 'Concept Store', desc: 'Klar und edel wie ein Online-Shop' },
     { id: 'magazin', name: 'Magazin', desc: 'Große Typo wie im Hochglanz-Katalog' }
   ];
   var EMOJIS = '🎁 🎄 🎂 🎉 💍 🍼 🏡 🎓 🐣 ⭐ 🦊 🐻 🐼 🐸 🦄 🐙 🌻 🍀 🌈 🔥 ⚡ 🎮 🎧 📚 🎨 ⚽ 🚲 ✈️ 🍕 ☕ 👾 🧸'.split(' ');
@@ -75,6 +76,7 @@
     no_access: 'Diese Liste ist für dich nicht (mehr) freigegeben.', own_item: 'Eigene Wünsche kannst du nicht reservieren.',
     received: 'Dieser Wunsch wurde schon erfüllt.', bad_quantity: 'Diese Anzahl ist nicht möglich.', not_authenticated: 'Bitte melde dich erneut an.',
     no_profile: 'Dein Profil wurde nicht gefunden. Bitte melde dich ab und wieder an.',
+    not_admin: 'Dafür brauchst du Admin-Rechte.', self: 'Dein eigenes Konto kannst du hier nicht löschen.', is_admin: 'Admin-Konten können hier nicht gelöscht werden.',
     over_email_send_rate_limit: 'Zu viele Versuche. Bitte später erneut probieren.', same_password: 'Das ist schon dein aktuelles Passwort.'
   };
   function errText(e) {
@@ -141,7 +143,7 @@
     go(a.getAttribute('href'));
   });
   window.addEventListener('popstate', render);
-  Api.onAuthChange(function () { me = null; render(); });
+  Api.onAuthChange(function () { me = null; isAdmin = false; render(); });
 
   function view(ctx, html, quiet) {
     if (ctx.stale()) return false;
@@ -158,6 +160,7 @@
     var my = ++seq, ctx = { stale: function () { return my !== seq; } };
     var signedIn = !!Api.user;
     document.body.classList.toggle('is-in', signedIn);
+    if (!signedIn) document.body.classList.remove('is-locked');
     if (!signedIn) { setTheme(null); landing(); return; }
     var r = route();
     $$('[data-nav]').forEach(function (a) {
@@ -172,8 +175,12 @@
         var rows = await Api.get('wl_profiles', 'id=eq.' + Api.user.id);
         if (!rows.length) throw Object.assign(new Error('no_profile'), { code: 'no_profile' });
         me = rows[0];
+        isAdmin = (await Api.get('wl_admins', 'select=user_id&user_id=eq.' + me.id)).length > 0;
       }
       if (ctx.stale()) return;
+      $('#adminLink').hidden = !isAdmin;
+      document.body.classList.toggle('is-locked', me.must_change_password);
+      if (me.must_change_password) return forcePassword(ctx);
       $('#meLink').innerHTML = avatar(me, 'xs') + '<span>' + esc(me.name) + '</span>';
       refreshBadge();
       await (VIEWS[r.page] || VIEWS.home)(ctx, r);
@@ -272,6 +279,7 @@
       (it.priority === 3 ? '<span class="prio">♥ Herzenswunsch</span>' : '') +
       (it.quantity > 1 ? '<span class="qty">' + it.quantity + '×</span>' : '') + '</div>' +
       '<div class="wish-body"><h3>' + title + '</h3>' +
+      (it.price != null ? '<p class="price-line">' + esc(money(it.price, it.currency)) + '</p>' : '') +
       (it.note ? '<p class="use"><span>Wofür</span>' + esc(it.note) + '</p>' : '') +
       '<div class="wish-meta"><span class="dots" title="' + PRIO[it.priority] + '">' + '●●●'.slice(0, it.priority) + '<i>' + '●●●'.slice(it.priority) + '</i> ' + PRIO[it.priority] + '</span>' +
       (url ? '<a class="shop" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(host(url)) + ' ↗</a>' : '') +
@@ -807,10 +815,7 @@
     app.onsubmit = async function (e) {
       e.preventDefault();
       if (e.target.id === 'pwForm') {
-        var pf = e.target, pm = $('.msg', pf);
-        if (pf.pw.value.length < 8) return say(pm, 'Mindestens 8 Zeichen.', false);
-        if (pf.pw.value !== pf.pw2.value) return say(pm, 'Die Passwörter stimmen nicht überein.', false);
-        try { await busy($('[type=submit]', pf), function () { return Api.setPassword(pf.pw.value); }); pf.reset(); say(pm, 'Passwort geändert ✓', true); } catch (err) { say(pm, errText(err), false); }
+        if (await savePassword(e.target)) say($('.msg', e.target), 'Passwort geändert ✓', true);
         return;
       }
       var d = draft(), m = $('.msg', f);
@@ -826,14 +831,114 @@
     app.onclick = function (e) { if (e.target.closest('[data-act="logout"]')) { Api.signOut(); history.replaceState(null, '', './'); } };
   }
 
-  var VIEWS = { home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage };
+  // Neues Passwort speichern (Formular mit pw und pw2); hebt auch den Zwang nach einem Admin-Reset auf
+  async function savePassword(pf) {
+    var pm = $('.msg', pf);
+    if (pf.pw.value.length < 8) return say(pm, ERR.password, false);
+    if (pf.pw.value !== pf.pw2.value) return say(pm, 'Die Passwörter stimmen nicht überein.', false);
+    try {
+      var r = await busy($('[type=submit]', pf), function () { return Api.fn('wl-account', { action: 'set-password', password: pf.pw.value }); });
+      if (r && r.error) throw Object.assign(new Error(r.error), { code: r.error });
+      pf.reset(); return true;
+    } catch (err) { say(pm, errText(err), false); return false; }
+  }
+
+  // Nach einem Admin-Reset: erst ein eigenes Passwort festlegen
+  function forcePassword(ctx) {
+    setTheme(me.theme);
+    view(ctx, '<div class="force-pw"><div class="panel"><span class="e-ico">🔑</span><h1>Neues Passwort festlegen</h1>' +
+      '<p class="lead">Dein Passwort wurde zurückgesetzt. Lege jetzt ein eigenes fest, danach geht es ganz normal weiter.</p>' +
+      '<form class="form" novalidate><label>Neues Passwort <small class="muted">mindestens 8 Zeichen</small><input name="pw" type="password" autocomplete="new-password" minlength="8" maxlength="72" autofocus></label>' +
+      '<label>Wiederholen<input name="pw2" type="password" autocomplete="new-password" minlength="8" maxlength="72"></label><p class="msg"></p>' +
+      '<button type="submit" class="btn wide">Passwort speichern</button></form>' +
+      '<p class="muted small">Probleme? Schreib im <a href="' + DISCORD + '" target="_blank" rel="noopener">Discord</a> der Rolle <b>@Admin</b> oder Skeison direkt.</p>' +
+      '<button type="button" class="link-btn" data-act="logout">Abmelden</button></div></div>');
+    var f = $('input', app); if (f) f.focus();
+    app.onsubmit = async function (e) {
+      e.preventDefault();
+      if (!(await savePassword(e.target))) return;
+      me.must_change_password = false; FX.toast('Passwort gespeichert. Willkommen zurück!'); render();
+    };
+    app.onclick = function (e) { if (e.target.closest('[data-act="logout"]')) Api.signOut(); };
+  }
+
+  // ---------- Admin ----------
+  async function adminPage(ctx) {
+    if (!isAdmin) return go('./', true);
+    var users = await Api.rpc('wl_admin_users'), q = '';
+    setTheme(me.theme);
+    var byId = {}; users.forEach(function (u) { byId[u.id] = u; });
+    function sum(k) { return users.reduce(function (s, u) { return s + Number(u[k]); }, 0); }
+    function when(t) { return t ? new Date(t).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' }) : 'nie'; }
+    function row(u) {
+      return '<li data-id="' + u.id + '">' + avatar(u, 'sm') +
+        '<span class="au-main"><b>' + handle(u) + (u.is_admin ? ' <span class="tagchip">Admin</span>' : '') + (u.must_change_password ? ' <span class="tagchip warn">muss Passwort ändern</span>' : '') + '</b><small>' + esc(u.email) + '</small></span>' +
+        '<span class="au-stats"><small>Seit ' + when(u.created_at) + ' · zuletzt da: ' + when(u.last_sign_in_at) + '</small><small>' +
+        [plural(+u.lists, 'Liste', 'Listen'), plural(+u.items, 'Wunsch', 'Wünsche'), plural(+u.friends, 'Freund', 'Freunde'), +u.reservations + ' reserviert'].join(' · ') + '</small></span>' +
+        '<span class="au-act"><button type="button" class="btn small" data-act="reset">🔑 Passwort zurücksetzen</button>' +
+        (u.is_admin ? '' : '<button type="button" class="icon-btn" data-act="delete" aria-label="Konto löschen" title="Konto löschen">🗑</button>') + '</span></li>';
+    }
+    function paintRows() {
+      var list = users.filter(function (u) { return !q || (u.name + '#' + u.code + ' ' + u.email).toLowerCase().indexOf(q) >= 0; });
+      $('#ulist').innerHTML = list.length ? list.map(row).join('') : '<li class="muted">Keine Treffer.</li>';
+    }
+    view(ctx,
+      '<header class="page-head"><p class="eyebrow">Nur für Admins</p><h1>Verwaltung</h1><p class="lead">Konten im Überblick. Passwörter setzt du hier zurück: Der Nutzer bekommt ein Einmal-Passwort und muss beim nächsten Anmelden ein eigenes festlegen.</p></header>' +
+      '<div class="gift-stats" data-stagger>' + [[users.length, 'Konten'], [sum('lists'), 'Listen'], [sum('items'), 'Wünsche'], [sum('reservations'), 'Reservierungen']].map(function (t) {
+        return '<div class="tile"><b>' + t[0] + '</b><span>' + t[1] + '</span></div>';
+      }).join('') + '</div>' +
+      '<section><div class="sec-head"><h2>Konten</h2><div class="filters"><input type="search" name="q" placeholder="Name, Code oder E-Mail …" aria-label="Konten suchen"></div></div>' +
+      '<ul class="ulist" id="ulist"></ul></section>');
+    paintRows();
+    app.oninput = function (e) { if (e.target.name === 'q') { q = e.target.value.trim().toLowerCase(); paintRows(); } };
+    app.onclick = async function (e) {
+      var b = e.target.closest('[data-act]'); if (!b) return;
+      var u = byId[b.closest('[data-id]').getAttribute('data-id')];
+      if (b.dataset.act === 'reset') return resetDialog(u);
+      if (b.dataset.act === 'delete') {
+        if (!(await confirmDlg('Konto von ' + u.name + '#' + u.code + ' (' + u.email + ') mit allen Listen, Wünschen und Reservierungen endgültig löschen?', 'Endgültig löschen'))) return;
+        try {
+          var r = await Api.fn('wl-account', { action: 'admin-delete', user_id: u.id });
+          if (r && r.error) throw Object.assign(new Error(r.error), { code: r.error });
+          FX.toast('Konto gelöscht'); render();
+        } catch (err) { FX.toast(errText(err)); }
+      }
+    };
+  }
+  function resetDialog(u) {
+    openDlg(dlgHead('Passwort zurücksetzen') +
+      '<form class="form" novalidate><p class="muted">Für <b>' + handle(u) + '</b> (' + esc(u.email) + '). Beim nächsten Anmelden muss ein eigenes Passwort festgelegt werden.</p>' +
+      '<label class="vopt"><input type="radio" name="mode" value="random" checked><span><b>🎲 Einmal-Passwort erzeugen</b><small>Zufällig; du siehst es gleich und gibst es weiter.</small></span></label>' +
+      '<label class="vopt"><input type="radio" name="mode" value="own"><span><b>✍️ Standardpasswort vergeben</b><small>Ein Passwort deiner Wahl, z. B. dein übliches Reset-Passwort.</small></span></label>' +
+      '<label class="own-pw" hidden>Standardpasswort <small class="muted">mindestens 8 Zeichen</small><input name="password" minlength="8" maxlength="72" autocomplete="off"></label>' +
+      '<p class="msg"></p><div class="dlg-actions"><button type="button" class="btn ghost" data-close>Abbrechen</button><button type="submit" class="btn">Zurücksetzen</button></div></form>', 'small');
+    var f = $('form', dlg);
+    f.addEventListener('change', function () { $('.own-pw', f).hidden = vals(f).mode !== 'own'; });
+    f.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var v = vals(f), m = $('.msg', f), body = { action: 'admin-reset', user_id: u.id };
+      if (v.mode === 'own') { if (v.password.length < 8) return say(m, ERR.password, false); body.password = v.password; }
+      try {
+        var r = await busy($('[type=submit]', f), function () { return Api.fn('wl-account', body); });
+        if (r.error) throw Object.assign(new Error(r.error), { code: r.error });
+        openDlg(dlgHead('Passwort zurückgesetzt') + '<p>Gib dieses Passwort an <b>' + esc(u.name) + '</b> weiter, am besten per Discord-Direktnachricht:</p>' +
+          '<button type="button" class="handle-big" id="pwCopy">' + esc(r.password) + ' <small>kopieren</small></button>' +
+          '<p class="muted small">Beim nächsten Anmelden muss ' + esc(u.name) + ' ein eigenes Passwort festlegen.</p>' +
+          '<div class="dlg-actions"><button type="button" class="btn" data-close>Fertig</button></div>', 'small');
+        $('#pwCopy', dlg).addEventListener('click', function () { copy(r.password, 'Passwort kopiert'); });
+        dlg.addEventListener('close', function once() { dlg.removeEventListener('close', once); render(); });
+      } catch (err) { say(m, errText(err), false); }
+    });
+  }
+
+  var VIEWS = { home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage };
 
   // ---------- Startseite fuer Abgemeldete ----------
   var DEMO = [
     { title: 'Kopfhörer mit Geräuschunterdrückung', note: 'Für die Bahnfahrten zur Arbeit', price: 129, priority: 3, emoji: '🎧' },
     { title: 'Kochbuch „Italien vegetarisch“', note: 'Für gemütliche Sonntage', price: 28, priority: 2, emoji: '📖' },
     { title: 'Retro-Konsole mit 2 Controllern', note: 'Für Spieleabende mit Freunden', price: 89.99, priority: 3, emoji: '🕹️' },
-    { title: 'Thermoskanne 1 l', note: 'Für Winterspaziergänge', price: 34.9, priority: 1, emoji: '☕' },
+    { title: 'Ledersneaker in Weiß', note: 'Für jeden Tag', price: 119, priority: 3, emoji: '👟' },
     { title: 'Bildband Architektur', note: 'Fürs Wohnzimmer-Regal', price: 59, priority: 2, emoji: '🏛️' }
   ];
   $('#themeShow').innerHTML = THEMES.map(function (t, i) {

@@ -14,14 +14,22 @@ create table public.wl_profiles (
   code text not null unique check (code ~ '^[A-Z0-9]{5}$'),
   avatar text not null default '🎁' check (char_length(avatar) between 1 and 16),
   color text not null default '#ffcb05' check (color ~ '^#[0-9a-fA-F]{6}$'),
-  theme text not null default 'polarlicht' check (theme in ('polarlicht','geschenkpapier','arcade','schneekugel','magazin')),
+  theme text not null default 'polarlicht' check (theme in ('polarlicht','geschenkpapier','pixel','kaufhaus','magazin')),
   bio text not null default '' check (char_length(bio) <= 160),
   birthday date,
   sizes text not null default '' check (char_length(sizes) <= 200),
   likes text not null default '' check (char_length(likes) <= 200),
   dislikes text not null default '' check (char_length(dislikes) <= 200),
+  -- vom Admin gesetzt, wenn ein Einmal-Passwort vergeben wurde; nur die Edge Function wl-account setzt es zurueck
+  must_change_password boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- Admins (werden von Hand eingetragen, siehe README)
+create table public.wl_admins (user_id uuid primary key references public.wl_profiles on delete cascade);
+create function private.wl_is_admin() returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.wl_admins where user_id = auth.uid());
+$$;
 
 create function private.wl_new_code() returns text language plpgsql volatile set search_path = '' as $$
 declare
@@ -96,7 +104,7 @@ create table public.wl_lists (
   title text not null check (char_length(btrim(title)) between 1 and 60),
   description text not null default '' check (char_length(description) <= 500),
   emoji text not null default '🎁' check (char_length(emoji) between 1 and 16),
-  theme text not null default 'polarlicht' check (theme in ('polarlicht','geschenkpapier','arcade','schneekugel','magazin')),
+  theme text not null default 'polarlicht' check (theme in ('polarlicht','geschenkpapier','pixel','kaufhaus','magazin')),
   occasion text not null default '' check (char_length(occasion) <= 40),
   event_date date,
   visibility text not null default 'private' check (visibility in ('private','friends','custom')),
@@ -175,10 +183,11 @@ alter table public.wl_list_groups enable row level security;
 alter table public.wl_list_people enable row level security;
 alter table public.wl_items enable row level security;
 alter table public.wl_reservations enable row level security;
+alter table public.wl_admins enable row level security;
 revoke all on public.wl_profiles, public.wl_friendships, public.wl_contacts, public.wl_groups, public.wl_group_members,
-  public.wl_lists, public.wl_list_groups, public.wl_list_people, public.wl_items, public.wl_reservations from anon, authenticated;
+  public.wl_lists, public.wl_list_groups, public.wl_list_people, public.wl_items, public.wl_reservations, public.wl_admins from anon, authenticated;
 
-grant select on public.wl_profiles, public.wl_friendships, public.wl_reservations to authenticated;
+grant select on public.wl_profiles, public.wl_friendships, public.wl_reservations, public.wl_admins to authenticated;
 grant update (name, avatar, color, theme, bio, birthday, sizes, likes, dislikes) on public.wl_profiles to authenticated;
 grant select, insert, update, delete on public.wl_contacts, public.wl_groups, public.wl_group_members,
   public.wl_lists, public.wl_list_groups, public.wl_list_people, public.wl_items to authenticated;
@@ -220,6 +229,7 @@ create policy "Wuensche: nur Besitzer aendern" on public.wl_items for update to 
 create policy "Wuensche: nur Besitzer loeschen" on public.wl_items for delete to authenticated using (private.wl_owns_list(list_id));
 
 create policy "Reservierungen: nur eigene" on public.wl_reservations for select to authenticated using (user_id = (select auth.uid()));
+create policy "Admins: nur der eigene Eintrag" on public.wl_admins for select to authenticated using (user_id = (select auth.uid()));
 
 -- Freunde hinzufuegen ueber "Name#CODE"; nimmt eine Gegenanfrage automatisch an
 create function public.wl_add_friend(p_handle text) returns text language plpgsql security definer set search_path = '' as $$
@@ -321,13 +331,31 @@ language sql stable security definer set search_path = '' as $$
   order by l.event_date nulls last, l.title, i.title;
 $$;
 
+-- Admin-Uebersicht aller Konten mit Kennzahlen
+create function public.wl_admin_users()
+returns table (id uuid, email text, created_at timestamptz, last_sign_in_at timestamptz, name text, code text, avatar text, color text,
+  must_change_password boolean, is_admin boolean, lists bigint, items bigint, reservations bigint, friends bigint)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not private.wl_is_admin() then raise exception 'not_admin'; end if;
+  return query
+  select u.id, u.email::text, u.created_at, u.last_sign_in_at, p.name, p.code, p.avatar, p.color, p.must_change_password,
+    exists (select 1 from public.wl_admins a where a.user_id = u.id),
+    (select count(*) from public.wl_lists l where l.owner = u.id),
+    (select count(*) from public.wl_items i join public.wl_lists l on l.id = i.list_id where l.owner = u.id),
+    (select count(*) from public.wl_reservations r where r.user_id = u.id),
+    (select count(*) from public.wl_friendships f where f.status = 'accepted' and u.id in (f.requester, f.addressee))
+  from auth.users u join public.wl_profiles p on p.id = u.id
+  order by u.created_at desc;
+end $$;
+
 revoke all on function public.wl_add_friend(text), public.wl_accept_friend(uuid), public.wl_remove_friend(uuid),
   public.wl_reserve(uuid, int), public.wl_unreserve(uuid), public.wl_set_purchased(uuid, boolean),
-  public.wl_list_reservations(uuid), public.wl_my_reservations() from public, anon;
+  public.wl_list_reservations(uuid), public.wl_my_reservations(), public.wl_admin_users() from public, anon;
 grant execute on function public.wl_add_friend(text), public.wl_accept_friend(uuid), public.wl_remove_friend(uuid),
   public.wl_reserve(uuid, int), public.wl_unreserve(uuid), public.wl_set_purchased(uuid, boolean),
-  public.wl_list_reservations(uuid), public.wl_my_reservations() to authenticated;
-revoke all on function private.wl_new_code(), private.wl_on_signup(), private.wl_are_friends(uuid, uuid),
+  public.wl_list_reservations(uuid), public.wl_my_reservations(), public.wl_admin_users() to authenticated;
+revoke all on function private.wl_new_code(), private.wl_on_signup(), private.wl_is_admin(), private.wl_are_friends(uuid, uuid),
   private.wl_can_view(uuid, uuid), private.wl_owns_list(uuid), private.wl_owns_group(uuid) from public, anon;
 -- Angemeldete brauchen das Schema nur fuer die Hilfsfunktionen in den Richtlinien, nicht fuer Tabellen
 revoke all on all tables in schema private from anon, authenticated;

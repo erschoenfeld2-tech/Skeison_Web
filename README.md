@@ -13,7 +13,7 @@ Hauptwebseite (GitHub Pages, Ordner `site/`) mit dem Cobblemon Server als Unters
 | `supabase/` | Datenbank-Schema (`whitelist.sql`, `wunschliste.sql`) und Edge Functions |
 
 ## Anpassen
-- **Discord:** Der Einladungslink steht in `site/index.html` (`discordLink`).
+- **Discord:** Der Einladungslink steht in `site/index.html` (`discordLink`), der Code für die Mitgliederzahlen in `site/main.js` (`DISCORD_INVITE`) und der Support-Link in `site/wunschliste/` (`DISCORD` in `app.js`, Texte in `index.html`).
 - **Skin:** `site/skin/skeison.png` austauschen (64×64-PNG, z. B. von NameMC oder minecraft.net).
 - **Ankündigung:** Text in `site/index.html`, Startzeit als `START` in `site/main.js`.
 - **Direktlink zur Bewerbung:** `cobblemon/#bewerben` öffnet das Bewerbungsformular sofort.
@@ -32,5 +32,8 @@ Läuft komplett über das Supabase-Projekt `skeison-whitelist`; die Seite selbst
 - **Nur mit Einladung registrieren:** Im Supabase-Dashboard unter *Edge Functions → Secrets* ein Secret `WL_INVITE_CODE` anlegen. Dann fragt die Registrierung nach diesem Code.
 - **Rechte:** stehen in `supabase/wunschliste.sql` (Row Level Security). Man sieht nur sich selbst und bestätigte Freunde; Listen sind privat, für alle Freunde oder für ausgewählte Gruppen/Personen freigegeben; Rollen, Tags und Gruppen sieht nur, wer sie angelegt hat. Reservierungen laufen nur über Datenbank-Funktionen, der Besitzer einer Liste sieht sie nie (Überraschungsschutz).
 - **Produktvorschau:** Die Edge Function `wl-link-preview` liest Titel, Bild und Preis aus Produktseiten (Open Graph, JSON-LD). Manche Shops (z. B. Amazon) blocken das zeitweise, dann trägt man die Angaben selbst ein.
-- **Designs:** Polarlicht, Geschenkpapier, Pixel-Arcade, Schneekugel, Magazin. Sie stehen in `site/wunschliste/style.css` unter `[data-theme="…"]`; ein neues Design braucht dort einen Block und einen Eintrag in `THEMES` in `app.js` sowie in den `check`-Bedingungen in `wunschliste.sql`.
-- **Passwort vergessen:** Ohne eigenen Mailversand (SMTP in Supabase) gibt es keinen Link per Mail. Ein Admin kann im Supabase-Dashboard unter *Authentication → Users* ein neues Passwort setzen.
+- **Designs:** Polarlicht, Geschenkpapier, Pixel-Inventar (Schriften Press Start 2P und VT323 unter OFL in `site/assets/fonts/`), Concept Store, Magazin. Sie stehen in `site/wunschliste/style.css` unter `[data-theme="…"]`; ein neues Design braucht dort einen Block und einen Eintrag in `THEMES` in `app.js` sowie in den `check`-Bedingungen in `wunschliste.sql`.
+- **Passwort vergessen:** Nutzer melden sich im Discord bei der Rolle @Admin oder bei Skeison. Ein Admin setzt das Passwort auf der Seite unter *Admin* zurück: entweder mit einem zufälligen Einmal-Passwort oder mit einem Standardpasswort. Beim nächsten Anmelden muss der Nutzer ein eigenes Passwort festlegen (Edge Function `wl-account`).
+- **Admin werden:** Erst ganz normal registrieren, dann im Supabase-Dashboard im SQL Editor ausführen (E-Mail anpassen):
+  `insert into public.wl_admins select id from auth.users where email = 'deine@mail.de';`
+  Danach erscheint nach dem nächsten Laden der Seite der Menüpunkt *Admin*. Admins sehen alle Konten mit Kennzahlen, setzen Passwörter zurück und können Konten löschen (Admin-Konten nicht).

@@ -68,10 +68,6 @@
       save(null); onChange();
       if (t) fetch(URL_ + '/auth/v1/logout', { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + t } }).catch(function () {});
     },
-    setPassword: async function (password) {
-      var t = await token();
-      return call('/auth/v1/user', { method: 'PUT', headers: { apikey: KEY, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: password }) });
-    },
 
     get: function (table, query) { return rest(table + (query ? '?' + query : '')); },
     insert: function (table, rows) { return rest(table, { method: 'POST', body: rows }); },

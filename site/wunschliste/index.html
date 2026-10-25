@@ -25,7 +25,7 @@
       <span class="nav-ind" aria-hidden="true"></span>
       <span class="out-only"><a href="./?login">Anmelden</a></span>
       <span class="in-only nav-app">
-        <a href="./" data-nav="home">Übersicht</a><a href="./?seite=freunde" data-nav="freunde">Freunde <b class="badge" id="reqBadge" hidden></b></a><a href="./?seite=geschenke" data-nav="geschenke">Meine Geschenke</a><a href="./?seite=profil" data-nav="profil" class="me-link" id="meLink">Profil</a>
+        <a href="./" data-nav="home">Übersicht</a><a href="./?seite=freunde" data-nav="freunde">Freunde <b class="badge" id="reqBadge" hidden></b></a><a href="./?seite=geschenke" data-nav="geschenke">Meine Geschenke</a><a href="./?seite=admin" data-nav="admin" id="adminLink" hidden>Admin</a><a href="./?seite=profil" data-nav="profil" class="me-link" id="meLink">Profil</a>
       </span>
       <a class="nav-cta out-only" href="./?registrieren">Konto erstellen <span class="arr">→</span></a>
     </div>
@@ -87,6 +87,9 @@
           <label>Passwort<input name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="72"></label>
           <p class="msg" role="status"></p>
           <button class="btn wide" type="submit">Anmelden</button>
+          <details class="help"><summary>Passwort vergessen?</summary>
+            <p>Komm in den <a href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Skeison-Discord</a> und schreib der Rolle <b>@Admin</b> oder Skeison direkt. Du bekommst ein Einmal-Passwort und legst beim Anmelden ein neues fest.</p>
+          </details>
         </form>
         <form id="registerForm" class="form" novalidate hidden>
           <label>Anzeigename <small class="muted">so finden dich Freunde, dazu kommt dein Code</small><input name="name" required minlength="2" maxlength="24" autocomplete="nickname" placeholder="z. B. Erik"></label>
@@ -109,6 +112,7 @@
 <footer class="foot">
   <div class="wrap foot-in">
     <span class="muted">Wunschliste · Skeison</span>
+    <span class="support muted">Fragen oder Probleme? Im <a href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Discord</a> der Rolle <b>@Admin</b> oder Skeison direkt schreiben.</span>
     <a href="../">← Zurück zu Skeison</a>
   </div>
 </footer>
