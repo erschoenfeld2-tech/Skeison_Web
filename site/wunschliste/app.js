@@ -306,7 +306,7 @@
   async function home(ctx) {
     var res = await Promise.all([
       Api.get('wl_lists', 'owner=eq.' + me.id + '&select=*,wl_items(count)&order=archived.asc,created_at.desc'),
-      Api.get('wl_lists', 'owner=neq.' + me.id + '&archived=is.false&select=*,owner:wl_profiles(id,name,code,avatar,color),wl_items(count)&order=event_date.asc.nullslast,created_at.desc'),
+      Api.get('wl_lists', 'owner=neq.' + me.id + '&archived=is.false&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,code,avatar,color),wl_items(count)&order=event_date.asc.nullslast,created_at.desc'),
       loadFriends(), Api.rpc('wl_my_reservations')
     ]);
     var mine = res[0], others = res[1], fr = res[2], gifts = res[3];
@@ -354,7 +354,7 @@
   // ---------- Liste ----------
   async function listPage(ctx, r) {
     if (!isId(r.id)) throw Object.assign(new Error('no_access'), { code: 'no_access' });
-    var rows = await Api.get('wl_lists', 'id=eq.' + r.id + '&select=*,owner:wl_profiles(id,name,code,avatar,color,theme)');
+    var rows = await Api.get('wl_lists', 'id=eq.' + r.id + '&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,code,avatar,color,theme)');
     if (!rows.length) throw Object.assign(new Error('no_access'), { code: 'no_access' });
     var st = { list: rows[0], sort: 'prio', only: false, ctx: ctx };
     st.owner = st.list.owner.id === me.id;
