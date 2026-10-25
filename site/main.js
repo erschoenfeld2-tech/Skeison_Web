@@ -2,9 +2,9 @@
   'use strict';
   var GH_USER = 'erschoenfeld2-tech';
 
-  // Hausmesse (deutsche Zeit). Sobald der Termin feststeht, hier eintragen, z. B.
-  // start: '2026-11-27T09:00:00+01:00', end: '2026-11-27T15:00:00+01:00'. Ohne Termin steht dort "Termin folgt".
-  var HAUSMESSE = { start: '', end: '', stand: '23' };
+  // Hausmesse (deutsche Zeit). Nur ein Datum ('2026-11-24') gilt fuer den ganzen Tag; mit Uhrzeit z. B.
+  // start: '2026-11-24T09:00:00+01:00', end: '2026-11-24T15:00:00+01:00'. Ohne Termin steht dort "Termin folgt".
+  var HAUSMESSE = { start: '2026-11-24', end: '', stand: '23' };
 
   // Projekte mit eigener Beschreibung (Repo-Name wie auf GitHub, Gross-/Kleinschreibung egal).
   // Alle weiteren oeffentlichen Repos erscheinen automatisch danach.
@@ -39,12 +39,18 @@
   $('year').textContent = new Date().getFullYear();
 
   // Hausmesse: Termin, Countdown und "laeuft gerade"
-  var fairStart = HAUSMESSE.start ? new Date(HAUSMESSE.start).getTime() : NaN;
-  var fairEnd = HAUSMESSE.end ? new Date(HAUSMESSE.end).getTime() : fairStart + 8 * 3600000;
+  // Mitternacht in deutscher Zeit (Winter- oder Sommerzeit) fuer ein reines Datum
+  function berlinMidnight(d) {
+    var t = new Date(d + 'T00:00:00+01:00').getTime();
+    return new Date(t).toLocaleString('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', hourCycle: 'h23' }) === '01' ? t - 3600000 : t;
+  }
+  var allDay = /^\d{4}-\d{2}-\d{2}$/.test(HAUSMESSE.start);
+  var fairStart = !HAUSMESSE.start ? NaN : allDay ? berlinMidnight(HAUSMESSE.start) : new Date(HAUSMESSE.start).getTime();
+  var fairEnd = HAUSMESSE.end ? new Date(HAUSMESSE.end).getTime() : fairStart + (allDay ? 24 : 8) * 3600000;
   if (!isNaN(fairStart)) {
     var day = new Date(fairStart).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     var hm = function (ms) { return new Date(ms).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }); };
-    $('fairWhen').textContent = day + ', ' + hm(fairStart) + (HAUSMESSE.end ? '–' + hm(fairEnd) : '') + ' Uhr';
+    $('fairWhen').textContent = allDay ? day : day + ', ' + hm(fairStart) + (HAUSMESSE.end ? '–' + hm(fairEnd) : '') + ' Uhr';
     var fairTick = function () {
       var now = Date.now(), p = function (n) { return String(n).padStart(2, '0'); };
       var before = now < fairStart, during = !before && now < fairEnd;

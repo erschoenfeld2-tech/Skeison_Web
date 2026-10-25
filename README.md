@@ -17,7 +17,7 @@ Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seit
 - **Discord:** Der Einladungslink steht in `site/gaming/index.html` (`discordLink`) und in der Fußzeile von `site/index.html`, der Code für die Mitgliederzahlen in `site/gaming/gaming.js` (`DISCORD_INVITE`) und der Support-Link in `site/wunschliste/` (`DISCORD` in `app.js`, Texte in `index.html`).
 - **Skin:** `site/skin/skeison.png` austauschen (64×64-PNG, z. B. von NameMC oder minecraft.net).
 - **Cobblemon-Ankündigung:** Text in `site/gaming/index.html`, Startzeit als `START` in `site/gaming/gaming.js` und `COBBLEMON_START` in `site/main.js`.
-- **Hausmesse:** Termin in `site/main.js` bei `HAUSMESSE` eintragen (`start`, `end`, deutsche Zeit). Ohne Termin steht „Termin folgt“, mit Termin läuft der Countdown, während der Messe erscheint „Die Hausmesse läuft“.
+- **Hausmesse:** Termin in `site/main.js` bei `HAUSMESSE` (deutsche Zeit). Nur ein Datum (`'2026-11-24'`) gilt für den ganzen Tag, mit Uhrzeit (`start`/`end`) zählt der Countdown bis Messebeginn. Während der Messe erscheint „Die Hausmesse läuft“. Der Stand-Link steht in `site/index.html`.
 - **Projekte:** Eigene Texte, Untertitel und Stichworte stehen in `site/main.js` bei `PROJECTS`. Weitere öffentliche Repos erscheinen automatisch. `chart` zeigt bei einem Projekt die Kurslot-Vorschau für das angegebene Symbol.
 - **Direktlink zur Bewerbung:** `cobblemon/#bewerben` öffnet das Bewerbungsformular sofort.
 - **Animationen:** Elemente mit `data-reveal` blenden beim Scrollen ein, Kinder von `data-stagger` nacheinander. Bei „Bewegung reduzieren“ im Betriebssystem sind alle Animationen aus.
