@@ -5,7 +5,7 @@
   var START = new Date('2026-10-30T15:00:00+01:00').getTime();
   // Live-Daten des Cobblemon Servers (Branch "data", wie auf der Server-Seite)
   var DATA_BASE = 'https://raw.githubusercontent.com/erschoenfeld2-tech/Skeison_Web/data/';
-  var DISCORD_INVITE = 'CbkHAsBHQk';
+  var DISCORD_INVITE = 'tjVKFGMRw7';
   var $ = function (id) { return document.getElementById(id); };
   var FX = window.FX || { roll: function (e, v) { e.textContent = v; }, count: function (e, v, f) { e.textContent = (f || String)(v); }, reduced: true };
   var nf = new Intl.NumberFormat('de-DE');
