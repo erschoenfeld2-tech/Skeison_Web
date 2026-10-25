@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Skeison</title>
-<meta name="description" content="Skeison – Gaming-Profil, Discord, aktuelle GitHub-Projekte, der Cobblemon Server und die Wunschliste">
-<meta name="theme-color" content="#0e1220">
-<meta property="og:title" content="Skeison">
-<meta property="og:description" content="Gaming-Profil, Discord, GitHub-Projekte und der Cobblemon Server.">
+<title>Skeison · Projekte und Seiten</title>
+<meta name="description" content="Projekte und Seiten von Skeison: Wunschliste, Raumbuchungssystem (Hausmesse am 24.11., Stand 23), Kurslot und weitere GitHub-Projekte.">
+<meta name="theme-color" content="#0b0f1c">
+<meta property="og:title" content="Skeison · Projekte und Seiten">
+<meta property="og:description" content="Wunschliste, Raumbuchungssystem auf der Hausmesse (Stand 23), Kurslot und weitere Projekte.">
 <meta property="og:type" content="website">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/fx.css">
@@ -16,7 +16,7 @@
 </head>
 <body>
 <a class="skip" href="#inhalt">Zum Inhalt springen</a>
-<div class="fx-bg" aria-hidden="true"><i></i><i></i><i></i><canvas></canvas></div>
+<div class="fx-bg" aria-hidden="true"><i></i><i></i></div>
 
 <div class="nav-bar">
   <nav class="nav wrap" aria-label="Hauptnavigation">
@@ -24,131 +24,109 @@
     <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
     <div class="links" id="navLinks">
       <span class="nav-ind" aria-hidden="true"></span>
-      <a href="#profil">Profil</a><a href="#discord">Discord</a><a href="#projekte">Projekte</a><a href="wunschliste/">Wunschliste</a>
-      <a class="nav-cta" href="cobblemon/">Cobblemon Server <span class="arr">→</span></a>
+      <a href="#wunschliste">Wunschliste</a><a href="#hausmesse">Hausmesse</a><a href="#projekte">Projekte</a><a href="#gaming">Gaming</a>
+      <a class="nav-cta" href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">GitHub <span class="arr">↗</span></a>
     </div>
   </nav>
   <div class="nav-progress"></div>
 </div>
 
-<header class="hero wrap" id="top">
-  <div class="announce" data-stagger>
-    <svg class="ball" viewBox="0 0 220 220" aria-hidden="true">
-      <g class="spin">
-        <path d="M18 110a92 92 0 0 1 184 0z" fill="currentColor" opacity=".1"/>
-        <circle cx="110" cy="110" r="92" fill="none" stroke="currentColor" stroke-width="5"/>
-        <path d="M18 110h62M140 110h62" stroke="currentColor" stroke-width="5"/>
-        <circle cx="110" cy="110" r="27" fill="none" stroke="currentColor" stroke-width="5"/>
-        <circle cx="110" cy="110" r="11" fill="currentColor"/>
-      </g>
-    </svg>
-    <span class="tag">Ankündigung</span>
-    <h1>Der Cobblemon Server <em>startet!</em></h1>
-    <p class="lead">Eigener Server mit Ranglisten, Wochensiegern und Nether- und End-Freischaltung. Jetzt für die Whitelist bewerben.</p>
-    <div class="cd" id="cd" role="timer" aria-label="Zeit bis zum Serverstart">
-      <div><b id="cd-d">–</b><span>Tage</span></div><div><b id="cd-h">–</b><span>Std</span></div><div><b id="cd-m">–</b><span>Min</span></div><div><b id="cd-s">–</b><span>Sek</span></div>
-    </div>
-    <p class="live" id="live" hidden><span class="ping pulse"></span>Der Server ist online – komm vorbei!</p>
-    <div class="cta-row">
-      <a class="btn" href="cobblemon/#bewerben">Für die Whitelist bewerben</a>
-      <a class="btn ghost" href="cobblemon/">Zur Server-Seite <span class="arr">→</span></a>
-    </div>
-  </div>
-
-  <a class="announce2" href="wunschliste/" data-reveal>
-    <svg class="gift" viewBox="0 0 64 64" aria-hidden="true">
-      <rect x="10" y="28" width="44" height="28" rx="3" fill="currentColor" opacity=".9"/>
-      <rect x="6" y="20" width="52" height="11" rx="3" fill="currentColor"/>
-      <rect x="28" y="20" width="8" height="36" fill="#fff" opacity=".85"/>
-      <path d="M32 20c-4-9-15-11-15-4 0 4 7 5 15 4zM32 20c4-9 15-11 15-4 0 4-7 5-15 4z" fill="none" stroke="#fff" stroke-width="3" opacity=".85"/>
-    </svg>
-    <span class="tag">Neu</span>
-    <span class="a2-text"><b>Die Wunschliste ist da</b><span class="muted"> · Wünsche teilen mit Freunden und Familie</span></span>
-    <span class="a2-go">Ansehen <span class="arr">→</span></span>
-  </a>
+<header class="intro wrap" id="top" data-stagger>
+  <p class="eyebrow">Projekte · Tools · Seiten</p>
+  <h1>Skeison</h1>
+  <p class="lead">Web-Apps, Tools und Server an einem Ort: von der Raumbuchung mit NFC-Check-in über Kursanalysen bis zur Wunschliste für Freunde und Familie.</p>
 </header>
 
 <main class="wrap" id="inhalt">
-  <section id="profil">
-    <div class="sec-head" data-reveal><h2>Profil</h2></div>
-    <div class="profile" data-stagger>
-      <article class="pcard mc">
-        <div class="skin">
-          <div class="pedestal" aria-hidden="true"></div>
-          <canvas id="skinCanvas" width="300" height="400" aria-label="3D-Ansicht des Minecraft-Skins Skeison"></canvas>
-        </div>
-        <div class="chips" id="skinAnims" role="group" aria-label="Animation des Skins">
-          <button type="button" class="chip on" data-anim="idle" aria-pressed="true">Stehen</button>
-          <button type="button" class="chip" data-anim="wave" aria-pressed="false">Winken</button>
-          <button type="button" class="chip" data-anim="walk" aria-pressed="false">Laufen</button>
-          <button type="button" class="chip" data-anim="run" aria-pressed="false">Rennen</button>
-        </div>
-        <p class="muted hint"><span class="t-fine">Ziehen zum Drehen · Mausrad zum Zoomen</span><span class="t-touch">Wischen zum Drehen · Zwei Finger zum Zoomen</span></p>
-        <div class="pinfo"><h3>Skeison</h3><p class="muted">Minecraft-Name</p></div>
-      </article>
-
-      <article class="pcard steam" id="steam">
-        <div class="steam-head">
-          <img id="stAvatar" class="avatar" alt="" width="72" height="72" hidden>
-          <div class="pinfo"><h3 id="stName">Steam</h3><p class="muted" id="stState">Steam-Profil</p></div>
-          <a class="btn small" id="stLink" href="https://steamcommunity.com/profiles/76561199246929908/" target="_blank" rel="noopener">Profil öffnen <span class="arr">↗</span></a>
-        </div>
-        <dl class="stats" id="stStats" hidden></dl>
-        <div id="stBody" aria-busy="true">
-          <div class="sk sk-line" style="width:38%"></div>
-          <div class="games"><div class="sk sk-game"></div><div class="sk sk-game"></div><div class="sk sk-game"></div><div class="sk sk-game"></div></div>
-        </div>
-      </article>
+  <!-- Neu: Wunschliste -->
+  <section id="wunschliste" class="feature" data-reveal>
+    <div class="feature-text">
+      <span class="tag pink">Neu</span>
+      <h2>Wunschliste</h2>
+      <p class="lead">Eigene Wunschlisten mit Bild und Preis anlegen, für Freunde, Familie oder Gruppen freigeben und Geschenke reservieren, ohne dass etwas doppelt geschenkt wird.</p>
+      <ul class="checks">
+        <li>Wünsche per Link mit Bild und Preis</li>
+        <li>Freigaben für einzelne Personen oder Gruppen</li>
+        <li>Reservieren, ohne dass die beschenkte Person es sieht</li>
+      </ul>
+      <div class="cta-row">
+        <a class="btn pink" href="wunschliste/">Wunschliste öffnen <span class="arr">→</span></a>
+        <a class="btn ghost" href="wunschliste/?registrieren">Konto erstellen</a>
+      </div>
+    </div>
+    <div class="wl-demo" aria-hidden="true">
+      <div class="wl-head"><b>Geburtstag</b><span>3 Wünsche · geteilt mit Familie</span></div>
+      <div class="wl-item"><span class="wl-img">🎧</span><span class="wl-t"><b>Kopfhörer</b><small>129,00 €</small></span><span class="wl-st free">Frei</span></div>
+      <div class="wl-item"><span class="wl-img">📚</span><span class="wl-t"><b>Buch-Reihe</b><small>34,90 €</small></span><span class="wl-flip"><span class="wl-st free">Frei</span><span class="wl-st res">Reserviert</span></span></div>
+      <div class="wl-item"><span class="wl-img">🪴</span><span class="wl-t"><b>Zimmerpflanze</b><small>24,50 €</small></span><span class="wl-st res">Reserviert</span></div>
     </div>
   </section>
 
-  <section id="discord" class="discord" data-reveal>
-    <div class="dc-orb" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+  <!-- Hausmesse: Raumbuchungssystem an Stand 23 -->
+  <section id="hausmesse" class="fair" data-reveal>
+    <div class="fair-text">
+      <span class="tag">Hausmesse · Stand 23</span>
+      <h2>Raumbuchungssystem live erleben</h2>
+      <p class="lead">Am 24. November zeigen wir auf der Hausmesse an <b>Stand&nbsp;23</b> unser Raumbuchungssystem: Räume über einen interaktiven Grundriss buchen und per NFC-Karte einchecken.</p>
+      <dl class="facts">
+        <div><dt>Wann</dt><dd id="fairWhen">Dienstag, 24. November 2026, 09:00–15:00 Uhr</dd></div>
+        <div><dt>Wo</dt><dd><span id="fairWhere">Walther-Rathenau-Gewerbeschule, Freiburg</span> · <a id="fairMap" href="https://www.openstreetmap.org/search?query=Walther-Rathenau-Gewerbeschule%20Freiburg" target="_blank" rel="noopener">Karte <span class="arr">↗</span></a></dd></div>
+        <div><dt>Stand</dt><dd>23 · <a href="https://hausmesse.wara.de/" target="_blank" rel="noopener">Alle Stände <span class="arr">↗</span></a></dd></div>
+      </dl>
+      <div class="cd" id="fairCd" role="timer" aria-label="Zeit bis zur Hausmesse" hidden>
+        <div><b id="fd-d">–</b><span>Tage</span></div><div><b id="fd-h">–</b><span>Std</span></div><div><b id="fd-m">–</b><span>Min</span></div><div><b id="fd-s">–</b><span>Sek</span></div>
+      </div>
+      <p class="live" id="fairLive" hidden><span class="ping pulse"></span><span id="fairLiveText"></span></p>
+      <div class="cta-row">
+        <a class="btn" href="https://hausmesse.wara.de/Stand23/index.html" target="_blank" rel="noopener">Zu unserem Stand <span class="arr">↗</span></a>
+        <a class="btn ghost" id="rbLink" href="https://github.com/erschoenfeld2-tech/Raumbuchungssytem" target="_blank" rel="noopener">Projekt ansehen <span class="arr">↗</span></a>
+      </div>
     </div>
-    <div class="dc-text">
-      
-      <h2>Discord</h2>
-      <p>Komm in meinen Discord-Server: Mitspielen, Fragen stellen, Neuigkeiten zum Server. Hilfe zur Wunschliste gibt es dort ebenfalls: einfach der Rolle <b>@Admin</b> oder mir direkt schreiben.</p>
-      <p class="dc-stats" id="dcStats" hidden></p>
+    <div class="plan" aria-hidden="true">
+      <svg viewBox="0 0 320 220">
+        <rect x="6" y="6" width="308" height="208" rx="10" class="plan-wall"/>
+        <rect x="18" y="18" width="92" height="78" rx="6" class="room" style="--d:0s"/>
+        <rect x="118" y="18" width="84" height="78" rx="6" class="room" style="--d:-3s"/>
+        <rect x="210" y="18" width="92" height="78" rx="6" class="room" style="--d:-6.5s"/>
+        <rect x="18" y="124" width="132" height="78" rx="6" class="room" style="--d:-1.5s"/>
+        <rect x="158" y="124" width="144" height="78" rx="6" class="room" style="--d:-8s"/>
+        <rect x="18" y="102" width="284" height="16" rx="4" class="hall"/>
+        <circle cx="160" cy="110" r="5" class="nfc-dot"/>
+        <text x="64" y="61">A1</text><text x="160" y="61">A2</text><text x="256" y="61">A3</text><text x="84" y="167">Labor</text><text x="230" y="167">Besprechung</text>
+      </svg>
+      <div class="plan-legend"><span><i class="lg free"></i>frei</span><span><i class="lg busy"></i>belegt</span><span><i class="lg nfc"></i>NFC-Check-in</span></div>
     </div>
-    <a class="btn discord-btn" id="discordLink" href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Discord beitreten <span class="arr">→</span></a>
   </section>
 
+  <!-- Projekte -->
   <section id="projekte">
     <div class="sec-head" data-reveal>
-      <h2>Aktuelle GitHub-Projekte</h2>
-      <a class="more-link" href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">Alle auf GitHub <span class="arr">→</span></a>
+      <h2>Projekte</h2>
+      <a class="more-link" href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">Alle auf GitHub <span class="arr">↗</span></a>
     </div>
-    <div id="repos" class="repos" data-stagger aria-busy="true">
-      <div class="repo sk-card"><div class="sk sk-line" style="width:55%"></div><div class="sk sk-line"></div><div class="sk sk-line" style="width:70%"></div><div class="sk sk-btns"></div></div>
-      <div class="repo sk-card"><div class="sk sk-line" style="width:45%"></div><div class="sk sk-line"></div><div class="sk sk-line" style="width:60%"></div><div class="sk sk-btns"></div></div>
-      <div class="repo sk-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-line"></div><div class="sk sk-line" style="width:65%"></div><div class="sk sk-btns"></div></div>
+    <div id="projects" class="projects" data-stagger aria-busy="true">
+      <div class="project sk-card wide"><div class="sk sk-line" style="width:35%"></div><div class="sk sk-line"></div><div class="sk sk-line" style="width:70%"></div><div class="sk sk-chart"></div></div>
+      <div class="project sk-card"><div class="sk sk-line" style="width:50%"></div><div class="sk sk-line"></div><div class="sk sk-line" style="width:60%"></div><div class="sk sk-btns"></div></div>
+      <div class="project sk-card"><div class="sk sk-line" style="width:45%"></div><div class="sk sk-line"></div><div class="sk sk-line" style="width:65%"></div><div class="sk sk-btns"></div></div>
     </div>
   </section>
 
-  <section id="server">
-    <div class="sec-head" data-reveal><h2>Meine Server</h2></div>
-    <a class="card" href="cobblemon/" data-reveal>
-      <div class="ico" aria-hidden="true">🎮</div>
+  <!-- Gaming-Profil als Unterseite, Cobblemon als Zusatz -->
+  <section id="gaming">
+    <div class="sec-head" data-reveal><h2>Gaming</h2></div>
+    <a class="teaser" href="gaming/" data-reveal>
+      <canvas class="face" id="face" width="8" height="8" aria-hidden="true"></canvas>
       <div>
-        <h3>Cobblemon Server</h3>
-        <p class="muted">Status, Zeitplan, Ranglisten, Wochensieger und Whitelist-Bewerbung.</p>
-        <p class="srv" id="srvStatus" hidden></p>
+        <h3>Gaming-Profil</h3>
+        <p class="muted">Minecraft-Skin in 3D, Steam-Highlights und der Discord-Server.</p>
       </div>
       <span class="go arr" aria-hidden="true">→</span>
     </a>
-  </section>
-
-  <section id="wunschliste">
-    <div class="sec-head" data-reveal><h2>Für Freunde &amp; Familie</h2></div>
-    <a class="card" href="wunschliste/" data-reveal>
-      <div class="ico" aria-hidden="true">🎁</div>
-      <div>
-        <h3>Wunschliste</h3>
-        <p class="muted">Eigene Wunschlisten mit Bild und Preis, Freigaben für Gruppen und Reservieren ohne Doppelgeschenke.</p>
-      </div>
-      <span class="go arr" aria-hidden="true">→</span>
+    <a class="addon" href="cobblemon/" data-reveal>
+      <span class="addon-label">Dazu</span>
+      <span class="addon-text"><b>Cobblemon Server</b><span class="muted"> · Ranglisten, Zeitplan und Whitelist</span></span>
+      <span class="srv" id="srvStatus" hidden></span>
+      <span class="arr" aria-hidden="true">→</span>
     </a>
   </section>
 </main>
@@ -157,17 +135,16 @@
   <div class="wrap foot-in" data-reveal>
     <div>
       <a class="brand" href="#top"><span class="brand-mark">S</span>Skeison</a>
-      <p class="muted">Gaming, Projekte und der Cobblemon Server.</p>
+      <p class="muted">Projekte, Tools und Seiten.</p>
     </div>
     <nav class="foot-links" aria-label="Fußzeile">
-      <a href="#profil">Profil</a><a href="#discord">Discord</a><a href="#projekte">Projekte</a><a href="cobblemon/">Cobblemon Server</a><a href="wunschliste/">Wunschliste</a>
-      <a href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">GitHub ↗</a>
+      <a href="wunschliste/">Wunschliste</a><a href="#hausmesse">Hausmesse</a><a href="#projekte">Projekte</a><a href="gaming/">Gaming-Profil</a><a href="cobblemon/">Cobblemon Server</a>
+      <a href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">GitHub ↗</a><a href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Discord ↗</a>
     </nav>
   </div>
   <div class="wrap foot-bottom muted">© <span id="year">2026</span> Skeison</div>
 </footer>
 <script src="assets/fx.js"></script>
-<script src="assets/skinview3d.bundle.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

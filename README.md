@@ -1,24 +1,27 @@
 # Skeison Web
 
-Hauptwebseite (GitHub Pages, Ordner `site/`) mit dem Cobblemon Server als Unterseite.
+Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seiten. Unterseiten: Wunschliste, Gaming-Profil und – als Teil des Gaming-Profils – der Cobblemon Server.
 
 | Pfad | Inhalt |
 | --- | --- |
-| `site/index.html`, `main.css`, `main.js` | Hauptseite: Ankündigung, 3D-Skin, Discord, GitHub-Projekte |
+| `site/index.html`, `main.css`, `main.js` | Hauptseite: Wunschliste (neu), Hausmesse mit Countdown, Projekte (mit Kurslot-Chart), Gaming-Teaser. `main.css` enthält auch die gemeinsame Basis der Unterseiten |
+| `site/gaming/` | Gaming-Profil: Cobblemon-Ankündigung, 3D-Skin, Steam, Discord, Server-Karte |
 | `site/cobblemon/` | Cobblemon-Server-Seite (Status, Zeitplan, Ranglisten, Whitelist) inkl. `data/`, `download/`, `announcements.json` |
 | `site/wunschliste/` | Wunschliste für Freunde & Familie: Konten, Freunde per `Name#CODE`, private Rollen/Tags, Gruppen, Listen mit 5 Designs, Reservieren |
 | `site/skin/skeison.png` | Minecraft-Skin für die 3D-Ansicht |
-| `site/assets/fx.css`, `fx.js` | Gemeinsame Effekte beider Seiten: Navigation, Pixel-Partikel im Hintergrund, Scroll-Animationen, rollender Countdown, Toast |
+| `site/assets/fx.css`, `fx.js` | Gemeinsame Effekte aller Seiten: Navigation, Pixel-Partikel im Hintergrund, Scroll-Animationen, rollender Countdown, Toast |
 | `site/assets/skinview3d.*` | skinview3d (MIT-Lizenz) |
 | `supabase/` | Datenbank-Schema (`whitelist.sql`, `wunschliste.sql`) und Edge Functions |
 
 ## Anpassen
-- **Discord:** Der Einladungslink steht in `site/index.html` (`discordLink`), der Code für die Mitgliederzahlen in `site/main.js` (`DISCORD_INVITE`) und der Support-Link in `site/wunschliste/` (`DISCORD` in `app.js`, Texte in `index.html`).
+- **Discord:** Der Einladungslink steht in `site/gaming/index.html` (`discordLink`) und in der Fußzeile von `site/index.html`, der Code für die Mitgliederzahlen in `site/gaming/gaming.js` (`DISCORD_INVITE`) und der Support-Link in `site/wunschliste/` (`DISCORD` in `app.js`, Texte in `index.html`).
 - **Skin:** `site/skin/skeison.png` austauschen (64×64-PNG, z. B. von NameMC oder minecraft.net).
-- **Ankündigung:** Text in `site/index.html`, Startzeit als `START` in `site/main.js`.
+- **Cobblemon-Ankündigung:** Text in `site/gaming/index.html`, Startzeit als `START` in `site/gaming/gaming.js` und `COBBLEMON_START` in `site/main.js`.
+- **Hausmesse:** Termin in `site/main.js` bei `HAUSMESSE` (deutsche Zeit). Nur ein Datum (`'2026-11-24'`) gilt für den ganzen Tag, mit Uhrzeit (`start`/`end`) zählt der Countdown bis Messebeginn. Während der Messe erscheint „Die Hausmesse läuft“. Der Stand-Link steht in `site/index.html`.
+- **Projekte:** Eigene Texte, Untertitel und Stichworte stehen in `site/main.js` bei `PROJECTS`. Weitere öffentliche Repos erscheinen automatisch. `chart` zeigt bei einem Projekt die Kurslot-Vorschau für das angegebene Symbol.
 - **Direktlink zur Bewerbung:** `cobblemon/#bewerben` öffnet das Bewerbungsformular sofort.
 - **Animationen:** Elemente mit `data-reveal` blenden beim Scrollen ein, Kinder von `data-stagger` nacheinander. Bei „Bewegung reduzieren“ im Betriebssystem sind alle Animationen aus.
-- **GitHub-Projekte:** werden live über die GitHub-API geladen (zuletzt aktualisierte, öffentliche Repos von `erschoenfeld2-tech`). „Live ansehen“ erscheint, wenn beim Repo eine Website (Feld „Website“ in den Repo-Einstellungen) eingetragen oder GitHub Pages aktiv ist.
+- **GitHub-Daten:** Sprache, letzte Änderung und Live-Link kommen live über die GitHub-API (öffentliche Repos von `erschoenfeld2-tech`). „Live ansehen“ erscheint, wenn beim Repo eine Website (Feld „Website“ in den Repo-Einstellungen) eingetragen oder GitHub Pages aktiv ist.
 - **Steam:** `tools/fetch-steam.js` erzeugt beim Deploy (und alle 6 Stunden) `site/steam.json`. Der letzte erfolgreiche Stand wird im Workflow zwischengespeichert und weiter angezeigt, wenn Steam einen Abruf ablehnt.
   Steam blockt die öffentliche Profil-Ansicht für GitHub-Server meist (Fehler 429). Zuverlässig wird es mit einem kostenlosen API-Schlüssel:
   1. Auf https://steamcommunity.com/dev/apikey einen Schlüssel anlegen (Domain z. B. `erschoenfeld2-tech.github.io`).
