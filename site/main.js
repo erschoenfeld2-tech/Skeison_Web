@@ -4,7 +4,7 @@
 
   // Hausmesse (deutsche Zeit). Nur ein Datum ('2026-11-24') gilt fuer den ganzen Tag; mit Uhrzeit z. B.
   // start: '2026-11-24T09:00:00+01:00', end: '2026-11-24T15:00:00+01:00'. Ohne Termin steht dort "Termin folgt".
-  var HAUSMESSE = { start: '2026-11-24', end: '', stand: '23' };
+  var HAUSMESSE = { start: '2026-11-24T09:00:00+01:00', end: '2026-11-24T15:00:00+01:00', stand: '23' };
 
   // Projekte mit eigener Beschreibung (Repo-Name wie auf GitHub, Gross-/Kleinschreibung egal).
   // Alle weiteren oeffentlichen Repos erscheinen automatisch danach.
