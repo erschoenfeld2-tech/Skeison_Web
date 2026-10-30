@@ -11,6 +11,7 @@ Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seit
 | `site/skin/skeison.png` | Minecraft-Skin für die 3D-Ansicht |
 | `site/assets/fx.css`, `fx.js` | Gemeinsame Effekte aller Seiten: Navigation, Pixel-Partikel im Hintergrund, Scroll-Animationen, rollender Countdown, Toast |
 | `site/assets/skinview3d.*` | skinview3d (MIT-Lizenz) |
+| `server/kubejs/server_scripts/` | KubeJS-Skripte für den Minecraft-Server (z. B. `nicknames.js`: `/nick` für Admins) |
 | `supabase/` | Datenbank-Schema (`whitelist.sql`, `wunschliste.sql`) und Edge Functions |
 
 ## Anpassen
@@ -20,6 +21,8 @@ Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seit
 - **Hausmesse:** Termin in `site/main.js` bei `HAUSMESSE` (deutsche Zeit). Nur ein Datum (`'2026-11-24'`) gilt für den ganzen Tag, mit Uhrzeit (`start`/`end`) zählt der Countdown bis Messebeginn. Während der Messe erscheint „Die Hausmesse läuft“. Der Stand-Link steht in `site/index.html`.
 - **Projekte:** Eigene Texte, Untertitel und Stichworte stehen in `site/main.js` bei `PROJECTS`. Weitere öffentliche Repos erscheinen automatisch. `chart` zeigt bei einem Projekt die Kurslot-Vorschau für das angegebene Symbol.
 - **Direktlink zur Bewerbung:** `cobblemon/#bewerben` öffnet das Bewerbungsformular sofort.
+- **Cobblemon-Wochen:** Woche 1 ist die Woche des Serverstarts (Mo–So); Wochensieger aus Wochen davor werden ausgeblendet. Das Datum einer Woche erscheint per Klick auf „Woche N“.
+- **Alle Statistiken:** `tools/sync-github.js` exportiert zusätzlich sämtliche Minecraft-Statistiken der Welt (`world/stats/*.json`, Namen aus `usercache.json`) als `stats.json` in den Branch `data`. Die Welt wird unter `MC_ROOT` automatisch gesucht (Ordner mit `level.dat` und `stats/`, der zuletzt geänderte gewinnt); ein fester Pfad geht per Umgebungsvariable `MC_STATS_DIR`. Nach einer Änderung am Skript muss es auf dem Server-PC neu gestartet werden.
 - **Animationen:** Elemente mit `data-reveal` blenden beim Scrollen ein, Kinder von `data-stagger` nacheinander. Bei „Bewegung reduzieren“ im Betriebssystem sind alle Animationen aus.
 - **GitHub-Daten:** Sprache, letzte Änderung und Live-Link kommen live über die GitHub-API (öffentliche Repos von `erschoenfeld2-tech`). „Live ansehen“ erscheint, wenn beim Repo eine Website (Feld „Website“ in den Repo-Einstellungen) eingetragen oder GitHub Pages aktiv ist.
 - **Steam:** `tools/fetch-steam.js` erzeugt beim Deploy (und alle 6 Stunden) `site/steam.json`. Der letzte erfolgreiche Stand wird im Workflow zwischengespeichert und weiter angezeigt, wenn Steam einen Abruf ablehnt.
@@ -40,3 +43,14 @@ Läuft komplett über das Supabase-Projekt `skeison-whitelist`; die Seite selbst
 - **Admin werden:** Erst ganz normal registrieren, dann im Supabase-Dashboard im SQL Editor ausführen (E-Mail anpassen):
   `insert into public.wl_admins select id from auth.users where email = 'deine@mail.de';`
   Danach erscheint nach dem nächsten Laden der Seite der Menüpunkt *Admin*. Admins sehen alle Konten mit Kennzahlen, setzen Passwörter zurück und können Konten löschen (Admin-Konten nicht).
+
+## Minecraft-Server: Spitznamen (`/nick`)
+`server/kubejs/server_scripts/nicknames.js` nach `<Serverordner>/kubejs/server_scripts/` kopieren und den Server neu starten (KubeJS ist im Modpack enthalten, die Spieler müssen nichts aktualisieren).
+
+| Befehl | Wirkung |
+| --- | --- |
+| `/nick <Spieler> <Name>` | Anzeigename im Chat, in der Tab-Liste und in Servernachrichten; Farbcodes mit `&` (z. B. `&aGrün`), max. 32 Zeichen |
+| `/nick <Spieler> reset` | echter Name wieder |
+| `/nicks` | alle Spitznamen mit echtem Namen |
+
+Nur für Operatoren (`/op <Name>`). Das Namensschild über dem Kopf zeigt weiter den echten Namen. Fehler stehen in `logs/kubejs/server.log`.
