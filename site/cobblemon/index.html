@@ -71,9 +71,12 @@
   <section id="boards">
     <div class="sec-head" data-reveal>
       <h2>Ranglisten</h2>
-      <div class="seg" role="tablist" aria-label="Zeitraum">
-        <button class="on" data-mode="week" type="button">Diese Woche</button>
-        <button data-mode="total" type="button">Gesamt</button>
+      <div class="head-tools">
+        <div class="seg" role="tablist" aria-label="Zeitraum">
+          <button class="on" data-mode="week" type="button">Diese Woche</button>
+          <button data-mode="total" type="button">Gesamt</button>
+        </div>
+        <button class="btn ghost" type="button" id="statsBtn">📊 Alle Statistiken</button>
       </div>
     </div>
     <p id="weekInfo" class="muted"></p>
@@ -115,6 +118,21 @@
   </div>
   <p id="bdDesc" class="muted"></p>
   <ul id="bdList" class="rows"></ul>
+</dialog>
+
+<dialog id="statsDlg" class="dlg wide" aria-labelledby="stTitle">
+  <div class="dlg-head"><h2 id="stTitle">Alle Statistiken</h2><button type="button" class="btn ghost" data-close aria-label="Schließen">✕</button></div>
+  <div id="stPick">
+    <div class="dlg-tools"><input id="stSearch" type="search" placeholder="Statistik suchen, z. B. Diamant, Sprünge, Zombie …" autocomplete="off" aria-label="Statistik suchen"></div>
+    <div class="cats" id="stCats" role="group" aria-label="Kategorie"></div>
+    <p class="st-info muted" id="stInfo">Statistiken werden geladen …</p>
+    <ul id="stList" class="stat-list"></ul>
+  </div>
+  <div id="stBoard" hidden>
+    <button type="button" class="btn ghost small" id="stBack">← Alle Statistiken</button>
+    <p id="stDesc" class="muted"></p>
+    <ul id="stRows" class="rows"></ul>
+  </div>
 </dialog>
 
 <footer class="foot"><div class="wrap muted foot-in"><span id="updated"></span><a href="../gaming/">← Zurück zum Gaming-Profil</a></div></footer>

@@ -64,7 +64,7 @@ section { margin: 84px 0; }
 .val { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); }
 .val small { color: var(--muted); font-weight: 500; margin-left: 4px; }
 .empty { color: var(--muted); padding: 10px; }
-.winners { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.winners { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 14px; }
 .win { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
 .win h3 { margin: 0 0 8px; font-size: 1rem; }
 .win ul { list-style: none; margin: 0; padding: 0; font-size: .92rem; }
@@ -141,3 +141,32 @@ body:has(.hero[data-phase="end"]) .fx-bg { color: #c49bff; } body:has(.hero[data
 .back a:hover .arr { transform: translateX(-4px); }
 .empty-box { grid-column: 1 / -1; padding: 18px 20px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
 .empty-box p { margin: 0; }
+
+/* Ranglisten-Kopf: Zeitraum und Statistik-Suche */
+.head-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.pill.unk::before { background: var(--accent); }
+/* Zeitplan: laufender Serverstart */
+.ms.active { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.ms.active .ms-state { color: #06210f; background: var(--ok); border-color: var(--ok); }
+/* Wochensieger: "Woche N", Datum per Klick */
+.win h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.wk { cursor: pointer; font: inherit; font-weight: 800; color: var(--text); background: none; border: 0; padding: 0; display: inline-flex; align-items: center; gap: 6px; }
+.wk::after { content: "▾"; color: var(--muted); font-size: .8em; transition: transform .25s var(--ease); }
+.wk[aria-expanded="true"]::after { transform: rotate(180deg); }
+.wk:hover { color: var(--accent); }
+.wk-date { color: var(--muted); font-size: .85rem; font-weight: 600; }
+/* Alle Statistiken */
+.cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 6px; }
+.cat { cursor: pointer; font: inherit; font-size: .82rem; font-weight: 700; padding: 5px 11px; border-radius: 6px; color: var(--muted); background: transparent; border: 1px solid var(--line); transition: color .2s, border-color .2s, background-color .2s; }
+.cat:hover { color: var(--text); border-color: var(--accent); }
+.cat.on { color: #1a1500; background: var(--accent); border-color: var(--accent); }
+.st-info { margin: 6px 0; font-size: .85rem; }
+.stat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 52vh; overflow: auto; overflow-x: hidden; }
+.stat { width: 100%; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; font: inherit; color: var(--text); padding: 8px 12px; border-radius: 8px; border: 1px solid transparent; background: rgba(255,255,255,.03); transition: border-color .2s, background-color .2s; }
+.stat:hover, .stat:focus-visible { border-color: var(--accent); }
+.st-name { display: flex; flex-direction: column; min-width: 0; flex: 1; } .st-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .st-name small { color: var(--muted); font-size: .76rem; }
+.st-lead { color: var(--muted); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48%; }
+#stRows { max-height: 55vh; overflow: auto; margin-top: 10px; }
+#stBoard .btn.small { margin-top: 10px; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .stat { background: rgba(20,26,51,.04); } }
+@media (max-width: 520px) { .stat { flex-direction: column; align-items: flex-start; gap: 2px; } .st-lead { max-width: 100%; } }

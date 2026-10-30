@@ -17,7 +17,7 @@
   function tick() {
     var left = START - Date.now(), p = function (n) { return String(n).padStart(2, '0'); };
     $('cd').hidden = left <= 0; $('live').hidden = left > 0;
-    if (left <= 0) return;
+    if (left <= 0) { if (!tick.done) { tick.done = true; $('annTitle').textContent = 'Der Cobblemon Server ist gestartet!'; $('annTag').textContent = 'Läuft'; } return; }
     var s = Math.floor(left / 1000);
     FX.roll($('cd-d'), Math.floor(s / 86400)); FX.roll($('cd-h'), p(Math.floor(s % 86400 / 3600)));
     FX.roll($('cd-m'), p(Math.floor(s % 3600 / 60))); FX.roll($('cd-s'), p(s % 60));
@@ -87,8 +87,8 @@
   function srv(cls, text) { var s = $('srvStatus'); s.className = 'srv ' + cls; s.textContent = ''; s.appendChild(el('span', cls === 'up' ? 'ping pulse' : 'ping')); s.appendChild(document.createTextNode(text)); s.hidden = false; }
   if (Date.now() < START) srv('soon', 'Start am ' + new Date(START).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' Uhr');
   else fetch(DATA_BASE + 'leaderboards.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (d) {
-    var s = d.server || {};
-    if (s.up) srv('up', 'Online · ' + s.online + '/' + s.max + ' Spieler'); else srv('down', 'Gerade offline');
+    var s = d.server || {}, stale = Date.now() - new Date(d.updated).getTime() > 45 * 60000;
+    if (stale) srv('soon', 'Status unbekannt'); else if (s.up) srv('up', 'Aktiv · ' + s.online + '/' + s.max + ' Spieler online'); else srv('down', 'Gerade offline');
   }).catch(function () {});
 
   // Mitglieder- und Online-Zahl des Discord-Servers (oeffentliche Einladungs-Info, bei Fehler ausgeblendet)

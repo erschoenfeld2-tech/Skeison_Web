@@ -171,7 +171,7 @@
   function srv(cls, text) { var s = $('srvStatus'); s.className = 'srv ' + cls; s.textContent = ''; s.appendChild(el('span', cls === 'up' ? 'ping pulse' : 'ping')); s.appendChild(document.createTextNode(text)); s.hidden = false; }
   if (Date.now() < COBBLEMON_START) srv('soon', 'Start ' + new Date(COBBLEMON_START).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr');
   else getJson(DATA_BASE + 'leaderboards.json?t=' + Date.now(), { cache: 'no-store' }).then(function (d) {
-    var s = d.server || {};
-    if (s.up) srv('up', 'Online · ' + s.online + '/' + s.max); else srv('down', 'Offline');
+    var s = d.server || {}, stale = Date.now() - new Date(d.updated).getTime() > 45 * 60000;
+    if (stale) srv('soon', 'Status unbekannt'); else if (s.up) srv('up', 'Aktiv · ' + s.online + '/' + s.max + ' online'); else srv('down', 'Offline');
   }).catch(function () {});
 })();
