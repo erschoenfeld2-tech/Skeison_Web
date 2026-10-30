@@ -11,6 +11,7 @@ Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seit
 | `site/skin/skeison.png` | Minecraft-Skin für die 3D-Ansicht |
 | `site/assets/fx.css`, `fx.js` | Gemeinsame Effekte aller Seiten: Navigation, Pixel-Partikel im Hintergrund, Scroll-Animationen, rollender Countdown, Toast |
 | `site/assets/skinview3d.*` | skinview3d (MIT-Lizenz) |
+| `server/kubejs/server_scripts/` | KubeJS-Skripte für den Minecraft-Server (z. B. `nicknames.js`: `/nick` für Admins) |
 | `supabase/` | Datenbank-Schema (`whitelist.sql`, `wunschliste.sql`) und Edge Functions |
 
 ## Anpassen
@@ -42,3 +43,14 @@ Läuft komplett über das Supabase-Projekt `skeison-whitelist`; die Seite selbst
 - **Admin werden:** Erst ganz normal registrieren, dann im Supabase-Dashboard im SQL Editor ausführen (E-Mail anpassen):
   `insert into public.wl_admins select id from auth.users where email = 'deine@mail.de';`
   Danach erscheint nach dem nächsten Laden der Seite der Menüpunkt *Admin*. Admins sehen alle Konten mit Kennzahlen, setzen Passwörter zurück und können Konten löschen (Admin-Konten nicht).
+
+## Minecraft-Server: Spitznamen (`/nick`)
+`server/kubejs/server_scripts/nicknames.js` nach `<Serverordner>/kubejs/server_scripts/` kopieren und den Server neu starten (KubeJS ist im Modpack enthalten, die Spieler müssen nichts aktualisieren).
+
+| Befehl | Wirkung |
+| --- | --- |
+| `/nick <Spieler> <Name>` | Anzeigename im Chat, in der Tab-Liste und in Servernachrichten; Farbcodes mit `&` (z. B. `&aGrün`), max. 32 Zeichen |
+| `/nick <Spieler> reset` | echter Name wieder |
+| `/nicks` | alle Spitznamen mit echtem Namen |
+
+Nur für Operatoren (`/op <Name>`). Das Namensschild über dem Kopf zeigt weiter den echten Namen. Fehler stehen in `logs/kubejs/server.log`.
