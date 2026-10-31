@@ -42,6 +42,14 @@
   var COLORS = ['#ffcb05', '#7fb5ff', '#ff8a8a', '#7be0b0', '#c9a0ff', '#ffb36b', '#6fd6e8', '#f0a0d0'];
 
   function hue(name) { var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return COLORS[h % COLORS.length]; }
+  // Spieler-Koepfe: Die Skins liegen im Branch "data" (skins/<name>.png, vom Sync-Skript von Mojang geholt); der eigene Skin liegt schon in der Seite.
+  // Der Buchstabe in der Spielerfarbe ist der Ersatz, solange (oder falls) kein Skin da ist. Kopf und Hut-Ebene schneidet das CSS aus (.av .skin).
+  var LOCAL_SKINS = { skeison: new URL('../skin/skeison.png', document.baseURI).href };
+  function skinUrl(name) { var k = name.toLowerCase(); return LOCAL_SKINS[k] || DATA_BASE + 'skins/' + encodeURIComponent(k) + '.png'; }
+  function avatar(name, small) {
+    var a = el('span', 'av' + (small ? ' sm' : ''), name.charAt(0).toUpperCase()); a.style.background = hue(name);
+    var h = el('i', 'skin'); h.style.setProperty('--skin', 'url("' + skinUrl(name) + '")'); a.appendChild(h); return a;
+  }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
   function getJson(url) { return fetch(url + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); }
   function fetchJson(url) { return getJson(DATA_BASE + url.replace(/^data\//, '')).catch(function () { return getJson(url); }); }
@@ -52,7 +60,11 @@
     else if (s && s.up) { pill.className = 'pill on'; pill.textContent = 'Aktiv · ' + s.online + '/' + s.max + ' Spieler online'; }
     else { pill.className = 'pill off'; pill.textContent = 'Offline'; }
     $('addr').textContent = (s && s.address) || '–';
-    $('players').textContent = s && !stale && s.names && s.names.length ? 'Gerade online: ' + s.names.join(', ') : '';
+    var box = $('players'); box.textContent = '';
+    if (s && !stale && s.names && s.names.length) {
+      box.appendChild(el('span', 'who-label', 'Gerade online:'));
+      s.names.forEach(function (n) { var c = el('span', 'who'); c.appendChild(avatar(n, true)); c.appendChild(document.createTextNode(n)); box.appendChild(c); });
+    }
   }
 
   function renderBoards() {
@@ -73,7 +85,7 @@
         list.slice(0, 3).forEach(function (e, i) {
           var li = el('li', 'row r' + (i + 1)); li.style.setProperty('--i', i);
           li.appendChild(el('span', 'rank', String(i + 1)));
-          var av = el('span', 'av', e.name.charAt(0).toUpperCase()); av.style.background = hue(e.name); li.appendChild(av);
+          li.appendChild(avatar(e.name));
           li.appendChild(el('span', 'name', e.name));
           var v = el('span', 'val', nf.format(e.value)); v.appendChild(el('small', '', b.unit)); li.appendChild(v);
           ul.appendChild(li);
@@ -90,7 +102,7 @@
     list.forEach(function (e, i) {
       var li = el('li', 'row r' + (e.rank <= 3 ? e.rank : '')); li.style.setProperty('--i', Math.min(i, 15));
       li.appendChild(el('span', 'rank', String(e.rank)));
-      var av = el('span', 'av', e.name.charAt(0).toUpperCase()); av.style.background = hue(e.name); li.appendChild(av);
+      li.appendChild(avatar(e.name));
       li.appendChild(el('span', 'name', e.name));
       var v = el('span', 'val', nf.format(e.value)); v.appendChild(el('small', '', b.unit)); li.appendChild(v);
       ul.appendChild(li);
@@ -153,7 +165,9 @@
       data.boards.filter(function (b) { return !b.pending; }).forEach(function (b) {
         var first = (w.winners[b.id] || [])[0];
         var li = el('li'); li.appendChild(el('span', '', b.icon + ' ' + b.title));
-        li.appendChild(el('strong', '', first ? first.name + ' (' + nf.format(first.value) + ')' : '–')); ul.appendChild(li);
+        var win = el('strong', 'who-inline');
+        if (first) { win.appendChild(avatar(first.name, true)); win.appendChild(document.createTextNode(first.name + ' (' + nf.format(first.value) + ')')); } else win.textContent = '–';
+        li.appendChild(win); ul.appendChild(li);
       });
       c.appendChild(ul); box.appendChild(c);
     });
@@ -379,7 +393,9 @@
       var o = el('option', '', p[0]); o.value = String(p[1]); sel.appendChild(o);
     });
     sel.value = keep; if (sel.value !== keep) { stPlayer = 'all'; sel.value = 'all'; }
+    showSelectedHead();
   }
+  function showSelectedHead() { var h = $('stHead'); h.textContent = ''; if (stats && stPlayer !== 'all') h.appendChild(avatar(stats.players[+stPlayer])); }
   // stats.json laden (hoechstens alle 5 Minuten neu)
   function ensureStats() {
     if (stats && Date.now() - stLoadedAt < 300000) return Promise.resolve(stats);
@@ -428,8 +444,9 @@
     });
     th.appendChild(b); return th;
   }
-  function cellButton(x, text) {
-    var b = el('button', 'cell', text); b.type = 'button'; b.title = 'Rangliste ansehen';
+  function cellButton(x, text, name) {
+    var b = el('button', 'cell', name ? '' : text); b.type = 'button'; b.title = 'Rangliste ansehen';
+    if (name) { b.classList.add('with-head'); b.appendChild(avatar(name, true)); b.appendChild(document.createTextNode(text)); }
     b.addEventListener('click', function () { openStat(x); }); return b;
   }
   function renderTable() {
@@ -450,7 +467,7 @@
       });
       if (tab.id === 'general') {
         var x0 = r.cells[0], td = el('td', stPlayer === 'all' ? 'lead' : 'num');
-        if (stPlayer === 'all') { var top = x0.list[0]; td.appendChild(top ? cellButton(x0, stats.players[top[0]] + ' · ' + fmtCell(x0, top[1])) : el('span', 'zero', '–')); }
+        if (stPlayer === 'all') { var top = x0.list[0]; td.appendChild(top ? cellButton(x0, stats.players[top[0]] + ' · ' + fmtCell(x0, top[1]), stats.players[top[0]]) : el('span', 'zero', '–')); }
         else td.appendChild(el('span', '', r.lead + '. von ' + x0.list.length));
         tr.appendChild(td);
       }
@@ -478,7 +495,7 @@
     x.list.forEach(function (e, i) {
       var name = stats.players[e[0]] || '?', li = el('li', 'row r' + (i < 3 ? i + 1 : '') + (String(e[0]) === stPlayer ? ' me' : '')); li.style.setProperty('--i', Math.min(i, 15));
       li.appendChild(el('span', 'rank', String(i + 1)));
-      var av = el('span', 'av', name.charAt(0).toUpperCase()); av.style.background = hue(name); li.appendChild(av);
+      li.appendChild(avatar(name));
       li.appendChild(el('span', 'name', name)); li.appendChild(el('span', 'val', fmtStat(e[1], unit)));
       ul.appendChild(li);
     });
@@ -494,7 +511,7 @@
   }
   $('statsBtn').addEventListener('click', function () { openStats(function () { $('stSearch').focus(); }); });
   $('stSearch').addEventListener('input', function () { if (stats) { stLimit = 100; renderTable(); } });
-  $('stPlayer').addEventListener('change', function () { stPlayer = this.value; stLimit = 100; if (stats) renderTable(); });
+  $('stPlayer').addEventListener('change', function () { stPlayer = this.value; stLimit = 100; showSelectedHead(); if (stats) renderTable(); });
   $('stMore').addEventListener('click', function () { stLimit += 200; renderTable(); });
   $('stBack').addEventListener('click', function () { showPick(); });
 
@@ -532,7 +549,7 @@
     picks.forEach(function (x) {
       var card = el('article', 'card'), head = el('header'), unit = unitOf(x.cat, x.key);
       card.tabIndex = 0; card.setAttribute('role', 'button'); card.setAttribute('aria-label', x.label + ' – Rangliste anzeigen');
-      var open = function () { stPlayer = 'all'; $('stPlayer').value = 'all'; openStats(function () { openStat(x); }); };
+      var open = function () { stPlayer = 'all'; $('stPlayer').value = 'all'; showSelectedHead(); openStats(function () { openStat(x); }); };
       card.addEventListener('click', open);
       card.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } });
       head.appendChild(el('div', 'ico', GROUP_ICON[groupOf(x)] || '📊'));
@@ -541,7 +558,7 @@
       x.list.slice(0, 3).forEach(function (e, i) {
         var name = stats.players[e[0]] || '?', li = el('li', 'row r' + (i + 1)); li.style.setProperty('--i', i);
         li.appendChild(el('span', 'rank', String(i + 1)));
-        var av = el('span', 'av', name.charAt(0).toUpperCase()); av.style.background = hue(name); li.appendChild(av);
+        li.appendChild(avatar(name));
         li.appendChild(el('span', 'name', name)); li.appendChild(el('span', 'val', fmtStat(e[1], unit)));
         ul.appendChild(li);
       });

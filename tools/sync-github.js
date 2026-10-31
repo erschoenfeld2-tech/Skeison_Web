@@ -5,10 +5,11 @@
 // die Statistik-Suche auf der Webseite. Die Welt wird unter MC_ROOT gesucht; fester Pfad per MC_STATS_DIR.
 // Ausserdem berechnet es die Rangliste "Collector" (verschiedene GEFANGENE Pokemon, aus den Pokedex-Dateien der Spieler, siehe
 // pokedex.js) und fuegt sie in leaderboards.json/history.json ein. Der Wochenstand dafuer liegt in github-sync/collector-state.json.
+// Und es holt die Skins der Spieler von Mojang (skins.js) und legt sie als skins/<name>.png in den Branch, damit die Webseite die Koepfe zeigen kann.
 // Start: node sync-github.js   (am besten in start-services.bat aufnehmen)
 'use strict';
 const fs = require('fs'), path = require('path'), cp = require('child_process');
-const pokedex = require('./pokedex.js');
+const pokedex = require('./pokedex.js'), skins = require('./skins.js');
 
 const ROOT = process.env.MC_ROOT || 'C:\\MinecraftHosting';
 const REPO_URL = process.env.SYNC_REPO || 'https://github.com/erschoenfeld2-tech/Skeison_Web.git';
@@ -21,6 +22,8 @@ const FILES = [ // [Quelle, Ziel im Branch]
   [path.join(ROOT, 'web', 'data', 'stats.json'), 'stats.json'],   // von exportStats() erzeugt
 ];
 const STATE_FILE = path.join(ROOT, 'github-sync', 'collector-state.json');
+const SKIN_STATE = path.join(ROOT, 'github-sync', 'skins-state.json');
+const SKIN_DIR = path.join(WORK, 'skins');
 const FIRST_WEEK = pokedex.mondayOf(process.env.SERVER_START || '2026-10-30T15:00:00+01:00'); // Montag der Woche des Serverstarts
 const INTERVAL_MS = 2 * 60 * 1000;   // Pruefintervall
 const MAX_AGE_MS = 30 * 60 * 1000;   // auch ohne Aenderung spaetestens alle 30 min (Zeitstempel/Status frisch halten)
@@ -51,7 +54,7 @@ function init() {
 // Ordner, die beim Suchen der Welt uebersprungen werden (gross und ohne Welt darin)
 const SKIP = new Set(['node_modules', '.git', 'github-sync', 'mods', 'config', 'libraries', 'logs', 'crash-reports', 'region', 'entities', 'poi',
   'playerdata', 'advancements', 'datapacks', 'DIM-1', 'DIM1', 'resourcepacks', 'shaderpacks', 'versions', 'cache', 'web']);
-let statsDir = process.env.MC_STATS_DIR || '', statsFoundAt = 0, statsWarned = false;
+let statsDir = process.env.MC_STATS_DIR || '', statsFoundAt = 0, statsWarned = false, exportedPlayers = []; // exportedPlayers: [{ name, uuid }]
 
 // Sucht Welt-Ordner (level.dat + stats/) und nimmt den mit den zuletzt geaenderten Statistiken
 function findStatsDir() {
@@ -84,17 +87,19 @@ function playerNames(serverDir) {
 function exportStats(out) {
   if (!process.env.MC_STATS_DIR && (!statsDir || Date.now() - statsFoundAt > 3600000)) { statsDir = findStatsDir() || ''; statsFoundAt = Date.now(); }
   if (!statsDir) { if (!statsWarned) { log('Keine Welt mit stats-Ordner unter ' + ROOT + ' gefunden (MC_STATS_DIR setzen).'); statsWarned = true; } return; }
-  const names = playerNames(path.dirname(path.dirname(statsDir))), players = [], stats = {};
+  const names = playerNames(path.dirname(path.dirname(statsDir))), players = [], stats = {}, roster = [];
   for (const f of fs.readdirSync(statsDir)) {
     if (!f.endsWith('.json')) continue;
     let j; try { j = JSON.parse(fs.readFileSync(path.join(statsDir, f), 'utf8')); } catch (e) { continue; }
     const uuid = f.slice(0, -5).toLowerCase(), idx = players.push(names[uuid] || uuid.slice(0, 8)) - 1;
+    if (names[uuid]) roster.push({ name: names[uuid], uuid });
     for (const [cat, vals] of Object.entries(j.stats || {})) {
       const c = stats[cat] || (stats[cat] = {});
       for (const [key, v] of Object.entries(vals)) if (typeof v === 'number' && v > 0) (c[key] || (c[key] = [])).push([idx, v]);
     }
   }
   for (const c of Object.values(stats)) for (const list of Object.values(c)) list.sort((a, b) => b[1] - a[1]);
+  exportedPlayers = roster;
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, JSON.stringify({ updated: new Date().toISOString(), players, stats }));
 }
@@ -131,7 +136,8 @@ function cycle() {
   try { exportStats(FILES[FILES.length - 1][0]); } catch (e) { log('Statistik-Export fehlgeschlagen: ' + e.message); }
   let dex = null; try { dex = readCollector(); } catch (e) { log('Collector-Daten nicht lesbar: ' + e.message); }
   const dexSig = dex ? JSON.stringify([...dex].map(([u, d]) => [u, d.caught.size])) : ''; // neue Faenge sollen sofort hochgeladen werden
-  const snap = FILES.map(([src]) => normalized(src)).join('|') + '|' + dexSig;
+  let skinSig = ''; try { skinSig = fs.readdirSync(SKIN_DIR).map((f) => f + fs.statSync(path.join(SKIN_DIR, f)).size).join(','); } catch (e) {} // neue Skins sofort hochladen
+  const snap = FILES.map(([src]) => normalized(src)).join('|') + '|' + dexSig + '|' + skinSig;
   if (snap === last && Date.now() - lastPush < MAX_AGE_MS) return;
   for (const [src, dst] of FILES) if (fs.existsSync(src)) fs.copyFileSync(src, path.join(WORK, dst));
   if (dex && fs.existsSync(path.join(WORK, 'leaderboards.json'))) { try { applyCollector(dex); } catch (e) { log('Collector-Rangliste fehlgeschlagen: ' + e.message); } }
@@ -147,9 +153,12 @@ function cycle() {
   log('Daten nach GitHub synchronisiert.');
 }
 
-module.exports = { exportStats, findStatsDir, readCollector, applyCollector };
+module.exports = { exportStats, findStatsDir, readCollector, applyCollector, getPlayers: () => exportedPlayers };
 if (require.main === module) {
   init();
   const run = () => { try { cycle(); } catch (e) { log('Fehler: ' + (e.stderr ? e.stderr.toString() : e.message)); } };
   run(); setInterval(run, INTERVAL_MS);
+  // Skins im Hintergrund holen: erster Lauf kurz nach dem Start (wenn die Spielerliste steht), danach alle 30 Minuten
+  const skinRun = () => skins.syncSkins(exportedPlayers, SKIN_DIR, { stateFile: SKIN_STATE, log }).catch((e) => log('Skins: ' + e.message));
+  setTimeout(skinRun, 20000); setInterval(skinRun, 30 * 60 * 1000);
 }
