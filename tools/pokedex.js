@@ -1,13 +1,14 @@
 // Liest die Pokedex-Dateien der Spieler (Cobblemon) und berechnet die Rangliste "Collector":
 // die Anzahl VERSCHIEDENER gefangener Pokemon-Arten (gesehene zaehlen nicht; die bisherige Rangliste heisst jetzt "Pokedex Collector").
 // Wird vom Sync-Skript (sync-github.js) benutzt und in leaderboards.json / history.json eingefuegt.
-// Dateiformat (Cobblemon): <welt>/pokedex/<xx>/<uuid>.json bzw. <welt>/cobblemonplayerdata/<xx>/<uuid>.json mit
-//   speciesRecords -> "<art>" -> formRecords -> "<form>" -> knowledge: "ENCOUNTERED" | "CAUGHT"
+// Dateiformat (Cobblemon 1.8.2): <welt>/pokedex/<xx>/<uuid>.nbt (gzip-NBT; aeltere Staende evtl. .json) mit
+//   speciesRecords -> "<art>" -> formRecords -> "<form>" -> knowledge: "SEEN" | "OWNED" (= gefangen/erhalten; aeltere Staende: "ENCOUNTERED" | "CAUGHT")
 // Die Suche nach speciesRecords ist bewusst tolerant (beliebige Tiefe), falls sich der Aufbau zwischen Versionen leicht aendert.
 'use strict';
 const fs = require('fs'), path = require('path');
+const { parse: parseNbt } = require('./nbt.js');
 
-const UUID_FILE = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}\.json$/i;
+const UUID_FILE = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}\.(json|nbt)$/i;
 const DIRS = ['pokedex', 'cobblemonplayerdata'];
 // Ordner der Welt, die nie Spielerdaten enthalten (gross): beim Suchen uebersprungen
 const SKIP = new Set(['region', 'entities', 'poi', 'playerdata', 'advancements', 'stats', 'datapacks', 'DIM-1', 'DIM1', 'logs', 'crash-reports', 'node_modules', '.git']);
@@ -27,7 +28,10 @@ function candidateDirs(world) {
   return [...found];
 }
 
-function dashed(f) { return f.slice(0, -5).replace(/-/g, '').toLowerCase().replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5'); }
+function dashed(f) { return f.replace(/\.(json|nbt)$/i, '').replace(/-/g, '').toLowerCase().replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5'); }
+
+// .nbt (gzip oder roh) oder .json einlesen
+function readFile(file) { const b = fs.readFileSync(file); return /\.nbt$/i.test(file) ? parseNbt(b) : JSON.parse(b.toString('utf8')); }
 
 function listJson(dir, depth, out) {
   let entries; try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return out; }
@@ -52,7 +56,7 @@ function knowledge(rec) {
   let best = 0;
   (function walk(o, d) {
     if (!o || typeof o !== 'object' || d > 5) return;
-    if (typeof o.knowledge === 'string') { const k = o.knowledge.toUpperCase(); best = Math.max(best, k === 'CAUGHT' ? 2 : k === 'ENCOUNTERED' ? 1 : 0); }
+    if (typeof o.knowledge === 'string') { const k = o.knowledge.toUpperCase(); best = Math.max(best, (k === 'OWNED' || k === 'CAUGHT') ? 2 : (k === 'ENCOUNTERED' || k === 'SEEN') ? 1 : 0); }
     for (const v of Object.values(o)) walk(v, d + 1);
   })(rec, 0);
   return best;
@@ -63,7 +67,7 @@ function readDex(world) {
   const dex = new Map();
   for (const dir of candidateDirs(world)) {
     for (const file of listJson(dir, 3, [])) {
-      let j; try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { continue; }
+      let j; try { j = readFile(file); } catch (e) { continue; }
       const recs = findRecords(j, 4); if (!recs) continue;
       const uuid = dashed(path.basename(file)), d = dex.get(uuid) || { caught: new Set(), seen: new Set() };
       for (const [species, rec] of Object.entries(recs)) {
@@ -97,7 +101,7 @@ function diagnose(world) {
   for (const dir of candidateDirs(world)) {
     const files = listJson(dir, 3, []);
     d.dirs.push({ dir: path.relative(world, dir) || '.', uuidFiles: files.length });
-    if (!d.sample && files.length) { try { d.sample = { file: path.relative(world, files[0]), outline: outline(JSON.parse(fs.readFileSync(files[0], 'utf8')), 4) }; } catch (e) { d.sample = { file: path.relative(world, files[0]), error: e.message }; } }
+    if (!d.sample && files.length) { try { d.sample = { file: path.relative(world, files[0]), outline: outline(readFile(files[0]), 4) }; } catch (e) { d.sample = { file: path.relative(world, files[0]), error: e.message }; } }
   }
   return d;
 }
