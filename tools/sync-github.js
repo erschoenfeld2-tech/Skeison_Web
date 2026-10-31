@@ -25,6 +25,8 @@ const STATE_FILE = path.join(ROOT, 'github-sync', 'collector-state.json');
 const SKIN_STATE = path.join(ROOT, 'github-sync', 'skins-state.json');
 const SKIN_DIR = path.join(WORK, 'skins');
 const FIRST_WEEK = pokedex.mondayOf(process.env.SERVER_START || '2026-10-30T15:00:00+01:00'); // Montag der Woche des Serverstarts
+const VERSION = 'v4';                // steht in sync-status.json; so sieht man, welche Fassung wirklich auf dem Server-PC laeuft
+const SKIN_INTERVAL_MS = 10 * 60 * 1000; // Skins: neue Spieler werden spaetestens nach 10 Minuten mitgenommen
 const INTERVAL_MS = 2 * 60 * 1000;   // Pruefintervall
 const MAX_AGE_MS = 30 * 60 * 1000;   // auch ohne Aenderung spaetestens alle 30 min (Zeitstempel/Status frisch halten)
 
@@ -104,17 +106,31 @@ function exportStats(out) {
   fs.writeFileSync(out, JSON.stringify({ updated: new Date().toISOString(), players, stats }));
 }
 
+/* ---------- Status (sync-status.json im Branch "data") ---------- */
+// Das Skript meldet, was es gerade tut und warum etwas fehlt (Collector, Skins). Die Webseite und die Fernwartung lesen das.
+const status = { script: VERSION, started: new Date().toISOString(), collector: { status: 'wartet' }, skins: { status: 'wartet' } };
+function statusSig() { return JSON.stringify([status.collector, Object.assign({}, status.skins, { lastRun: 0 })]); } // ohne Uhrzeit, damit nicht dauernd hochgeladen wird
+function writeStatus() {
+  const out = Object.assign({}, status, { updated: new Date().toISOString(), world: statsDir ? path.dirname(statsDir) : null, players: exportedPlayers.length });
+  fs.writeFileSync(path.join(WORK, 'sync-status.json'), JSON.stringify(out));
+}
+
 /* ---------- Collector: verschiedene gefangene Pokemon ---------- */
 let collectorWarned = false, collectorLogged = false, collectorState = null;
 function readCollector() {
-  if (!statsDir) return null;
+  if (!statsDir) { status.collector = { status: 'keine-welt', message: 'Keine Welt mit stats-Ordner gefunden.' }; return null; }
   const world = path.dirname(statsDir), dex = pokedex.readDex(world);
   if (!dex.size) {
-    if (!collectorWarned) { log('Collector: keine Pokedex-Dateien unter ' + path.join(world, 'pokedex') + ' bzw. cobblemonplayerdata gefunden - Rangliste "Collector" wird nicht berechnet.'); collectorWarned = true; }
+    const diag = pokedex.diagnose(world);
+    const msg = diag.dirs.length ? 'Pokédex-Ordner gefunden, aber keine lesbaren Spielerdateien (' + diag.dirs.map((d) => d.dir + ': ' + d.uuidFiles).join(', ') + ').' : 'Keine Pokédex-Ordner in der Welt gefunden.';
+    status.collector = Object.assign({ status: 'keine-dateien', message: msg }, diag);
+    if (!collectorWarned) { log('Collector: ' + msg + ' Rangliste "Collector" wird nicht berechnet. Details: sync-status.json im Branch data.'); collectorWarned = true; }
     return null;
   }
+  const names = playerNames(path.dirname(world)), total = [...dex.values()].reduce((a, d) => a + d.caught.size, 0);
+  status.collector = { status: 'ok', players: dex.size, caught: total };
+  collectorWarned = false;
   if (!collectorLogged) { // Kontrolle fuer den Betreiber: "gesehen+gefangen" sollte zur Rangliste "Pokedex Collector" passen
-    const names = playerNames(path.dirname(world));
     const top = [...dex].sort((a, b) => b[1].seen.size - a[1].seen.size).slice(0, 3).map(([u, d]) => (names[u] || u.slice(0, 8)) + ': ' + d.caught.size + ' gefangen / ' + d.seen.size + ' gesehen+gefangen');
     log('Collector: Pokedex von ' + dex.size + ' Spielern gelesen (' + top.join('; ') + ').'); collectorLogged = true;
   }
@@ -131,16 +147,27 @@ function applyCollector(dex) {
   if (JSON.stringify(collectorState) !== before) { fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true }); fs.writeFileSync(STATE_FILE, JSON.stringify(collectorState)); }
 }
 
+// Wer bekommt einen Skin? Alle Spieler mit Statistiken (mit UUID) und alle Namen aus den Ranglisten (ohne UUID, dann ueber den Namen)
+function skinRoster() {
+  const out = exportedPlayers.slice(), have = new Set(out.map((p) => p.name.toLowerCase()));
+  try {
+    const lb = JSON.parse(fs.readFileSync(path.join(WORK, 'leaderboards.json'), 'utf8'));
+    for (const b of lb.boards || []) for (const e of [].concat(b.week || [], b.total || [])) if (e && e.name && !have.has(e.name.toLowerCase())) { have.add(e.name.toLowerCase()); out.push({ name: e.name }); }
+  } catch (e) { /* noch keine Ranglisten */ }
+  return out;
+}
+
 let last = '', lastPush = 0, hasCommit = false;
 function cycle() {
   try { exportStats(FILES[FILES.length - 1][0]); } catch (e) { log('Statistik-Export fehlgeschlagen: ' + e.message); }
   let dex = null; try { dex = readCollector(); } catch (e) { log('Collector-Daten nicht lesbar: ' + e.message); }
   const dexSig = dex ? JSON.stringify([...dex].map(([u, d]) => [u, d.caught.size])) : ''; // neue Faenge sollen sofort hochgeladen werden
   let skinSig = ''; try { skinSig = fs.readdirSync(SKIN_DIR).map((f) => f + fs.statSync(path.join(SKIN_DIR, f)).size).join(','); } catch (e) {} // neue Skins sofort hochladen
-  const snap = FILES.map(([src]) => normalized(src)).join('|') + '|' + dexSig + '|' + skinSig;
+  const snap = FILES.map(([src]) => normalized(src)).join('|') + '|' + dexSig + '|' + skinSig + '|' + statusSig();
   if (snap === last && Date.now() - lastPush < MAX_AGE_MS) return;
   for (const [src, dst] of FILES) if (fs.existsSync(src)) fs.copyFileSync(src, path.join(WORK, dst));
   if (dex && fs.existsSync(path.join(WORK, 'leaderboards.json'))) { try { applyCollector(dex); } catch (e) { log('Collector-Rangliste fehlgeschlagen: ' + e.message); } }
+  try { writeStatus(); } catch (e) { log('Statusdatei nicht geschrieben: ' + e.message); }
   git('add', '-A');
   if (!hasCommit) {
     try { git('rev-parse', 'HEAD'); hasCommit = true; } catch (e) { /* noch kein Commit */ }
@@ -153,12 +180,16 @@ function cycle() {
   log('Daten nach GitHub synchronisiert.');
 }
 
-module.exports = { exportStats, findStatsDir, readCollector, applyCollector, getPlayers: () => exportedPlayers };
+module.exports = { init, cycle, exportStats, findStatsDir, readCollector, applyCollector, skinRoster, status, writeStatus, getPlayers: () => exportedPlayers };
 if (require.main === module) {
   init();
   const run = () => { try { cycle(); } catch (e) { log('Fehler: ' + (e.stderr ? e.stderr.toString() : e.message)); } };
   run(); setInterval(run, INTERVAL_MS);
-  // Skins im Hintergrund holen: erster Lauf kurz nach dem Start (wenn die Spielerliste steht), danach alle 30 Minuten
-  const skinRun = () => skins.syncSkins(exportedPlayers, SKIN_DIR, { stateFile: SKIN_STATE, log }).catch((e) => log('Skins: ' + e.message));
-  setTimeout(skinRun, 20000); setInterval(skinRun, 30 * 60 * 1000);
+  // Skins im Hintergrund holen: erster Lauf kurz nach dem Start (wenn die Spielerliste steht), danach alle 10 Minuten.
+  // Bei jedem Lauf werden alle bekannten Spieler geprueft (aus den Statistiken und den Ranglisten); neue ohne Skin werden geholt, alle anderen hoechstens einmal pro Tag.
+  const skinRun = () => skins.syncSkins(skinRoster(), SKIN_DIR, { stateFile: SKIN_STATE, log })
+    .then((r) => { status.skins = { status: r.rateLimited ? 'gebremst' : r.errors.length ? 'fehler' : 'ok', lastRun: new Date().toISOString(), known: r.known, files: r.files, got: r.got, missing: r.missing, errors: r.errors.slice(0, 5) }; })
+    .catch((e) => { log('Skins: ' + e.message); status.skins = { status: 'fehler', lastRun: new Date().toISOString(), errors: [e.message] }; });
+  setTimeout(skinRun, 20000); setInterval(skinRun, SKIN_INTERVAL_MS);
+  log('sync-github ' + VERSION + ' gestartet (Statistiken, Collector, Skins).');
 }

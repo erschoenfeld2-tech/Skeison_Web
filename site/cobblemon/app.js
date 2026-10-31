@@ -23,6 +23,20 @@
       d.boards.splice(at < 0 ? d.boards.length : at, 0, { id: 'caught', title: BOARD_META.caught.title, desc: BOARD_META.caught.desc, icon: BOARD_META.caught.icon, unit: 'Arten', week: [], total: [], pending: true });
     }
   }
+  // sync-status.json: Das Sync-Skript auf dem Server-PC meldet dort, was es tut und warum etwas fehlt (undefined = noch nicht geladen, null = Datei fehlt)
+  var syncStatus;
+  function loadSyncStatus() {
+    return fetchJson('data/sync-status.json').then(function (j) { syncStatus = j; }, function () { syncStatus = null; }).then(function () { if (data) renderBoards(); });
+  }
+  function pendingText() {
+    if (syncStatus === undefined) return 'Die Daten folgen mit dem nächsten Server-Update.';
+    if (syncStatus === null) return 'Das Sync-Skript auf dem Server-PC ist noch nicht auf dem neuesten Stand.';
+    if (syncStatus.updated && Date.now() - new Date(syncStatus.updated).getTime() > 60 * 60000) return 'Das Sync-Skript auf dem Server-PC hat sich seit über einer Stunde nicht gemeldet.';
+    var c = syncStatus.collector || {};
+    if (c.status === 'keine-dateien' || c.status === 'keine-welt') return 'Das Sync-Skript findet die Pokédex-Dateien nicht (Details in sync-status.json).';
+    if (c.status === 'ok') return 'Die Rangliste wird gerade berechnet und erscheint gleich.';
+    return 'Die Daten folgen mit dem nächsten Server-Update.';
+  }
   var mode = 'week', data = null, hist = null, openBoardId = null, phase = null;
   var STALE_MS = 45 * 60000; // aelter: Status unbekannt (Sync laedt ohne Aenderung nur alle 30 min hoch)
   function live() { return Date.now() >= START; }
@@ -48,12 +62,12 @@
   //  Vorarbeit auf dem Server-PC. Die Liste leer lassen, wenn keine Fremddienste angefragt werden sollen.
   var SKIN_FALLBACKS = ['https://minotar.net/skin/{name}', 'https://mc-heads.net/skin/{name}'];
   var LOCAL_SKINS = { skeison: new URL('../skin/skeison.png', document.baseURI).href };
-  var skinCache = {};
+  var skinCache = {}, skinBust = 0, pendingHeads = [], lastHeadRetry = Date.now();
   // Ergebnis: { url, legacy } oder null; legacy = altes 64x32-Format (Kopf liegt dort in anderer Hoehe, siehe .av .skin.legacy im CSS)
   function loadSkin(name) {
     var k = name.toLowerCase(); if (skinCache[k]) return skinCache[k];
     var list = []; if (LOCAL_SKINS[k]) list.push(LOCAL_SKINS[k]);
-    list.push(DATA_BASE + 'skins/' + encodeURIComponent(k) + '.png');
+    list.push(DATA_BASE + 'skins/' + encodeURIComponent(k) + '.png' + (skinBust ? '?r=' + skinBust : ''));
     if (/^[A-Za-z0-9_]{1,16}$/.test(name)) SKIN_FALLBACKS.forEach(function (t) { list.push(t.replace('{name}', encodeURIComponent(name))); });
     skinCache[k] = new Promise(function (done) {
       (function next(n) {
@@ -73,8 +87,24 @@
   function avatar(name, small) {
     var a = el('span', 'av' + (small ? ' sm' : ''), name.charAt(0).toUpperCase()); a.style.background = hue(name);
     var h = el('i', 'skin'); a.appendChild(h);
-    loadSkin(name).then(function (r) { if (!r) return; h.style.setProperty('--skin', 'url("' + r.url + '")'); if (r.legacy) h.classList.add('legacy'); });
+    loadSkin(name).then(function (r) { if (r) showSkin(h, r); else pendingHeads.push({ name: name, h: h }); });
     return a;
+  }
+  function showSkin(h, r) { h.style.setProperty('--skin', 'url("' + r.url + '")'); if (r.legacy) h.classList.add('legacy'); }
+  // Neue Spieler: Ihr Skin ist oft erst nach einigen Minuten verfuegbar (das Sync-Skript holt ihn alle 10 Minuten). Koepfe ohne Skin werden
+  // deshalb alle 5 Minuten erneut versucht und erscheinen dann ohne Neuladen der Seite.
+  function retryHeads() {
+    pendingHeads = pendingHeads.filter(function (p) { return document.body.contains(p.h); });
+    if (!pendingHeads.length) return;
+    var names = {}; pendingHeads.forEach(function (p) { names[p.name.toLowerCase()] = p.name; });
+    skinBust++;
+    Object.keys(names).forEach(function (k) {
+      delete skinCache[k];
+      loadSkin(names[k]).then(function (r) {
+        if (!r) return;
+        pendingHeads = pendingHeads.filter(function (p) { if (p.name.toLowerCase() !== k) return true; if (document.body.contains(p.h)) showSkin(p.h, r); return false; });
+      });
+    });
   }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
   function getJson(url) { return fetch(url + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); }
@@ -105,7 +135,7 @@
       var t = el('div'); t.appendChild(el('h3', '', b.title)); t.appendChild(el('p', '', b.desc)); head.appendChild(t);
       card.appendChild(head);
       var list = b[mode] || [];
-      if (!list.length) card.appendChild(el('p', 'empty', !live() ? 'Startet mit dem Serverstart.' : b.pending ? 'Die Daten folgen mit dem nächsten Server-Update.' : mode === 'week' ? 'Diese Woche noch keine Einträge.' : 'Noch keine Einträge.'));
+      if (!list.length) card.appendChild(el('p', 'empty', !live() ? 'Startet mit dem Serverstart.' : b.pending ? pendingText() : mode === 'week' ? 'Diese Woche noch keine Einträge.' : 'Noch keine Einträge.'));
       else {
         var ul = el('ul', 'rows');
         list.slice(0, 3).forEach(function (e, i) {
@@ -204,6 +234,7 @@
   function maybeLoad() {
     if (document.hidden) return;
     if (stats && dailyDay && dailyDay !== berlinDay()) ensureStats().then(renderDaily, function () {}); // neuer Tag: neue Tagesstatistiken
+    if (Date.now() - lastHeadRetry >= 300000) { lastHeadRetry = Date.now(); retryHeads(); }
     if (Date.now() - lastLoad >= 55000) load();
   }
   function load() {
@@ -216,6 +247,7 @@
       var key = JSON.stringify([d.boards, d.weekStart, d.weekEnd, phase]), changed = key !== lastKey; lastKey = key;
       data = d; renderStatus(d.server, d.updated); weekInfo();
       if (changed) { renderBoards(); renderWinners(); }
+      if (d.boards.some(function (b) { return b.pending; })) loadSyncStatus(); // Grund fuer die leere Karte holen
       var upd = new Date(d.updated), stale = Date.now() - upd.getTime() > STALE_MS;
       $('updated').textContent = (stale ? 'Daten seit ' : 'Zuletzt aktualisiert: ') + upd.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr' + (stale ? ' nicht aktualisiert' : '');
     }).catch(function () { renderStatus(null); $('updated').textContent = 'Daten momentan nicht verfügbar.'; });

@@ -9,6 +9,23 @@ const fs = require('fs'), path = require('path');
 
 const UUID_FILE = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}\.json$/i;
 const DIRS = ['pokedex', 'cobblemonplayerdata'];
+// Ordner der Welt, die nie Spielerdaten enthalten (gross): beim Suchen uebersprungen
+const SKIP = new Set(['region', 'entities', 'poi', 'playerdata', 'advancements', 'stats', 'datapacks', 'DIM-1', 'DIM1', 'logs', 'crash-reports', 'node_modules', '.git']);
+
+// Ordner mit Pokedex-Daten: die bekannten Namen plus alle Ordner (bis 3 Ebenen tief), deren Name "pokedex" oder "cobblemon" enthaelt
+function candidateDirs(world) {
+  const found = new Set(DIRS.map((d) => path.join(world, d)).filter((d) => fs.existsSync(d)));
+  (function walk(dir, depth) {
+    let entries; try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+    for (const e of entries) {
+      if (!e.isDirectory() || SKIP.has(e.name)) continue;
+      const p = path.join(dir, e.name);
+      if (/pokedex|cobblemon/i.test(e.name)) found.add(p);
+      else if (depth > 1) walk(p, depth - 1);
+    }
+  })(world, 3);
+  return [...found];
+}
 
 function dashed(f) { return f.slice(0, -5).replace(/-/g, '').toLowerCase().replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5'); }
 
@@ -44,8 +61,8 @@ function knowledge(rec) {
 // Map uuid -> { caught: Set(Arten), seen: Set(Arten, auch gefangene) }; gleiche Datei in beiden Ordnern: hoechster Stand gewinnt
 function readDex(world) {
   const dex = new Map();
-  for (const dir of DIRS) {
-    for (const file of listJson(path.join(world, dir), 3, [])) {
+  for (const dir of candidateDirs(world)) {
+    for (const file of listJson(dir, 3, [])) {
       let j; try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { continue; }
       const recs = findRecords(j, 4); if (!recs) continue;
       const uuid = dashed(path.basename(file)), d = dex.get(uuid) || { caught: new Set(), seen: new Set() };
@@ -58,6 +75,31 @@ function readDex(world) {
     }
   }
   return dex;
+}
+
+// Aufbau einer JSON-Datei ohne die eigentlichen Werte (nur Schluessel, Typen, kurze Texte): zeigt, wie die Datei gebaut ist
+function outline(o, depth) {
+  if (Array.isArray(o)) return o.length ? ['[' + o.length + ' Eintraege]', outline(o[0], depth - 1)] : [];
+  if (o && typeof o === 'object') {
+    if (depth <= 0) return '{...}';
+    const out = {}, keys = Object.keys(o);
+    keys.slice(0, 10).forEach((k) => { out[k] = outline(o[k], depth - 1); });
+    if (keys.length > 10) out['...'] = (keys.length - 10) + ' weitere';
+    return out;
+  }
+  return typeof o === 'string' ? (o.length <= 18 ? o : 'text') : typeof o;
+}
+
+// Fuer sync-status.json: Was liegt wo? Hilft, wenn keine Pokedex-Daten gefunden werden.
+function diagnose(world) {
+  const d = { worldEntries: [], dirs: [], sample: null };
+  try { d.worldEntries = fs.readdirSync(world).slice(0, 40); } catch (e) { d.worldEntries = ['(nicht lesbar: ' + e.message + ')']; }
+  for (const dir of candidateDirs(world)) {
+    const files = listJson(dir, 3, []);
+    d.dirs.push({ dir: path.relative(world, dir) || '.', uuidFiles: files.length });
+    if (!d.sample && files.length) { try { d.sample = { file: path.relative(world, files[0]), outline: outline(JSON.parse(fs.readFileSync(files[0], 'utf8')), 4) }; } catch (e) { d.sample = { file: path.relative(world, files[0]), error: e.message }; } }
+  }
+  return d;
 }
 
 const byValue = (a, b) => b.value - a.value || a.name.localeCompare(b.name);
@@ -99,4 +141,4 @@ function mondayOf(isoTime) {
   return d.toISOString().slice(0, 10);
 }
 
-module.exports = { readDex, augment, mondayOf, knowledge, findRecords };
+module.exports = { readDex, augment, mondayOf, knowledge, findRecords, candidateDirs, diagnose };

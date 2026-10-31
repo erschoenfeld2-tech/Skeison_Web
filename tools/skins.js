@@ -2,7 +2,8 @@
 // Die Webseite schneidet daraus den Kopf aus. Ablauf je Spieler:
 //   1. Skin-Adresse ueber die UUID (Session-Server), bei Servern ohne Online-Modus ueber den Namen -> UUID -> Session-Server
 //   2. PNG herunterladen und pruefen
-// Hoechstens ein Abruf pro Spieler und Tag (Mojang bremst sonst mit 429); bei Fehlern bleibt der alte Skin liegen.
+// Je Spieler hoechstens ein Abruf pro Tag (Mojang bremst sonst mit 429), ohne Fund nach 6 Stunden erneut, nach Fehlern nach 1 Stunde.
+// Neue Spieler werden bei jedem Lauf mitgenommen; fehlt die Datei eines bekannten Spielers, wird sie neu geholt. Bei Fehlern bleibt der alte Skin liegen.
 'use strict';
 const fs = require('fs'), path = require('path');
 
@@ -41,38 +42,40 @@ async function download(url) {
   return Buffer.from(await r.arrayBuffer());
 }
 
-// players: [{ name, uuid }]; state-Datei merkt sich, wann zuletzt geprueft wurde (auch bei Spielern ohne Skin)
+// players: [{ name, uuid }]. Die state-Datei merkt sich je Spieler, ab wann er wieder dran ist ("due").
 async function syncSkins(players, dir, opts) {
-  const o = Object.assign({ stateFile: null, log: () => {}, max: 12, maxAgeMs: 24 * 3600e3, retryMs: 3600e3, delayMs: 1500 }, opts);
+  const o = Object.assign({ stateFile: null, log: () => {}, max: 25, maxAgeMs: 24 * 3600e3, missingMs: 6 * 3600e3, retryMs: 3600e3, delayMs: 1500 }, opts);
   fs.mkdirSync(dir, { recursive: true });
   let state = {}; try { state = JSON.parse(fs.readFileSync(o.stateFile, 'utf8')); } catch (e) {}
-  const now = Date.now(); let tried = 0, got = 0, missing = [];
+  const now = Date.now(), seen = new Set(); let tried = 0, got = 0, rateLimited = false; const missing = [], errors = [];
   for (const p of players) {
     const key = String(p.name || '').toLowerCase();
-    if (!/^[a-z0-9_]{1,16}$/.test(key)) continue;
-    const st = state[key];
-    if (st && now - st.t < o.maxAgeMs) continue;
+    if (!/^[a-z0-9_]{1,16}$/.test(key) || seen.has(key)) continue;
+    seen.add(key);
+    const st = state[key], file = path.join(dir, key + '.png');
+    if (st && st.due && now < st.due && (st.ok === false || fs.existsSync(file))) continue; // noch nicht wieder dran (fehlende Datei zaehlt immer)
     if (tried >= o.max) break;
     tried++;
     try {
       let url = p.uuid ? await skinUrl(p.uuid).catch((e) => { if (/429/.test(e.message)) throw e; return null; }) : null;
       if (!url) { const id = await uuidByName(p.name); if (id) url = await skinUrl(id); }
-      if (!url) { state[key] = { t: now, ok: false }; missing.push(p.name); }
+      if (!url) { state[key] = { ok: false, due: now + o.missingMs }; missing.push(p.name); }
       else {
         const png = await download(url);
         if (!isPng(png)) throw new Error('keine gueltige PNG-Datei');
-        fs.writeFileSync(path.join(dir, key + '.png'), png); state[key] = { t: now, ok: true }; got++;
+        fs.writeFileSync(file, png); state[key] = { ok: true, due: now + o.maxAgeMs }; got++;
       }
     } catch (e) {
-      if (/429/.test(e.message)) { o.log('Skins: Mojang bremst (429), es geht spaeter weiter.'); break; }
+      if (/429/.test(e.message)) { o.log('Skins: Mojang bremst (429), es geht spaeter weiter.'); rateLimited = true; break; }
       o.log('Skins: ' + p.name + ' nicht geladen (' + e.message + '), neuer Versuch in einer Stunde.');
-      state[key] = { t: now - o.maxAgeMs + o.retryMs, ok: false };
+      errors.push(p.name + ': ' + e.message);
+      state[key] = { ok: fs.existsSync(file), due: now + o.retryMs }; // eine vorhandene Datei bleibt gueltig
     }
     await sleep(o.delayMs);
   }
   if (o.stateFile) { fs.mkdirSync(path.dirname(o.stateFile), { recursive: true }); fs.writeFileSync(o.stateFile, JSON.stringify(state)); }
   if (got || missing.length) o.log('Skins: ' + got + ' geladen' + (missing.length ? ', kein Skin gefunden fuer ' + missing.join(', ') + ' (Buchstabe als Ersatz)' : '') + '.');
-  return { tried, got, missing };
+  return { tried, got, missing, errors, rateLimited, known: seen.size, files: fs.readdirSync(dir).filter((f) => /\.png$/.test(f)).length };
 }
 
 module.exports = { syncSkins, skinUrl, uuidByName };
