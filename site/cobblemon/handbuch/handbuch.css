@@ -7,6 +7,7 @@
 .facts b { color: var(--text); font-size: .95rem; }
 
 .step-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn.fav { box-shadow: inset 0 -3px 0 rgba(0,0,0,.2), 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
 .links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; margin-top: 14px; }
 .lk { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 40px 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); text-decoration: none; color: var(--text); transition: border-color .2s, transform .3s var(--ease); }
 .lk:hover { color: var(--text); border-color: var(--accent); transform: translateY(-2px); }
