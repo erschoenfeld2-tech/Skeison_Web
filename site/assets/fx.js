@@ -8,6 +8,18 @@
   var FX = window.FX = { reduced: reduced };
   root.classList.add('fx');
 
+  // Ruhezustand: Ist der Tab verdeckt oder das Fenster nicht im Vordergrund, stehen alle Dauer-Animationen still
+  // (CSS-Klasse "fx-idle", Ereignis "fx:idle") und alles laeuft beim Zurueckkehren weiter. Spart im Hintergrund fast die gesamte CPU.
+  FX.idle = false;
+  function setIdle() {
+    var now = document.hidden || !document.hasFocus();
+    if (now === FX.idle) return;
+    FX.idle = now; root.classList.toggle('fx-idle', now);
+    document.dispatchEvent(new CustomEvent('fx:idle', { detail: now }));
+  }
+  window.addEventListener('blur', setIdle); window.addEventListener('focus', setIdle); document.addEventListener('visibilitychange', setIdle);
+  setIdle();
+
   // Countdown-Ziffer: alte Zahl rollt nach oben weg, neue rollt von unten herein
   FX.roll = function (el, val) {
     val = String(val);
@@ -143,41 +155,49 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && bar.classList.contains('open')) { setOpen(false); menu.focus(); } });
   }
 
-  // Aufsteigende eckige Pixel-Partikel (wie Minecraft-Partikel); Farbe folgt der Akzentfarbe (color von .fx-bg)
+  // Aufsteigende eckige Pixel-Partikel (wie Minecraft-Partikel); Farbe folgt der Akzentfarbe (color von .fx-bg).
+  // Sparsam gebaut: halbe Aufloesung (ein Partikel-Pixel = 2x2 Bildschirmpixel, per CSS hochskaliert), 12 Bilder pro Sekunde,
+  // Stillstand im Hintergrund. Vorher: Vollbild-Flaeche mit 60 Bildern pro Sekunde, dauerhaft.
   function initParticles() {
     var cv = document.querySelector('.fx-bg canvas');
     if (!cv || reduced || !cv.getContext) return;
-    var ctx = cv.getContext('2d'), dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var W = 0, H = 0, P = [], rgb = '255,203,5', raf = 0, lastColor = 0;
+    var ctx = cv.getContext('2d'), S = 2, FPS = 12;
+    var W = 0, H = 0, P = [], rgb = '255,203,5', timer = 0, raf = 0, last = 0, lastColor = 0, resizeT = 0;
     function readColor() { var m = getComputedStyle(cv.parentNode).color.match(/[\d.]+/g); if (m) rgb = m.slice(0, 3).join(','); }
     function spawn(anywhere) {
-      var life = 600 + Math.random() * 900;
-      return { x: Math.random() * W, y: anywhere ? Math.random() * H : H * (0.4 + Math.random() * 0.6), s: 2 + Math.floor(Math.random() * 3),
-        v: 0.12 + Math.random() * 0.25, w: Math.random() * 6.28, life: life, age: anywhere ? Math.random() * life : 0, a: 0.15 + Math.random() * 0.3 };
+      var life = 10 + Math.random() * 15; // Sekunden
+      return { x: Math.random() * W, y: anywhere ? Math.random() * H : H * (0.4 + Math.random() * 0.6), s: 1 + Math.floor(Math.random() * 2),
+        v: 3.5 + Math.random() * 8, w: Math.random() * 6.28, life: life, age: anywhere ? Math.random() * life : 0, a: 0.15 + Math.random() * 0.3 };
     }
     function size() {
-      W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      var n = Math.min(45, Math.round(W * H / 26000));
+      var cw = cv.clientWidth, ch = cv.clientHeight;
+      W = Math.ceil(cw / S); H = Math.ceil(ch / S); cv.width = W; cv.height = H;
+      var n = Math.min(45, Math.round(cw * ch / 26000));
       while (P.length < n) P.push(spawn(true));
       P.length = n;
     }
     function frame(t) {
-      raf = requestAnimationFrame(frame);
-      if (t - lastColor > 2000) { lastColor = t; readColor(); }
+      raf = 0;
+      var dt = Math.min((t - last) / 1000, 0.25); last = t;
+      if (t - lastColor > 5000) { lastColor = t; readColor(); }
       ctx.clearRect(0, 0, W, H);
       for (var i = 0; i < P.length; i++) {
         var q = P[i];
-        q.age++; q.y -= q.v; q.w += 0.01;
-        if (q.age > q.life || q.y < -10) { P[i] = spawn(false); continue; }
+        q.age += dt; q.y -= q.v * dt; q.w += 0.6 * dt;
+        if (q.age > q.life || q.y < -5) { P[i] = spawn(false); continue; }
         var k = q.age / q.life, fade = k < 0.15 ? k / 0.15 : k > 0.75 ? (1 - k) / 0.25 : 1;
         ctx.fillStyle = 'rgba(' + rgb + ',' + (q.a * fade).toFixed(3) + ')';
-        ctx.fillRect(Math.round(q.x + Math.sin(q.w) * 8), Math.round(q.y), q.s, q.s);
+        ctx.fillRect(Math.round(q.x + Math.sin(q.w) * 4), Math.round(q.y), q.s, q.s);
       }
+      schedule();
     }
-    readColor(); size();
-    window.addEventListener('resize', size);
-    document.addEventListener('visibilitychange', function () { cancelAnimationFrame(raf); if (!document.hidden) raf = requestAnimationFrame(frame); });
-    raf = requestAnimationFrame(frame);
+    // Zwischen den Bildern schlaeft der Tab (setTimeout), gezeichnet wird synchron zum Bildschirm
+    function schedule() { timer = setTimeout(function () { timer = 0; raf = requestAnimationFrame(frame); }, 1000 / FPS); }
+    function stop() { clearTimeout(timer); cancelAnimationFrame(raf); timer = raf = 0; }
+    function run() { if (timer || raf || FX.idle) return; last = performance.now(); readColor(); schedule(); }
+    readColor(); size(); run();
+    window.addEventListener('resize', function () { clearTimeout(resizeT); resizeT = setTimeout(size, 150); });
+    document.addEventListener('fx:idle', function (e) { if (e.detail) stop(); else run(); });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

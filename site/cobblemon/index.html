@@ -21,7 +21,7 @@
     <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
     <div class="links" id="navLinks">
       <span class="nav-ind" aria-hidden="true"></span>
-      <a href="#schedule">Zeitplan</a><a href="#boards">Ranglisten</a><a href="#winners">Wochensieger</a><a href="#join">Mitspielen</a>
+      <a href="#schedule">Zeitplan</a><a href="#boards">Ranglisten</a><a href="#winners">Wochensieger</a><a href="#join">Mitspielen</a><a href="handbuch/">Handbuch</a>
       <a class="nav-cta" href="#bewerben" data-apply>Bewerben <span class="arr">→</span></a>
     </div>
   </nav>
@@ -46,6 +46,7 @@
       <span id="pill" class="pill off">Status wird geladen …</span>
       <button id="copy" class="copy" type="button" title="Adresse kopieren"><span id="addr">–</span> <small>kopieren</small></button>
       <button class="btn" type="button" data-apply>Für die Whitelist bewerben</button>
+      <a class="btn ghost" href="handbuch/">📖 Handbuch</a>
     </div>
     <p id="players" class="players"></p>
     <div class="countdown" id="cdBox">
@@ -58,6 +59,15 @@
 </header>
 
 <main class="wrap" id="inhalt">
+  <section id="daily" hidden>
+    <div class="sec-head" data-reveal>
+      <h2>Statistiken des Tages</h2>
+      <p class="muted" id="dailyDate"></p>
+    </div>
+    <p class="muted daily-note" data-reveal>Jeden Tag drei andere, zufällig gewählte Statistiken aus dem ganzen Spiel. Ein Klick zeigt alle Spieler.</p>
+    <div id="dailyList" class="cards" data-stagger></div>
+  </section>
+
   <section id="schedule">
     <h2 data-reveal>Zeitplan</h2>
     <ol id="timeline" class="timeline" data-stagger></ol>
@@ -92,7 +102,7 @@
     <h2 data-reveal>Mitspielen</h2>
     <ol class="steps" data-stagger>
       <li><h3>Bewerben</h3><p>Bei uns auf die <strong>Whitelist</strong> eintragen lassen.</p><button class="btn small" type="button" data-apply>Jetzt bewerben</button></li>
-      <li><h3>Modpack laden</h3><p>Das Modpack herunterladen und in die Modrinth App oder Prism importieren.</p><a class="btn small ghost" href="download/CobblemonServerPack.mrpack" download>Modpack herunterladen</a></li>
+      <li><h3>Modpack laden</h3><p>Das Modpack herunterladen und in die Modrinth App oder Prism importieren. Was jede Mod macht, steht im <a href="handbuch/">Handbuch</a>.</p><a class="btn small ghost" href="download/CobblemonServerPack.mrpack" download>Modpack herunterladen</a></li>
       <li><h3>Verbinden</h3><p>Mit der Serveradresse oben verbinden und loslegen.</p><button class="btn small ghost" type="button" data-copy>Adresse kopieren</button></li>
     </ol>
   </section>
@@ -120,22 +130,26 @@
   <ul id="bdList" class="rows"></ul>
 </dialog>
 
-<dialog id="statsDlg" class="dlg wide" aria-labelledby="stTitle">
-  <div class="dlg-head"><h2 id="stTitle">Alle Statistiken</h2><button type="button" class="btn ghost" data-close aria-label="Schließen">✕</button></div>
+<dialog id="statsDlg" class="dlg xl" aria-labelledby="stTitle">
+  <div class="dlg-head"><h2 id="stTitle">Statistiken</h2><button type="button" class="btn ghost" data-close aria-label="Schließen">✕</button></div>
   <div id="stPick">
-    <div class="dlg-tools"><input id="stSearch" type="search" placeholder="Statistik suchen, z. B. Diamant, Sprünge, Zombie …" autocomplete="off" aria-label="Statistik suchen"></div>
-    <div class="cats" id="stCats" role="group" aria-label="Kategorie"></div>
+    <div class="st-bar">
+      <label class="st-sel"><span>Spieler</span><span id="stHead" class="st-head"></span><select id="stPlayer" aria-label="Statistiken nach Spieler filtern"><option value="all">Alle Spieler (Summe)</option></select></label>
+      <input id="stSearch" type="search" placeholder="Suchen, z. B. Diamant, Sprünge, Zombie …" autocomplete="off" aria-label="Statistik suchen">
+    </div>
+    <div class="tabs" id="stTabs" role="tablist" aria-label="Kategorie"></div>
     <p class="st-info muted" id="stInfo">Statistiken werden geladen …</p>
-    <ul id="stList" class="stat-list"></ul>
+    <div class="tbl-wrap"><table class="stat-table" id="stTable"></table></div>
+    <p class="st-more"><button type="button" class="btn ghost small" id="stMore" hidden>Mehr anzeigen</button></p>
   </div>
   <div id="stBoard" hidden>
-    <button type="button" class="btn ghost small" id="stBack">← Alle Statistiken</button>
+    <button type="button" class="btn ghost small" id="stBack">← Zurück zur Tabelle</button>
     <p id="stDesc" class="muted"></p>
     <ul id="stRows" class="rows"></ul>
   </div>
 </dialog>
 
-<footer class="foot"><div class="wrap muted foot-in"><span id="updated"></span><a href="../gaming/">← Zurück zum Gaming-Profil</a></div></footer>
+<footer class="foot"><div class="wrap muted foot-in"><span id="updated"></span><span><a href="handbuch/">Handbuch</a> · <a href="../gaming/">← Zurück zum Gaming-Profil</a></span></div></footer>
 <script src="../assets/fx.js"></script>
 <script src="app.js"></script>
 </body>

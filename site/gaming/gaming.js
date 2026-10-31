@@ -39,7 +39,10 @@
     document.querySelectorAll('#skinAnims .chip').forEach(function (c) { c.addEventListener('click', function () { setAnim(c.getAttribute('data-anim')); }); });
     Promise.resolve(v.loadSkin('../skin/skeison.png')).then(function () { canvas.classList.add('ready'); }, function () { canvas.classList.add('ready'); });
     // Rendern pausieren, wenn der Skin nicht im Bild ist (spart Akku)
-    if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { v.renderPaused = !es[0].isIntersecting; }).observe(canvas);
+    // ... und auch, wenn das Fenster im Hintergrund ist (fx:idle aus assets/fx.js)
+    var onScreen = true, bg = !!FX.idle, sync = function () { v.renderPaused = !onScreen || bg; };
+    if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { onScreen = es[0].isIntersecting; sync(); }).observe(canvas);
+    document.addEventListener('fx:idle', function (e) { bg = e.detail; sync(); }); sync();
   } catch (e) {
     $('skinAnims').hidden = true;
     canvas.replaceWith(el('p', 'muted', '3D-Ansicht wird von diesem Browser nicht unterstützt.'));

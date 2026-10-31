@@ -46,7 +46,7 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
 .fx [data-reveal]:not(.in), .fx [data-stagger]:not(.in) > * { opacity: 0; }
 .fx [data-reveal].in { animation: fx-rise .7s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
 .fx [data-stagger].in > * { animation: fx-rise .7s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
-.fx [data-stagger].in > .ball, .fx [data-stagger]:not(.in) > .ball { animation: none; opacity: var(--ball-o, .14); }
+.fx [data-stagger].in > .ball, .fx [data-stagger]:not(.in) > .ball { animation: fx-spin 160s steps(640) infinite; opacity: var(--ball-o, .14); }
 @keyframes fx-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
 /* Buttons */
@@ -97,9 +97,13 @@ a:hover .arr, button:hover .arr, .card:hover .arr { transform: translateX(3px); 
 .totop b { font-size: 1.1rem; }
 
 /* Pokeball im Kopfbereich, dreht sich langsam */
-.ball { position: absolute; z-index: -1; pointer-events: none; color: var(--accent); }
-.ball .spin { transform-box: fill-box; transform-origin: center; animation: fx-spin 90s linear infinite; }
+/* Gedreht wird die ganze Grafik als eigene Ebene (laeuft auf der Grafikkarte) und in kleinen Schritten, nicht fliessend:
+   so wacht der Browser nur ein paarmal pro Sekunde dafuer auf. Das Innere der SVG wird dabei nie neu gezeichnet. */
+.ball { position: absolute; z-index: -1; pointer-events: none; color: var(--accent); will-change: transform; animation: fx-spin 160s steps(640) infinite; }
 @keyframes fx-spin { to { transform: rotate(360deg); } }
+
+/* Fenster im Hintergrund: alle Animationen anhalten (siehe fx.js, setIdle) */
+.fx-idle *, .fx-idle *::before, .fx-idle *::after { animation-play-state: paused !important; }
 
 /* Bewegungen reduzieren, wenn im System eingestellt */
 @media (prefers-reduced-motion: reduce) {

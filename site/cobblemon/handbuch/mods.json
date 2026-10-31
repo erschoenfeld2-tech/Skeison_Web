@@ -1,0 +1,606 @@
+{
+  "pack": {
+    "name": "Cobblemon Server Pack",
+    "version": "1.5.4",
+    "minecraft": "1.21.1",
+    "neoforge": "21.1.262"
+  },
+  "categories": [
+    {
+      "id": "cobblemon",
+      "name": "Cobblemon & Erweiterungen",
+      "text": "Die Hauptmod und alles rund um Pokémon, Kämpfe, Trainer und Strukturen."
+    },
+    {
+      "id": "gameplay",
+      "name": "Spielinhalte & Komfort",
+      "text": "Neue Funktionen, die man im Spiel direkt benutzt."
+    },
+    {
+      "id": "ui",
+      "name": "Anzeige & Bedienung",
+      "text": "Machen Oberfläche, Karten und Inventar übersichtlicher."
+    },
+    {
+      "id": "graphics",
+      "name": "Grafik & Leistung",
+      "text": "Mehr Bilder pro Sekunde, größere Sichtweite und Shader."
+    },
+    {
+      "id": "server",
+      "name": "Server & Werkzeuge",
+      "text": "Laufen vor allem auf dem Server: Leistungsmessung, Skripte, Weltgenerierung."
+    },
+    {
+      "id": "libs",
+      "name": "Bibliotheken",
+      "text": "Technische Grundlagen anderer Mods ohne eigene Inhalte. Bitte nicht entfernen."
+    },
+    {
+      "id": "other",
+      "name": "Weitere Mods",
+      "text": ""
+    }
+  ],
+  "mods": [
+    {
+      "id": "jtmvUHXj",
+      "name": "Accessories",
+      "cat": "libs",
+      "side": "both",
+      "kind": "mod",
+      "file": "accessories-neoforge-1.1.0-beta.54+1.21.1.jar",
+      "text": "Zusätzliche Ausrüstungsplätze, die andere Mods nutzen.",
+      "links": []
+    },
+    {
+      "id": "EsAfCjCV",
+      "name": "AppleSkin",
+      "cat": "ui",
+      "side": "both",
+      "kind": "mod",
+      "file": "appleskin-neoforge-mc1.21-3.0.9.jar",
+      "text": "Zeigt Hunger- und Sättigungswerte von Essen an.",
+      "links": []
+    },
+    {
+      "id": "lhGA9TYQ",
+      "name": "Architectury API",
+      "cat": "libs",
+      "side": "both",
+      "kind": "mod",
+      "file": "architectury-13.0.11-neoforge.jar",
+      "text": "Hilfsbibliothek für Mods.",
+      "links": []
+    },
+    {
+      "id": "MBAkmtvl",
+      "name": "Balm",
+      "cat": "libs",
+      "side": "both",
+      "kind": "mod",
+      "file": "balm-neoforge-1.21.1-21.0.66.jar",
+      "text": "Hilfsbibliothek für Mods (z. B. Waystones).",
+      "links": []
+    },
+    {
+      "id": "iHLDc0eo",
+      "name": "Better Advanced Tooltips",
+      "cat": "ui",
+      "side": "both",
+      "kind": "mod",
+      "file": "better-advanced-tooltips-2101.1.0-build.5.jar",
+      "text": "Erweiterte Tooltips mit zusätzlichen Informationen zu Gegenständen.",
+      "links": []
+    },
+    {
+      "id": "fALzjamp",
+      "name": "Chunky",
+      "cat": "server",
+      "side": "optional-client",
+      "kind": "mod",
+      "file": "Chunky-NeoForge-1.4.23.jar",
+      "text": "Erzeugt die Welt im Voraus (Pregeneration), damit beim Erkunden weniger gerechnet werden muss.",
+      "links": []
+    },
+    {
+      "id": "Vb1pXlt5",
+      "name": "Cobblemon Leaderboards",
+      "cat": "cobblemon",
+      "side": "both",
+      "kind": "mod",
+      "file": "cobblemon-leaderboards-neoforge-3.0.jar",
+      "text": "Ranglisten (Leaderboards) für Cobblemon.",
+      "links": []
+    },
+    {
+      "id": "FuRL3fNw",
+      "name": "Cobblemon Legendary Structures",
+      "cat": "cobblemon",
+      "side": "both",
+      "kind": "mod",
+      "file": "cobblemon-legendary-structures-2.2.jar",
+      "text": "Strukturen rund um legendäre Pokémon.",
+      "links": []
+    },
+    {
+      "id": "MdwFAVRL",
+      "name": "Cobblemon",
+      "cat": "cobblemon",
+      "side": "both",
+      "kind": "mod",
+      "file": "Cobblemon-neoforge-1.8.2+1.21.1.jar",
+      "text": "Die Hauptmod: Pokémon in Minecraft finden, fangen, trainieren, entwickeln und im Kampf einsetzen.",
+      "links": [
+        {
+          "label": "Wiki",
+          "url": "https://wiki.cobblemon.com/"
+        },
+        {
+          "label": "Offizielle Seite",
+          "url": "https://cobblemon.com/"
+        }
+      ]
+    },
+    {
+      "id": "IkJ2gbjT",
+      "name": "Cobblemon Extra Structures",
+      "cat": "cobblemon",
+      "side": "both",
+      "kind": "mod",
+      "file": "cobblemonextrastructures-1.21.1-1.3.0-neoforge.jar",
+      "text": "Zusätzliche Strukturen für die Cobblemon-Welt.",
+      "links": []
+    },
+    {
+      "id": "12e2QV8Q",
+      "name": "Cobblemon Opponents",
+      "cat": "cobblemon",
+      "side": "both",
+      "kind": "mod",
+      "file": "cobblemonopponents-neoforge-1.8.0.jar",
+      "text": "",
+      "links": []
+    },
+    {
+      "id": "HQsBdHGd",
+      "name": "Ender Dragon Fight Remastered",
+      "cat": "gameplay",
+      "side": "both",
+      "kind": "mod",
+      "file": "edf-remastered-5.0.2.jar",
+      "text": "Überarbeiteter Kampf gegen den Enderdrachen, schwerer als im normalen Spiel.",
+      "links": []
+    },
+    {
+      "id": "R2OftAxM",
+      "name": "Farmer's Delight",
+      "cat": "gameplay",
+      "side": "both",
+      "kind": "mod",
+      "file": "FarmersDelight-1.21.1-1.3.4.jar",
+      "text": "Landwirtschaft und Kochen: neue Pflanzen, Küchengeräte und viele Rezepte.",
+      "links": []
+    },
+    {
+      "id": "uXXizFIs",
+      "name": "FerriteCore",
+      "cat": "graphics",
+      "side": "both",
+      "kind": "mod",
+      "file": "ferritecore-7.0.3-neoforge.jar",
+      "text": "Verringert den Speicherverbrauch.",
+      "links": []
+    },
+    {
+      "id": "ordsPcFz",
+      "name": "Kotlin for Forge",
+      "cat": "libs",
+      "side": "both",
+      "kind": "mod",
+      "file": "kotlinforforge-5.12.0-all.jar",
+      "text": "Ermöglicht Mods, die in Kotlin geschrieben sind (u. a. Cobblemon).",
+      "links": []
+    },
+    {
+      "id": "umyGl7zF",
+      "name": "KubeJS",
+      "cat": "server",
+      "side": "both",
+      "kind": "mod",
+      "file": "kubejs-neoforge-2101.7.2-build.377.jar",
+      "text": "Skripte für Server und Spiel, hier z. B. der /nick-Befehl für Admins.",
+      "links": [
+        {
+          "label": "Webseite",
+          "url": "https://kubejs.com/"
+        }
+      ]
+    },
+    {
+      "id": "gvQqBUqZ",
+      "name": "Lithium",
+      "cat": "graphics",
+      "side": "both",
+      "kind": "mod",
+      "file": "lithium-neoforge-0.15.4+mc1.21.1.jar",
+      "text": "Optimiert Spiellogik und Serverleistung.",
+      "links": []
+    },
+    {
+      "id": "SszvX85I",
+      "name": "Mega Showdown",
+      "cat": "cobblemon",
+      "side": "both",
+      "kind": "mod",
+      "file": "mega_showdown-neoforge-1.3.1+1.8.2+1.21.1-release.jar",
+      "text": "Erweitert Cobblemon um Mega-Entwicklungen und weitere Kampfmechaniken.",
+      "links": []
+    },
+    {
+      "id": "nmDcB62a",
+      "name": "ModernFix",
+      "cat": "graphics",
+      "side": "optional-client",
+      "kind": "mod",
+      "file": "modernfix-neoforge-5.27.26+mc1.21.1.jar",
+      "text": "Kürzere Ladezeiten und weniger Speicherverbrauch.",
+      "links": []
+    },
+    {
+      "id": "ccKDOlHs",
+      "name": "owo-lib",
+      "cat": "libs",
+      "side": "both",
+      "kind": "mod",
+      "file": "owo-lib-neoforge-0.12.15.6-beta.1+1.21.jar",
+      "text": "Hilfsbibliothek für Oberflächen und Einstellungen von Mods.",
+      "links": []
+    },
+    {
+      "id": "i6fiqm5y",
+      "name": "Platform",
+      "cat": "libs",
+      "side": "both",
+      "kind": "mod",
+      "file": "Platform-neoforge-1.21.1-1.4.jar",
+      "text": "",
+      "links": []
+    },
+    {
+      "id": "eF8kqlHd",
+      "name": "Rad Gyms",
+      "cat": "cobblemon",
+      "side": "both",
+      "kind": "mod",
+      "file": "rad-gyms-neoforge-0.5.0.jar",
+      "text": "Arenen (Gyms), die man besuchen und besiegen kann. Der Fortschritt zählt in den Statistiken („Arenen besiegt“ usw.).",
+      "links": []
+    },
+    {
+      "id": "lRwTUnD7",
+      "name": "Radical Cobblemon Trainers (RCT)",
+      "cat": "cobblemon",
+      "side": "both",
+      "kind": "mod",
+      "file": "rctmod-neoforge-1.21.1-0.19.2-beta.jar",
+      "text": "Trainer-NPCs mit eigenen Teams, gegen die man kämpfen kann.",
+      "links": []
+    },
+    {
+      "id": "sk9knFPE",
+      "name": "Rhino",
+      "cat": "libs",
+      "side": "both",
+      "kind": "mod",
+      "file": "rhino-2101.2.7-build.85.jar",
+      "text": "JavaScript-Engine, die KubeJS benötigt.",
+      "links": []
+    },
+    {
+      "id": "2M01OLQq",
+      "name": "Shulker Box Tooltip",
+      "cat": "ui",
+      "side": "both",
+      "kind": "mod",
+      "file": "shulkerboxtooltip-neoforge-5.1.9+1.21.1.jar",
+      "text": "Vorschau auf den Inhalt von Shulkerkisten im Tooltip.",
+      "links": []
+    },
+    {
+      "id": "l6YH9Als",
+      "name": "spark",
+      "cat": "server",
+      "side": "optional-client",
+      "kind": "mod",
+      "file": "spark-1.10.124-neoforge.jar",
+      "text": "Leistungsmessung (Profiler) für Server und Client.",
+      "links": [
+        {
+          "label": "Dokumentation",
+          "url": "https://spark.lucko.me/docs"
+        }
+      ]
+    },
+    {
+      "id": "F4TmfqsY",
+      "name": "Tiny Takeover Backport",
+      "cat": "other",
+      "side": "both",
+      "kind": "mod",
+      "file": "tiny_takeover_backport-neoforge-1.21.1-1.7.0.jar",
+      "text": "",
+      "links": []
+    },
+    {
+      "id": "rlloIFEV",
+      "name": "Traveler's Backpack",
+      "cat": "gameplay",
+      "side": "both",
+      "kind": "mod",
+      "file": "travelersbackpack-neoforge-1.21.1-10.1.39.jar",
+      "text": "Rucksäcke mit viel Platz und eigenen Fähigkeiten.",
+      "links": []
+    },
+    {
+      "id": "gHoB7SHO",
+      "name": "TreeChop",
+      "cat": "gameplay",
+      "side": "both",
+      "kind": "mod",
+      "file": "TreeChop-1.21.1-neoforge-0.19.3.jar",
+      "text": "Ganze Bäume lassen sich schnell fällen.",
+      "links": []
+    },
+    {
+      "id": "5nVJBjnO",
+      "name": "TSF Item Core",
+      "cat": "other",
+      "side": "both",
+      "kind": "mod",
+      "file": "tsfitemcore-1.0.0-neoforge.jar",
+      "text": "",
+      "links": []
+    },
+    {
+      "id": "6xwxDTgf",
+      "name": "Vanilla Backport",
+      "cat": "gameplay",
+      "side": "both",
+      "kind": "mod",
+      "file": "VanillaBackport-neoforge-1.21.1-1.2.jar",
+      "text": "Bringt neue Inhalte aus aktuelleren Minecraft-Versionen in diese Version (z. B. den Happy Ghast).",
+      "links": []
+    },
+    {
+      "id": "kjLZThtk",
+      "name": "Vein Miner",
+      "cat": "gameplay",
+      "side": "optional-client",
+      "kind": "mod",
+      "file": "vein_miner-3.01R2.jar",
+      "text": "Ganze Erzadern auf einmal abbauen.",
+      "links": []
+    },
+    {
+      "id": "9eGKb6K1",
+      "name": "Simple Voice Chat",
+      "cat": "gameplay",
+      "side": "both",
+      "kind": "mod",
+      "file": "voicechat-neoforge-1.21.1-2.6.22.jar",
+      "text": "Sprachchat im Spiel: Spieler in der Nähe hören sich.",
+      "links": [
+        {
+          "label": "Wiki",
+          "url": "https://modrepo.de/minecraft/voicechat/wiki"
+        }
+      ]
+    },
+    {
+      "id": "LOpKHB2A",
+      "name": "Waystones",
+      "cat": "gameplay",
+      "side": "both",
+      "kind": "mod",
+      "file": "waystones-neoforge-1.21.1-21.1.46.jar",
+      "text": "Wegsteine zum schnellen Reisen zwischen aktivierten Orten.",
+      "links": []
+    },
+    {
+      "id": "1eAoo2KR",
+      "name": "YetAnotherConfigLib (YACL)",
+      "cat": "libs",
+      "side": "both",
+      "kind": "mod",
+      "file": "yet_another_config_lib_v3-3.8.2+1.21.1-neoforge.jar",
+      "text": "Bibliothek für Einstellungsmenüs.",
+      "links": []
+    },
+    {
+      "id": "9NM0dXub",
+      "name": "Advancement Plaques",
+      "cat": "ui",
+      "side": "client",
+      "kind": "mod",
+      "file": "AdvancementPlaques-1.21.1-neoforge-1.6.8.jar",
+      "text": "Auffällige Anzeige, wenn man einen Fortschritt freischaltet.",
+      "links": []
+    },
+    {
+      "id": "8shC1gFX",
+      "name": "BetterF3",
+      "cat": "ui",
+      "side": "client",
+      "kind": "mod",
+      "file": "BetterF3-11.0.3-NeoForge-1.21.1.jar",
+      "text": "Übersichtlicherer Debug-Bildschirm (F3).",
+      "links": []
+    },
+    {
+      "id": "Wb5oqrBJ",
+      "name": "Chat Heads",
+      "cat": "ui",
+      "side": "client",
+      "kind": "mod",
+      "file": "chat_heads-0.15.7-neoforge-1.21.jar",
+      "text": "Zeigt den Kopf des Spielers neben seinen Chatnachrichten.",
+      "links": []
+    },
+    {
+      "id": "9s6osm5g",
+      "name": "Cloth Config API",
+      "cat": "libs",
+      "side": "client",
+      "kind": "mod",
+      "file": "cloth-config-15.0.140-neoforge.jar",
+      "text": "Bibliothek für Einstellungsmenüs.",
+      "links": []
+    },
+    {
+      "id": "uCdwusMi",
+      "name": "Distant Horizons",
+      "cat": "graphics",
+      "side": "client",
+      "kind": "mod",
+      "file": "DistantHorizons-3.3.3-1.21.1-fabric-neoforge.jar",
+      "text": "Zeigt weit entfernte Landschaft als vereinfachtes Gelände und vergrößert so die Sichtweite.",
+      "links": []
+    },
+    {
+      "id": "5faXoLqX",
+      "name": "Iceberg",
+      "cat": "libs",
+      "side": "client",
+      "kind": "mod",
+      "file": "Iceberg-1.21.1-neoforge-1.3.2.jar",
+      "text": "Hilfsbibliothek für Mods.",
+      "links": []
+    },
+    {
+      "id": "YL57xq9U",
+      "name": "Iris Shaders",
+      "cat": "graphics",
+      "side": "client",
+      "kind": "mod",
+      "file": "iris-neoforge-1.8.14-beta.1+mc1.21.1.jar",
+      "text": "Unterstützung für Shader-Packs (arbeitet mit Sodium zusammen).",
+      "links": [
+        {
+          "label": "Webseite",
+          "url": "https://www.irisshaders.dev/"
+        }
+      ]
+    },
+    {
+      "id": "u6dRKJwZ",
+      "name": "Just Enough Items (JEI)",
+      "cat": "ui",
+      "side": "client",
+      "kind": "mod",
+      "file": "jei-1.21.1-neoforge-19.64.0.455.jar",
+      "text": "Rezepte und Gegenstände nachschlagen: Mauszeiger über einen Gegenstand und R für das Rezept, U für die Verwendung.",
+      "links": []
+    },
+    {
+      "id": "yBW8D80W",
+      "name": "LambDynamicLights",
+      "cat": "ui",
+      "side": "client",
+      "kind": "mod",
+      "file": "lambdynamiclights-4.8.11+1.21.1.jar",
+      "text": "Dynamisches Licht: Gegenstände wie Fackeln leuchten auch in der Hand.",
+      "links": []
+    },
+    {
+      "id": "7tEfOcA7",
+      "name": "Mezz Config",
+      "cat": "libs",
+      "side": "client",
+      "kind": "mod",
+      "file": "mezz_config-1.21.1-neoforge-0.6.8-standalone.jar",
+      "text": "Bibliothek für Mod-Einstellungen.",
+      "links": []
+    },
+    {
+      "id": "aC3cM3Vq",
+      "name": "Mouse Tweaks",
+      "cat": "ui",
+      "side": "client",
+      "kind": "mod",
+      "file": "MouseTweaks-neoforge-mc1.21-2.26.1.jar",
+      "text": "Mehr Komfort beim Verschieben von Gegenständen im Inventar mit der Maus.",
+      "links": []
+    },
+    {
+      "id": "MPCX6s5C",
+      "name": "Not Enough Animations",
+      "cat": "ui",
+      "side": "client",
+      "kind": "mod",
+      "file": "notenoughanimations-neoforge-1.12.6-mc1.21.1.jar",
+      "text": "Zusätzliche Animationen für Spielermodelle.",
+      "links": []
+    },
+    {
+      "id": "AANobbMI",
+      "name": "Sodium",
+      "cat": "graphics",
+      "side": "client",
+      "kind": "mod",
+      "file": "sodium-neoforge-0.8.13+mc1.21.1.jar",
+      "text": "Schnellere Grafik-Engine für deutlich mehr Bilder pro Sekunde.",
+      "links": []
+    },
+    {
+      "id": "qyVF9oeo",
+      "name": "Sound Physics Remastered",
+      "cat": "ui",
+      "side": "client",
+      "kind": "mod",
+      "file": "sound-physics-remastered-neoforge-1.21.1-1.5.2.jar",
+      "text": "Realistischere Geräusche mit Hall und Dämpfung.",
+      "links": []
+    },
+    {
+      "id": "1bokaNcj",
+      "name": "Xaero's Minimap",
+      "cat": "ui",
+      "side": "client",
+      "kind": "mod",
+      "file": "xaerominimap-neoforge-1.21.1-26.6.0.jar",
+      "text": "Minikarte mit Markierungen.",
+      "links": []
+    },
+    {
+      "id": "NcUtCpym",
+      "name": "Xaero's World Map",
+      "cat": "ui",
+      "side": "client",
+      "kind": "mod",
+      "file": "xaeroworldmap-neoforge-1.21.1-1.47.0.jar",
+      "text": "Weltkarte der bereits erkundeten Gebiete (Taste M).",
+      "links": []
+    },
+    {
+      "id": "CUC4h0GP",
+      "name": "Vanilla Connected Glass",
+      "cat": "graphics",
+      "side": "client",
+      "kind": "resourcepack",
+      "file": "vanilla-connected-glass-0.5.zip",
+      "text": "Resourcepack: Glasscheiben setzen sich ohne sichtbare Kanten zusammen.",
+      "links": []
+    },
+    {
+      "id": "file:rctapi-neoforge",
+      "name": "RCT API",
+      "cat": "cobblemon",
+      "side": "both",
+      "kind": "mod",
+      "file": "rctapi-neoforge-1.21.1-0.16.2-beta.jar",
+      "text": "Schnittstelle von Radical Cobblemon Trainers, die andere Mods nutzen. Liegt direkt im Modpack.",
+      "links": []
+    }
+  ]
+}
