@@ -11,6 +11,18 @@
     { id: 'nether', icon: '🔥', title: 'Nether öffnet', at: START + 7 * DAY, text: 'Eine Woche nach Serverstart wird der Nether freigeschaltet.' },
     { id: 'end', icon: '🌌', title: 'End öffnet', at: START + 14 * DAY, text: 'Eine Woche nach dem Nether folgt das End mit dem schwereren Enderdrachen.' }
   ];
+  // Anzeigenamen der Ranglisten (ueberschreiben die Texte aus leaderboards.json)
+  var BOARD_META = {
+    collector: { title: 'Pokédex Collector', desc: 'Die meisten Pokédex-Einträge', icon: '📖' },
+    caught: { title: 'Collector', desc: 'Die meisten verschiedenen gefangenen Pokémon', icon: '🎒', unit: 'Arten' }
+  };
+  function applyBoardMeta(d) {
+    d.boards.forEach(function (b) { var m = BOARD_META[b.id]; if (m) { b.title = m.title; b.desc = m.desc; b.icon = m.icon; if (m.unit && !b.unit) b.unit = m.unit; } });
+    if (!d.boards.some(function (b) { return b.id === 'caught'; })) { // Daten kommen erst mit dem aktualisierten Sync-Skript
+      var at = d.boards.map(function (b) { return b.id; }).indexOf('collector');
+      d.boards.splice(at < 0 ? d.boards.length : at, 0, { id: 'caught', title: BOARD_META.caught.title, desc: BOARD_META.caught.desc, icon: BOARD_META.caught.icon, unit: 'Arten', week: [], total: [], pending: true });
+    }
+  }
   var mode = 'week', data = null, hist = null, openBoardId = null, phase = null;
   var STALE_MS = 45 * 60000; // aelter: Status unbekannt (Sync laedt ohne Aenderung nur alle 30 min hoch)
   function live() { return Date.now() >= START; }
@@ -55,7 +67,7 @@
       var t = el('div'); t.appendChild(el('h3', '', b.title)); t.appendChild(el('p', '', b.desc)); head.appendChild(t);
       card.appendChild(head);
       var list = b[mode] || [];
-      if (!list.length) card.appendChild(el('p', 'empty', !live() ? 'Startet mit dem Serverstart.' : mode === 'week' ? 'Diese Woche noch keine Einträge.' : 'Noch keine Einträge.'));
+      if (!list.length) card.appendChild(el('p', 'empty', !live() ? 'Startet mit dem Serverstart.' : b.pending ? 'Die Daten folgen mit dem nächsten Server-Update.' : mode === 'week' ? 'Diese Woche noch keine Einträge.' : 'Noch keine Einträge.'));
       else {
         var ul = el('ul', 'rows');
         list.slice(0, 3).forEach(function (e, i) {
@@ -138,7 +150,7 @@
       btn.addEventListener('click', function () { when.hidden = !when.hidden; btn.setAttribute('aria-expanded', String(!when.hidden)); });
       h.appendChild(btn); h.appendChild(when); c.appendChild(h);
       var ul = el('ul');
-      data.boards.forEach(function (b) {
+      data.boards.filter(function (b) { return !b.pending; }).forEach(function (b) {
         var first = (w.winners[b.id] || [])[0];
         var li = el('li'); li.appendChild(el('span', '', b.icon + ' ' + b.title));
         li.appendChild(el('strong', '', first ? first.name + ' (' + nf.format(first.value) + ')' : '–')); ul.appendChild(li);
@@ -147,12 +159,23 @@
     });
   }
 
+  // Daten alle 60 s neu laden, aber nur wenn der Tab sichtbar ist; neu gezeichnet wird nur bei echten Aenderungen
+  var lastLoad = 0, lastKey = '';
+  function maybeLoad() {
+    if (document.hidden) return;
+    if (stats && dailyDay && dailyDay !== berlinDay()) ensureStats().then(renderDaily, function () {}); // neuer Tag: neue Tagesstatistiken
+    if (Date.now() - lastLoad >= 55000) load();
+  }
   function load() {
+    lastLoad = Date.now();
     fetchJson('data/leaderboards.json').then(function (d) {
+      applyBoardMeta(d);
       if (!live()) { // vor dem Serverstart gibt es keine Wertung (Testdaten werden ausgeblendet)
         d.boards.forEach(function (b) { b.week = []; b.total = []; }); d.server.names = [];
       }
-      data = d; renderStatus(d.server, d.updated); renderBoards(); weekInfo(); renderWinners();
+      var key = JSON.stringify([d.boards, d.weekStart, d.weekEnd, phase]), changed = key !== lastKey; lastKey = key;
+      data = d; renderStatus(d.server, d.updated); weekInfo();
+      if (changed) { renderBoards(); renderWinners(); }
       var upd = new Date(d.updated), stale = Date.now() - upd.getTime() > STALE_MS;
       $('updated').textContent = (stale ? 'Daten seit ' : 'Zuletzt aktualisiert: ') + upd.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr' + (stale ? ' nicht aktualisiert' : '');
     }).catch(function () { renderStatus(null); $('updated').textContent = 'Daten momentan nicht verfügbar.'; });
@@ -279,7 +302,13 @@
     play_noteblock: 'Notenblöcke gespielt', tune_noteblock: 'Notenblöcke gestimmt', bell_ring: 'Glocken geläutet', raid_win: 'Überfälle gewonnen', raid_trigger: 'Überfälle ausgelöst',
     target_hit: 'Zielblock getroffen', pot_flower: 'Pflanzen eingetopft', fill_cauldron: 'Kessel gefüllt', use_cauldron: 'Wasser aus Kessel genommen',
     clean_armor: 'Rüstung gereinigt', clean_banner: 'Banner gereinigt', clean_shulker_box: 'Shulkerkiste gereinigt', inspect_hopper: 'Trichter untersucht',
-    inspect_dropper: 'Spender untersucht', inspect_dispenser: 'Werfer untersucht', trigger_trapped_chest: 'Redstone-Truhe ausgelöst'
+    inspect_dropper: 'Spender untersucht', inspect_dispenser: 'Werfer untersucht', trigger_trapped_chest: 'Redstone-Truhe ausgelöst',
+    'cobblemon:captured': 'Pokémon gefangen', 'cobblemon:shinies_captured': 'Shinys gefangen', 'cobblemon:dex_entries': 'Pokédex-Einträge', 'cobblemon:evolved': 'Entwicklungen',
+    'cobblemon:level_up': 'Level-Ups', 'cobblemon:traded': 'Pokémon getauscht', 'cobblemon:battles_total': 'Kämpfe gesamt', 'cobblemon:battles_won': 'Kämpfe gewonnen',
+    'cobblemon:battles_fled': 'Kämpfe geflohen', 'cobblemon:times_ridden': 'Mal auf Pokémon geritten', 'cobblemon:riding_land': 'An Land geritten',
+    'cobblemon:riding_air': 'In der Luft geritten', 'cobblemon:riding_liquid': 'Im Wasser geritten',
+    'rad_gyms:gyms_beaten': 'Arenen besiegt', 'rad_gyms:gyms_failed': 'Arenen verloren', 'rad_gyms:gyms_visited': 'Arenen besucht', 'rad_gyms:entrances_used': 'Arena-Eingänge benutzt',
+    'rad_gyms:ropes_used': 'Seile benutzt', 'waystones:waystone_activated': 'Wegsteine aktiviert'
   };
   // Deutsche Suchbegriffe fuer die (englischen) Namen von Bloecken, Gegenstaenden und Kreaturen
   var DE2EN = { diamant: 'diamond', smaragd: 'emerald', eisen: 'iron', kupfer: 'copper', kohle: 'coal', erz: 'ore', stein: 'stone', bruchstein: 'cobblestone',
@@ -295,15 +324,19 @@
     for (var k in DE2EN) if (w.length >= 3 && k.indexOf(w) === 0 && x.q.indexOf(DE2EN[k]) >= 0) return true;
     return false;
   }
-  var stats = null, stCat = 'all', stIndex = [];
   function pretty(id) {
     var p = id.split(':'), ns = p.length > 1 ? p[0] : 'minecraft', name = (p[1] || p[0]).replace(/[_/.]/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
     return ns === 'minecraft' ? name : ns.charAt(0).toUpperCase() + ns.slice(1) + ' · ' + name;
   }
-  function statLabel(cat, key) { var short = key.replace(/^minecraft:/, ''); return cat === 'minecraft:custom' && CUSTOM_DE[short] ? CUSTOM_DE[short] : pretty(key); }
+  function statLabel(cat, key) {
+    var short = key.replace(/^minecraft:/, '');
+    if (cat === 'minecraft:custom' && CUSTOM_DE[short]) return CUSTOM_DE[short];
+    if (key === 'cobblemon:pokemon') return 'Pokémon';
+    return pretty(key);
+  }
   function unitOf(cat, key) {
     if (cat !== 'minecraft:custom') return '';
-    if (/_one_cm$/.test(key)) return 'cm';
+    if (/_one_cm$/.test(key) || /^cobblemon:riding_(land|air|liquid)$/.test(key)) return 'cm';
     if (/(play_time|total_world_time|time_since_death|time_since_rest|sneak_time)$/.test(key)) return 'ticks';
     if (/damage_/.test(key)) return 'dmg';
     return '';
@@ -315,45 +348,135 @@
     if (unit === 'dmg') return f1(v / 20) + ' Herzen';
     return nf.format(v);
   }
-  function buildIndex() {
-    stIndex = [];
-    Object.keys(stats.stats || {}).forEach(function (cat) {
-      Object.keys(stats.stats[cat]).forEach(function (key) {
-        var label = statLabel(cat, key), catName = CAT_DE[cat] || pretty(cat);
-        stIndex.push({ cat: cat, key: key, label: label, catName: catName, list: stats.stats[cat][key], q: (label + ' ' + catName + ' ' + key).toLowerCase() });
+  // Aufbau wie der Statistik-Bildschirm in Minecraft: Allgemein, Blöcke & Items (je Spalte eine Zaehlart), Kreaturen
+  var ITEM_COLS = [['minecraft:mined', 'Abgebaut'], ['minecraft:crafted', 'Hergestellt'], ['minecraft:used', 'Benutzt'], ['minecraft:broken', 'Kaputtgegangen'], ['minecraft:picked_up', 'Aufgehoben'], ['minecraft:dropped', 'Fallen gelassen']];
+  var TABS = [
+    { id: 'general', name: 'Allgemein', cols: [['minecraft:custom', 'Wert']], sort: { col: 'name', dir: 1 } },
+    { id: 'items', name: 'Blöcke & Items', cols: ITEM_COLS, sort: { col: 'sum', dir: -1 } },
+    { id: 'mobs', name: 'Kreaturen', cols: [['minecraft:killed', 'Getötet'], ['minecraft:killed_by', 'Getötet von']], sort: { col: 'sum', dir: -1 } }
+  ];
+  var AGG_MAX = /time_since_/; // "Zeit seit ..." ergibt als Summe keinen Sinn: bei allen Spielern zaehlt der Hoechstwert
+  var BORING = /(leave_game|total_world_time|time_since_|inspect_)/; // fuer die Tagesstatistik ungeeignet
+  var stats = null, S = {}, stIndex = [], stTab = 'general', stPlayer = 'all', stLimit = 100, stLoadedAt = 0, stPromise = null, stSort = {}, dailyDay = '';
+  TABS.forEach(function (t) { stSort[t.id] = { col: t.sort.col, dir: t.sort.dir }; });
+
+  function buildStats(d) {
+    stats = d; S = {}; stIndex = []; stLoadedAt = Date.now();
+    Object.keys(d.stats || {}).forEach(function (cat) {
+      S[cat] = {};
+      Object.keys(d.stats[cat]).forEach(function (key) {
+        var list = d.stats[cat][key], by = {}, sum = 0, max = 0;
+        list.forEach(function (e) { by[e[0]] = e[1]; sum += e[1]; if (e[1] > max) max = e[1]; });
+        var x = { cat: cat, key: key, list: list, by: by, sum: sum, max: max, label: statLabel(cat, key), catName: CAT_DE[cat] || pretty(cat) };
+        x.q = (x.label + ' ' + x.catName + ' ' + key).toLowerCase();
+        S[cat][key] = x; stIndex.push(x);
       });
     });
-    var order = CATS.map(function (c) { return c[0]; });
-    stIndex.sort(function (a, b) { var ca = order.indexOf(a.cat), cb = order.indexOf(b.cat); return (ca < 0 ? 99 : ca) - (cb < 0 ? 99 : cb) || a.label.localeCompare(b.label, 'de'); });
+    // Spielerauswahl (alphabetisch)
+    var sel = $('stPlayer'), keep = stPlayer; sel.textContent = '';
+    var all = el('option', '', 'Alle Spieler (Summe)'); all.value = 'all'; sel.appendChild(all);
+    d.players.map(function (n, i) { return [n, i]; }).sort(function (a, b) { return a[0].toLowerCase().localeCompare(b[0].toLowerCase(), 'de'); }).forEach(function (p) {
+      var o = el('option', '', p[0]); o.value = String(p[1]); sel.appendChild(o);
+    });
+    sel.value = keep; if (sel.value !== keep) { stPlayer = 'all'; sel.value = 'all'; }
   }
-  function renderCats() {
-    var box = $('stCats'), present = {}; box.textContent = '';
-    stIndex.forEach(function (x) { present[x.cat] = true; });
-    [['all', 'Alle']].concat(CATS.filter(function (c) { return present[c[0]]; })).forEach(function (c) {
-      var b = el('button', 'cat' + (stCat === c[0] ? ' on' : ''), c[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(stCat === c[0]));
-      b.addEventListener('click', function () { stCat = c[0]; renderCats(); renderStatList(); });
+  // stats.json laden (hoechstens alle 5 Minuten neu)
+  function ensureStats() {
+    if (stats && Date.now() - stLoadedAt < 300000) return Promise.resolve(stats);
+    if (!stPromise) stPromise = fetchJson('data/stats.json').then(function (d) { buildStats(d); stPromise = null; return d; }, function (e) { stPromise = null; throw e; });
+    return stPromise;
+  }
+  function valueOf(x) { if (!x) return 0; return stPlayer === 'all' ? (AGG_MAX.test(x.key) ? x.max : x.sum) : (x.by[stPlayer] || 0); }
+  function fmtCell(x, v) { return fmtStat(v, x ? unitOf(x.cat, x.key) : ''); }
+  function rankOf(x) { var v = x.by[stPlayer] || 0, r = 1; x.list.forEach(function (e) { if (e[1] > v) r++; }); return r; }
+
+  function tabRows(tab) {
+    var map = {};
+    tab.cols.forEach(function (c, ci) {
+      var cat = S[c[0]] || {};
+      Object.keys(cat).forEach(function (key) {
+        var r = map[key] || (map[key] = { key: key, cells: [], label: statLabel(tab.cols[0][0], key), q: cat[key].q });
+        r.cells[ci] = cat[key];
+      });
+    });
+    var q = $('stSearch').value.trim().toLowerCase(), words = q ? q.split(/\s+/) : [], rows = [];
+    Object.keys(map).forEach(function (key) {
+      var r = map[key];
+      if (words.length && !words.every(function (w) { return matchWord(r, w); })) return;
+      r.v = tab.cols.map(function (c, ci) { return valueOf(r.cells[ci]); });
+      r.sum = r.v.reduce(function (a, b) { return a + b; }, 0);
+      if (stPlayer !== 'all' && !r.sum) return;     // beim Spielerfilter nur, was der Spieler wirklich getan hat
+      if (tab.id === 'general') { var x = r.cells[0]; r.lead = stPlayer === 'all' ? (x.list[0] ? x.list[0][1] : 0) : rankOf(x); }
+      rows.push(r);
+    });
+    var so = stSort[tab.id], dir = so.dir;
+    rows.sort(function (a, b) {
+      var d = so.col === 'name' ? a.label.localeCompare(b.label, 'de') : so.col === 'sum' ? a.sum - b.sum : so.col === 'lead' ? a.lead - b.lead : a.v[so.col] - b.v[so.col];
+      return (d * dir) || a.label.localeCompare(b.label, 'de');
+    });
+    return rows;
+  }
+
+  function currentTab() { return TABS.filter(function (t) { return t.id === stTab; })[0]; }
+  function headCell(text, col, num) {
+    var th = el('th', num ? 'num' : ''), so = stSort[stTab], on = so.col === col;
+    var b = el('button', 'hbtn', text); b.type = 'button';
+    if (on) { b.setAttribute('data-dir', so.dir > 0 ? ' ▲' : ' ▼'); th.setAttribute('aria-sort', so.dir > 0 ? 'ascending' : 'descending'); }
+    b.addEventListener('click', function () {
+      var asc = col === 'name' || (col === 'lead' && stPlayer !== 'all'); // Name A-Z und Rang 1,2,3 beginnen aufsteigend, Zahlen absteigend
+      so.dir = on ? -so.dir : (asc ? 1 : -1); so.col = col; stLimit = 100; renderTable();
+    });
+    th.appendChild(b); return th;
+  }
+  function cellButton(x, text) {
+    var b = el('button', 'cell', text); b.type = 'button'; b.title = 'Rangliste ansehen';
+    b.addEventListener('click', function () { openStat(x); }); return b;
+  }
+  function renderTable() {
+    var tab = currentTab(), table = $('stTable'), rows = tabRows(tab);
+    table.textContent = '';
+    var thead = el('thead'), hr = el('tr');
+    hr.appendChild(headCell('Name', 'name'));
+    tab.cols.forEach(function (c, ci) { hr.appendChild(headCell(c[1], ci, true)); });
+    if (tab.id === 'general') hr.appendChild(headCell(stPlayer === 'all' ? 'Spitzenreiter' : 'Rang', 'lead', stPlayer !== 'all'));
+    thead.appendChild(hr); table.appendChild(thead);
+    var tbody = el('tbody');
+    rows.slice(0, stLimit).forEach(function (r) {
+      var tr = el('tr'), name = el('td', 'nm', r.label); name.title = r.key; tr.appendChild(name);
+      tab.cols.forEach(function (c, ci) {
+        var td = el('td', 'num'), x = r.cells[ci], v = r.v[ci];
+        if (!x || !v) td.appendChild(el('span', 'zero', '–')); else td.appendChild(cellButton(x, fmtCell(x, v)));
+        tr.appendChild(td);
+      });
+      if (tab.id === 'general') {
+        var x0 = r.cells[0], td = el('td', stPlayer === 'all' ? 'lead' : 'num');
+        if (stPlayer === 'all') { var top = x0.list[0]; td.appendChild(top ? cellButton(x0, stats.players[top[0]] + ' · ' + fmtCell(x0, top[1])) : el('span', 'zero', '–')); }
+        else td.appendChild(el('span', '', r.lead + '. von ' + x0.list.length));
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    var who = stPlayer === 'all' ? 'Summe aller Spieler' : stats.players[+stPlayer];
+    $('stInfo').textContent = rows.length ? nf.format(rows.length) + (rows.length === 1 ? ' Eintrag' : ' Einträge') + ' · ' + who + (tab.id === 'general' && stPlayer === 'all' ? ' · „Zeit seit …“: Höchstwert' : '') : 'Keine passenden Statistiken gefunden.';
+    var more = $('stMore'); more.hidden = rows.length <= stLimit; more.textContent = 'Mehr anzeigen (' + nf.format(rows.length - stLimit) + ' weitere)';
+  }
+  function renderTabs() {
+    var box = $('stTabs'); box.textContent = '';
+    TABS.forEach(function (t) {
+      var b = el('button', 'tab' + (t.id === stTab ? ' on' : ''), t.name); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(t.id === stTab));
+      b.addEventListener('click', function () { stTab = t.id; stLimit = 100; renderTabs(); renderTable(); });
       box.appendChild(b);
     });
   }
-  function renderStatList() {
-    var q = $('stSearch').value.trim().toLowerCase(), ul = $('stList'); ul.textContent = '';
-    var hits = stIndex.filter(function (x) { return (stCat === 'all' || x.cat === stCat) && (!q || q.split(/\s+/).every(function (w) { return matchWord(x, w); })); });
-    $('stInfo').textContent = hits.length ? nf.format(hits.length) + (hits.length === 1 ? ' Statistik' : ' Statistiken') + (hits.length > 200 ? ' · die ersten 200 werden angezeigt, Suche eingrenzen' : '') : 'Keine passende Statistik gefunden.';
-    hits.slice(0, 200).forEach(function (x) {
-      var li = el('li'), b = el('button', 'stat'), top = x.list[0];
-      b.type = 'button';
-      var t = el('span', 'st-name'); t.appendChild(el('b', '', x.label)); t.appendChild(el('small', '', x.catName)); b.appendChild(t);
-      b.appendChild(el('span', 'st-lead', top ? stats.players[top[0]] + ' · ' + fmtStat(top[1], unitOf(x.cat, x.key)) : '–'));
-      b.addEventListener('click', function () { openStat(x); });
-      li.appendChild(b); ul.appendChild(li);
-    });
-  }
+
+  // Rangliste einer einzelnen Statistik (aus der Tabelle oder von einer Tagesstatistik)
   function openStat(x) {
     $('stPick').hidden = true; $('stBoard').hidden = false;
     $('stTitle').textContent = x.label; $('stDesc').textContent = x.catName + ' · ' + x.key + ' · ' + x.list.length + ' Spieler';
     var ul = $('stRows'), unit = unitOf(x.cat, x.key); ul.textContent = '';
     x.list.forEach(function (e, i) {
-      var name = stats.players[e[0]] || '?', li = el('li', 'row r' + (i < 3 ? i + 1 : '')); li.style.setProperty('--i', Math.min(i, 15));
+      var name = stats.players[e[0]] || '?', li = el('li', 'row r' + (i < 3 ? i + 1 : '') + (String(e[0]) === stPlayer ? ' me' : '')); li.style.setProperty('--i', Math.min(i, 15));
       li.appendChild(el('span', 'rank', String(i + 1)));
       var av = el('span', 'av', name.charAt(0).toUpperCase()); av.style.background = hue(name); li.appendChild(av);
       li.appendChild(el('span', 'name', name)); li.appendChild(el('span', 'val', fmtStat(e[1], unit)));
@@ -361,18 +484,74 @@
     });
     $('stBack').focus();
   }
-  function showPick() { $('stBoard').hidden = true; $('stPick').hidden = false; $('stTitle').textContent = 'Alle Statistiken'; }
-  $('statsBtn').addEventListener('click', function () {
-    showPick(); $('statsDlg').showModal(); $('stSearch').focus();
-    if (stats) return;
-    fetchJson('data/stats.json').then(function (d) {
-      stats = d; buildIndex(); renderCats(); renderStatList();
-      if (!stIndex.length) $('stInfo').textContent = 'Noch keine Statistiken vorhanden.';
-    }).catch(function () { $('stInfo').textContent = 'Die Statistiken sind noch nicht verfügbar. Sie werden vom Server-PC mit hochgeladen, sobald das aktualisierte Sync-Skript läuft.'; });
-  });
-  $('stSearch').addEventListener('input', function () { if (stats) renderStatList(); });
-  $('stBack').addEventListener('click', function () { showPick(); $('stSearch').focus(); });
+  function showPick() { $('stBoard').hidden = true; $('stPick').hidden = false; $('stTitle').textContent = 'Statistiken'; }
+  function openStats(then) {
+    showPick(); if (!$('statsDlg').open) $('statsDlg').showModal();
+    $('stInfo').textContent = 'Statistiken werden geladen …';
+    return ensureStats().then(function () { renderTabs(); renderTable(); if (then) then(); }).catch(function () {
+      $('stInfo').textContent = 'Die Statistiken sind noch nicht verfügbar. Sie werden vom Server-PC mit hochgeladen, sobald das aktualisierte Sync-Skript läuft.';
+    });
+  }
+  $('statsBtn').addEventListener('click', function () { openStats(function () { $('stSearch').focus(); }); });
+  $('stSearch').addEventListener('input', function () { if (stats) { stLimit = 100; renderTable(); } });
+  $('stPlayer').addEventListener('change', function () { stPlayer = this.value; stLimit = 100; if (stats) renderTable(); });
+  $('stMore').addEventListener('click', function () { stLimit += 200; renderTable(); });
+  $('stBack').addEventListener('click', function () { showPick(); });
+
+  // Statistiken des Tages: drei zufaellige, fuer alle Besucher gleiche Statistiken, die jeden Tag (0 Uhr deutscher Zeit) wechseln
+  function berlinDay() { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' }); }
+  function seeded(str) { // feste Zufallszahl 0..1 aus einem Text (xmur3 + mulberry32): gleicher Text = gleiche Zahl
+    var h = 1779033703 ^ str.length; for (var i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = h << 13 | h >>> 19; }
+    var a = (Math.imul(h ^ (h >>> 16), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0;
+    a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  function groupOf(x) {
+    if (/^(cobblemon|rad_gyms):/.test(x.key)) return 'cobblemon';
+    if (x.cat === 'minecraft:custom') return /_one_cm$/.test(x.key) ? 'bewegung' : 'allgemein';
+    return x.cat;
+  }
+  var GROUP_ICON = { cobblemon: '🐾', bewegung: '👣', allgemein: '📈', 'minecraft:mined': '⛏️', 'minecraft:crafted': '🔨', 'minecraft:used': '🖐️', 'minecraft:broken': '💔', 'minecraft:picked_up': '🧲', 'minecraft:dropped': '📦', 'minecraft:killed': '⚔️', 'minecraft:killed_by': '💀' };
+  function dailyPicks() {
+    var day = berlinDay(), ok = function (x) { return !BORING.test(x.key); }, pool;
+    // Nur Statistiken, bei denen es etwas zu vergleichen gibt: mind. 3 Spieler und ein Spitzenwert ab 5; sonst schrittweise lockerer
+    [function (x) { return x.list.length >= 3 && x.max >= 5; }, function (x) { return x.list.length >= 2; }, function () { return true; }].some(function (f) {
+      pool = stIndex.filter(function (x) { return ok(x) && f(x); }); return pool.length >= 3;
+    });
+    // Jede Statistik bekommt pro Tag eine feste Zufallszahl; die ersten drei aus verschiedenen Bereichen werden gezeigt.
+    // So haengt die Auswahl nur vom Tag ab (nicht von der Reihenfolge der Daten) und bleibt tagsueber stabil.
+    pool = pool.map(function (x) { return { x: x, r: seeded(day + '|' + x.cat + '|' + x.key) }; }).sort(function (a, b) { return a.r - b.r; }).map(function (o) { return o.x; });
+    var out = [], used = {};
+    pool.forEach(function (x) { var g = groupOf(x); if (out.length < 3 && !used[g]) { used[g] = 1; out.push(x); } });
+    pool.forEach(function (x) { if (out.length < 3 && out.indexOf(x) < 0) out.push(x); });
+    return out;
+  }
+  function renderDaily() {
+    var box = $('dailyList'), sec = $('daily'), picks = dailyPicks(); box.textContent = ''; dailyDay = berlinDay();
+    sec.hidden = !picks.length; if (!picks.length) return;
+    $('dailyDate').textContent = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: 'numeric', month: 'long' });
+    picks.forEach(function (x) {
+      var card = el('article', 'card'), head = el('header'), unit = unitOf(x.cat, x.key);
+      card.tabIndex = 0; card.setAttribute('role', 'button'); card.setAttribute('aria-label', x.label + ' – Rangliste anzeigen');
+      var open = function () { stPlayer = 'all'; $('stPlayer').value = 'all'; openStats(function () { openStat(x); }); };
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } });
+      head.appendChild(el('div', 'ico', GROUP_ICON[groupOf(x)] || '📊'));
+      var t = el('div'); t.appendChild(el('h3', '', x.label)); t.appendChild(el('p', '', x.catName)); head.appendChild(t); card.appendChild(head);
+      var ul = el('ul', 'rows');
+      x.list.slice(0, 3).forEach(function (e, i) {
+        var name = stats.players[e[0]] || '?', li = el('li', 'row r' + (i + 1)); li.style.setProperty('--i', i);
+        li.appendChild(el('span', 'rank', String(i + 1)));
+        var av = el('span', 'av', name.charAt(0).toUpperCase()); av.style.background = hue(name); li.appendChild(av);
+        li.appendChild(el('span', 'name', name)); li.appendChild(el('span', 'val', fmtStat(e[1], unit)));
+        ul.appendChild(li);
+      });
+      card.appendChild(ul);
+      card.appendChild(el('p', 'more', x.list.length > 3 ? 'Alle ' + x.list.length + ' anzeigen →' : 'Details →'));
+      box.appendChild(card);
+    });
+  }
+  ensureStats().then(renderDaily).catch(function (e) { if (window.console) console.warn('Statistiken des Tages:', e); }); // fehlt stats.json, bleibt der Bereich einfach ausgeblendet
 
   fetchJson('announcements.json').then(renderNews).catch(function () { renderNews([]); });
-  load(); setInterval(load, 60000);
+  load(); setInterval(maybeLoad, 15000); document.addEventListener('visibilitychange', maybeLoad);
 })();

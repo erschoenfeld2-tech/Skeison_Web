@@ -155,18 +155,38 @@ body:has(.hero[data-phase="end"]) .fx-bg { color: #c49bff; } body:has(.hero[data
 .wk[aria-expanded="true"]::after { transform: rotate(180deg); }
 .wk:hover { color: var(--accent); }
 .wk-date { color: var(--muted); font-size: .85rem; font-weight: 600; }
-/* Alle Statistiken */
-.cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 6px; }
-.cat { cursor: pointer; font: inherit; font-size: .82rem; font-weight: 700; padding: 5px 11px; border-radius: 6px; color: var(--muted); background: transparent; border: 1px solid var(--line); transition: color .2s, border-color .2s, background-color .2s; }
-.cat:hover { color: var(--text); border-color: var(--accent); }
-.cat.on { color: #1a1500; background: var(--accent); border-color: var(--accent); }
+
+/* Statistiken: Aufbau wie in Minecraft (Tabs, Tabelle), Spielerfilter */
+.dlg.xl { width: min(1040px, calc(100vw - 24px)); max-height: calc(100vh - 32px); }
+.st-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0 10px; }
+.st-sel { display: inline-flex; align-items: center; gap: 8px; margin: 0 !important; font-weight: 600; font-size: .9rem; }
+.st-bar select, .st-bar input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin: 0; }
+.st-bar input { flex: 1; min-width: 180px; width: auto; }
+.st-bar select:focus, .st-bar input:focus { outline: none; border-color: var(--accent); }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.tab { cursor: pointer; font: inherit; font-weight: 700; padding: 8px 14px; color: var(--muted); background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px; transition: color .2s, border-color .2s; }
+.tab:hover { color: var(--text); } .tab.on { color: var(--text); border-bottom-color: var(--accent); }
 .st-info { margin: 6px 0; font-size: .85rem; }
-.stat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 52vh; overflow: auto; overflow-x: hidden; }
-.stat { width: 100%; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; font: inherit; color: var(--text); padding: 8px 12px; border-radius: 8px; border: 1px solid transparent; background: rgba(255,255,255,.03); transition: border-color .2s, background-color .2s; }
-.stat:hover, .stat:focus-visible { border-color: var(--accent); }
-.st-name { display: flex; flex-direction: column; min-width: 0; flex: 1; } .st-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .st-name small { color: var(--muted); font-size: .76rem; }
-.st-lead { color: var(--muted); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48%; }
-#stRows { max-height: 55vh; overflow: auto; margin-top: 10px; }
+.tbl-wrap { overflow: auto; max-height: 50vh; border: 1px solid var(--line); border-radius: 10px; }
+.stat-table { width: 100%; min-width: 520px; border-collapse: separate; border-spacing: 0; font-size: .92rem; }
+.stat-table th, .stat-table td { padding: 7px 12px; text-align: left; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); white-space: nowrap; }
+.stat-table thead th { position: sticky; top: 0; z-index: 2; background: var(--panel2); }
+.stat-table th.num, .stat-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.stat-table td.nm, .stat-table th:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.stat-table thead th:first-child { z-index: 3; background: var(--panel2); }
+.stat-table tbody tr:hover td { background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }
+.hbtn { font: inherit; font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap; }
+.hbtn:hover, th[aria-sort] .hbtn { color: var(--text); } .hbtn::after { content: attr(data-dir); color: var(--accent); }
+.cell { font: inherit; font-weight: 700; color: var(--accent); background: none; border: 0; cursor: pointer; padding: 1px 6px; margin: 0 -6px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.cell:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.stat-table td.lead .cell { font-weight: 600; color: var(--text); }
+.zero { color: var(--muted); opacity: .45; }
+.st-more { margin: 10px 0 0; text-align: center; }
 #stBoard .btn.small { margin-top: 10px; }
-@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .stat { background: rgba(20,26,51,.04); } }
-@media (max-width: 520px) { .stat { flex-direction: column; align-items: flex-start; gap: 2px; } .st-lead { max-width: 100%; } }
+#stRows { max-height: 55vh; overflow: auto; margin-top: 10px; }
+.row.me { outline: 1px solid var(--accent); outline-offset: -1px; }
+/* Statistiken des Tages */
+#daily .sec-head { align-items: baseline; } #daily .sec-head h2 { margin: 0; }
+.daily-note { margin: 4px 0 0; font-size: .92rem; }
+#dailyList.cards { margin-top: 16px; }
+@media (max-width: 520px) { .stat-table { min-width: 0; } .stat-table th, .stat-table td { padding: 7px 9px; } .stat-table td.nm, .stat-table th:first-child { max-width: 108px; } .st-bar input { flex: 1 1 100%; } .st-sel { flex: 1 1 100%; } .st-sel select { flex: 1; } }

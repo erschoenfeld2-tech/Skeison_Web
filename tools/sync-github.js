@@ -3,9 +3,12 @@
 // git nutzt die Anmeldung des Windows-Anmeldeinformationsmanagers (einmalig `git push` bzw. `gh auth login`).
 // Zusaetzlich exportiert es alle Minecraft-Statistiken der Welt (world/stats/*.json) als stats.json fuer
 // die Statistik-Suche auf der Webseite. Die Welt wird unter MC_ROOT gesucht; fester Pfad per MC_STATS_DIR.
+// Ausserdem berechnet es die Rangliste "Collector" (verschiedene GEFANGENE Pokemon, aus den Pokedex-Dateien der Spieler, siehe
+// pokedex.js) und fuegt sie in leaderboards.json/history.json ein. Der Wochenstand dafuer liegt in github-sync/collector-state.json.
 // Start: node sync-github.js   (am besten in start-services.bat aufnehmen)
 'use strict';
 const fs = require('fs'), path = require('path'), cp = require('child_process');
+const pokedex = require('./pokedex.js');
 
 const ROOT = process.env.MC_ROOT || 'C:\\MinecraftHosting';
 const REPO_URL = process.env.SYNC_REPO || 'https://github.com/erschoenfeld2-tech/Skeison_Web.git';
@@ -17,6 +20,8 @@ const FILES = [ // [Quelle, Ziel im Branch]
   [path.join(ROOT, 'web', 'announcements.json'), 'announcements.json'],
   [path.join(ROOT, 'web', 'data', 'stats.json'), 'stats.json'],   // von exportStats() erzeugt
 ];
+const STATE_FILE = path.join(ROOT, 'github-sync', 'collector-state.json');
+const FIRST_WEEK = pokedex.mondayOf(process.env.SERVER_START || '2026-10-30T15:00:00+01:00'); // Montag der Woche des Serverstarts
 const INTERVAL_MS = 2 * 60 * 1000;   // Pruefintervall
 const MAX_AGE_MS = 30 * 60 * 1000;   // auch ohne Aenderung spaetestens alle 30 min (Zeitstempel/Status frisch halten)
 
@@ -94,12 +99,42 @@ function exportStats(out) {
   fs.writeFileSync(out, JSON.stringify({ updated: new Date().toISOString(), players, stats }));
 }
 
+/* ---------- Collector: verschiedene gefangene Pokemon ---------- */
+let collectorWarned = false, collectorLogged = false, collectorState = null;
+function readCollector() {
+  if (!statsDir) return null;
+  const world = path.dirname(statsDir), dex = pokedex.readDex(world);
+  if (!dex.size) {
+    if (!collectorWarned) { log('Collector: keine Pokedex-Dateien unter ' + path.join(world, 'pokedex') + ' bzw. cobblemonplayerdata gefunden - Rangliste "Collector" wird nicht berechnet.'); collectorWarned = true; }
+    return null;
+  }
+  if (!collectorLogged) { // Kontrolle fuer den Betreiber: "gesehen+gefangen" sollte zur Rangliste "Pokedex Collector" passen
+    const names = playerNames(path.dirname(world));
+    const top = [...dex].sort((a, b) => b[1].seen.size - a[1].seen.size).slice(0, 3).map(([u, d]) => (names[u] || u.slice(0, 8)) + ': ' + d.caught.size + ' gefangen / ' + d.seen.size + ' gesehen+gefangen');
+    log('Collector: Pokedex von ' + dex.size + ' Spielern gelesen (' + top.join('; ') + ').'); collectorLogged = true;
+  }
+  return dex;
+}
+function applyCollector(dex) {
+  if (!collectorState) { try { collectorState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch (e) { collectorState = {}; } }
+  const names = playerNames(path.dirname(path.dirname(statsDir)));
+  const lbFile = path.join(WORK, 'leaderboards.json'), hFile = path.join(WORK, 'history.json');
+  const lb = JSON.parse(fs.readFileSync(lbFile, 'utf8')); let hist = []; try { hist = JSON.parse(fs.readFileSync(hFile, 'utf8')); } catch (e) {}
+  const before = JSON.stringify(collectorState);
+  pokedex.augment({ lb, hist, dex, names, state: collectorState, firstWeek: FIRST_WEEK });
+  fs.writeFileSync(lbFile, JSON.stringify(lb)); fs.writeFileSync(hFile, JSON.stringify(hist));
+  if (JSON.stringify(collectorState) !== before) { fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true }); fs.writeFileSync(STATE_FILE, JSON.stringify(collectorState)); }
+}
+
 let last = '', lastPush = 0, hasCommit = false;
 function cycle() {
   try { exportStats(FILES[FILES.length - 1][0]); } catch (e) { log('Statistik-Export fehlgeschlagen: ' + e.message); }
-  const snap = FILES.map(([src]) => normalized(src)).join('|');
+  let dex = null; try { dex = readCollector(); } catch (e) { log('Collector-Daten nicht lesbar: ' + e.message); }
+  const dexSig = dex ? JSON.stringify([...dex].map(([u, d]) => [u, d.caught.size])) : ''; // neue Faenge sollen sofort hochgeladen werden
+  const snap = FILES.map(([src]) => normalized(src)).join('|') + '|' + dexSig;
   if (snap === last && Date.now() - lastPush < MAX_AGE_MS) return;
   for (const [src, dst] of FILES) if (fs.existsSync(src)) fs.copyFileSync(src, path.join(WORK, dst));
+  if (dex && fs.existsSync(path.join(WORK, 'leaderboards.json'))) { try { applyCollector(dex); } catch (e) { log('Collector-Rangliste fehlgeschlagen: ' + e.message); } }
   git('add', '-A');
   if (!hasCommit) {
     try { git('rev-parse', 'HEAD'); hasCommit = true; } catch (e) { /* noch kein Commit */ }
@@ -112,7 +147,7 @@ function cycle() {
   log('Daten nach GitHub synchronisiert.');
 }
 
-module.exports = { exportStats, findStatsDir };
+module.exports = { exportStats, findStatsDir, readCollector, applyCollector };
 if (require.main === module) {
   init();
   const run = () => { try { cycle(); } catch (e) { log('Fehler: ' + (e.stderr ? e.stderr.toString() : e.message)); } };
