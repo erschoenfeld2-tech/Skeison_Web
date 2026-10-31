@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handbuch · Cobblemon Server</title>
+<meta name="description" content="Handbuch zum Cobblemon Server: Einstieg, offizielle Hilfeseiten und alle Mods des Modpacks mit Erklärung und Link zur jeweiligen Seite.">
+<meta name="theme-color" content="#0b0f1c">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/fx.css">
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="handbuch.css">
+<script>document.documentElement.classList.add('fx');</script>
+</head>
+<body>
+<a class="skip" href="#inhalt">Zum Inhalt springen</a>
+<div class="fx-bg" aria-hidden="true"><i></i><i></i><i></i><canvas></canvas></div>
+
+<div class="nav-bar">
+  <nav class="nav wrap" aria-label="Hauptnavigation">
+    <a class="brand" href="../../"><span class="brand-mark">S</span>Skeison</a>
+    <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
+    <div class="links" id="navLinks">
+      <span class="nav-ind" aria-hidden="true"></span>
+      <a href="#start">Erste Schritte</a><a href="#hilfe">Hilfe &amp; Wikis</a><a href="#mods">Alle Mods</a>
+      <a class="nav-cta" href="../">Server-Seite <span class="arr">→</span></a>
+    </div>
+  </nav>
+  <div class="nav-progress"></div>
+</div>
+
+<header class="hero hb-hero" id="top">
+  <div class="wrap">
+    <p class="back"><a href="../"><span class="arr">←</span> Cobblemon Server</a></p>
+    <p class="eyebrow">Handbuch · Cobblemon Server</p>
+    <h1>Alles zu unseren Mods</h1>
+    <p class="hb-lead">Hier steht, was jede Mod im Modpack macht, und wo man mehr darüber erfährt. Jede Karte führt zur Seite der Mod.</p>
+    <ul class="facts" id="packFacts" aria-label="Modpack"></ul>
+  </div>
+</header>
+
+<main class="wrap" id="inhalt">
+  <section id="start">
+    <h2 data-reveal>Erste Schritte</h2>
+    <ol class="steps" data-stagger>
+      <li><h3>Launcher installieren</h3><p>Am einfachsten geht es mit der Modrinth App, der Prism Launcher funktioniert ebenfalls.</p>
+        <span class="step-links"><a class="btn small ghost" href="https://modrinth.com/app" target="_blank" rel="noopener">Modrinth App <span class="arr">↗</span></a><a class="btn small ghost" href="https://prismlauncher.org/" target="_blank" rel="noopener">Prism Launcher <span class="arr">↗</span></a></span></li>
+      <li><h3>Modpack importieren</h3><p>Die Modpack-Datei herunterladen und im Launcher importieren. Alle Mods dieser Seite sind schon darin enthalten.</p>
+        <a class="btn small" href="../download/CobblemonServerPack.mrpack" download>Modpack herunterladen</a></li>
+      <li><h3>Auf die Whitelist</h3><p>Bewerben und die Freischaltung abwarten. Ohne Freischaltung lässt der Server dich nicht herein.</p>
+        <a class="btn small ghost" href="../#bewerben">Jetzt bewerben</a></li>
+      <li><h3>Verbinden</h3><p>Die Serveradresse auf der Server-Seite kopieren und im Spiel unter „Mehrspieler“ eintragen.</p>
+        <a class="btn small ghost" href="../">Zur Server-Seite</a></li>
+    </ol>
+  </section>
+
+  <section id="hilfe">
+    <h2 data-reveal>Hilfe &amp; offizielle Seiten</h2>
+    <div class="links-grid" data-stagger>
+      <a class="lk" href="https://wiki.cobblemon.com/" target="_blank" rel="noopener"><b>Cobblemon Wiki</b><span>Anleitungen zu Pokémon, Kämpfen, Items und Mechaniken.</span><i class="arr">↗</i></a>
+      <a class="lk" href="https://cobblemon.com/" target="_blank" rel="noopener"><b>Cobblemon, offizielle Seite</b><span>Neuigkeiten und Downloads der Hauptmod.</span><i class="arr">↗</i></a>
+      <a class="lk" href="https://modrinth.com/project/MdwFAVRL" target="_blank" rel="noopener"><b>Cobblemon auf Modrinth</b><span>Versionen, Änderungsprotokolle und Beschreibung.</span><i class="arr">↗</i></a>
+      <a class="lk" href="https://modrepo.de/minecraft/voicechat/wiki" target="_blank" rel="noopener"><b>Simple Voice Chat, Wiki</b><span>Einrichtung und Fehlerbehebung beim Sprachchat.</span><i class="arr">↗</i></a>
+      <a class="lk" href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener"><b>Unser Discord</b><span>Fragen stellen und Hilfe von den Admins bekommen.</span><i class="arr">↗</i></a>
+      <a class="lk" href="../#schedule"><b>Zeitplan des Servers</b><span>Wann Nether und End öffnen.</span><i class="arr">→</i></a>
+    </div>
+  </section>
+
+  <section id="mods">
+    <div class="sec-head" data-reveal>
+      <h2>Alle Mods im Modpack</h2>
+      <p class="muted" id="modCount" aria-live="polite"></p>
+    </div>
+    <div class="hb-tools">
+      <input id="modSearch" type="search" placeholder="Mod suchen, z. B. Karte, Rucksack, Shader …" autocomplete="off" aria-label="Mods durchsuchen">
+      <div class="chips" id="modCats" role="group" aria-label="Kategorie"></div>
+    </div>
+    <p class="muted hb-key"><span class="badge both">Server &amp; Client</span> braucht jeder Spieler (im Modpack enthalten) · <span class="badge client">Nur Client</span> läuft nur auf dem eigenen Rechner · <span class="badge opt">Client optional</span> wird auf dem Server gebraucht, beim Spieler optional.</p>
+    <div id="modList"><p class="muted">Mods werden geladen …</p></div>
+  </section>
+</main>
+
+<footer class="foot"><div class="wrap muted foot-in"><span id="packInfo"></span><a href="../">← Zurück zur Server-Seite</a></div></footer>
+<script src="../../assets/fx.js"></script>
+<script src="handbuch.js"></script>
+</body>
+</html>

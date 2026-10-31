@@ -1,0 +1,43 @@
+/* Handbuch: Zusatz zu ../style.css */
+.hb-hero { padding-bottom: 40px; }
+.hb-hero h1 { margin-bottom: 10px; }
+.hb-lead { margin: 0 0 20px; max-width: 58ch; color: var(--muted); font-size: 1.05rem; }
+.facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.facts li { display: inline-flex; align-items: baseline; gap: 8px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 85%, transparent); font-size: .85rem; color: var(--muted); }
+.facts b { color: var(--text); font-size: .95rem; }
+
+.step-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; margin-top: 14px; }
+.lk { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 40px 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); text-decoration: none; color: var(--text); transition: border-color .2s, transform .3s var(--ease); }
+.lk:hover { color: var(--text); border-color: var(--accent); transform: translateY(-2px); }
+.lk b { font-size: 1rem; } .lk span { color: var(--muted); font-size: .88rem; font-weight: 400; }
+.lk .arr { position: absolute; right: 16px; top: 14px; color: var(--accent); font-style: normal; font-weight: 700; }
+
+.hb-tools { display: grid; gap: 10px; margin: 14px 0 10px; }
+.hb-tools input { width: 100%; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.hb-tools input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { cursor: pointer; font: inherit; font-size: .85rem; font-weight: 700; padding: 6px 12px; border-radius: 8px; color: var(--muted); background: transparent; border: 1px solid var(--line); transition: color .2s, border-color .2s, background-color .2s; }
+.chip small { opacity: .7; font-weight: 600; }
+.chip:hover { color: var(--text); border-color: var(--accent); }
+.chip.on { color: #1a1500; background: var(--accent); border-color: var(--accent); }
+.hb-key { font-size: .85rem; margin: 6px 0 4px; }
+
+.hb-cat { margin: 30px 0 0; }
+.hb-cat h3 { margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 10px; }
+.hb-cat h3 .n { font-size: .78rem; font-weight: 700; color: var(--muted); padding: 2px 9px; border-radius: 99px; border: 1px solid var(--line); }
+.hb-cat .ct { margin: 4px 0 12px; font-size: .92rem; }
+.mods { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.mod { min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); transition: border-color .2s; scroll-margin-top: 90px; }
+.mod:hover, .mod.hit { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.mod header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.mod h3 { margin: 0; font-size: 1.05rem; line-height: 1.25; }
+.mt { margin: 0; flex: 1; font-size: .93rem; } .mt.none { color: var(--muted); font-style: italic; }
+.mlinks { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.small { font-size: .82rem; }
+.mfile { margin: 0; font-family: ui-monospace, Consolas, monospace; font-size: .72rem; color: var(--muted); opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge { display: inline-block; flex: none; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 6px; margin: 0; vertical-align: baseline; border: 1px solid var(--line); background: transparent; color: var(--muted); }
+.badge.both { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, var(--line)); }
+.badge.client { color: var(--accent2); border-color: color-mix(in srgb, var(--accent2) 55%, var(--line)); }
+.badge.opt { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.steps .btn.small + .btn.small { margin-left: 0; }
