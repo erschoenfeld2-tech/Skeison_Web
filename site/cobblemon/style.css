@@ -63,6 +63,8 @@ section { margin: 84px 0; }
 /* Kopf (8x8 ab 8,8) und Hut-Ebene (8x8 ab 40,8) aus dem 64x64-Skin: Skin auf 800 % skaliert, damit 8 Pixel genau die Elementbreite fuellen */
 .av .skin { position: absolute; inset: 0; background-image: var(--skin), var(--skin); background-repeat: no-repeat; background-size: 800% 800%, 800% 800%;
   background-position: 14.2857% 14.2857%, 71.4286% 14.2857%; image-rendering: pixelated; }
+/* Altes Skin-Format (64x32): Kopf liegt wie bei 64x64 bei y=8, die Datei ist aber nur halb so hoch -> Hoehe 4-fach statt 8-fach der Elementhoehe */
+.av .skin.legacy { background-size: 800% 400%, 800% 400%; background-position: 14.2857% 33.3333%, 71.4286% 33.3333%; }
 .av.sm { width: 20px; height: 20px; border-radius: 4px; font-size: .62rem; }
 .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .val { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); }

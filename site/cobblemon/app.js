@@ -42,13 +42,39 @@
   var COLORS = ['#ffcb05', '#7fb5ff', '#ff8a8a', '#7be0b0', '#c9a0ff', '#ffb36b', '#6fd6e8', '#f0a0d0'];
 
   function hue(name) { var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return COLORS[h % COLORS.length]; }
-  // Spieler-Koepfe: Die Skins liegen im Branch "data" (skins/<name>.png, vom Sync-Skript von Mojang geholt); der eigene Skin liegt schon in der Seite.
-  // Der Buchstabe in der Spielerfarbe ist der Ersatz, solange (oder falls) kein Skin da ist. Kopf und Hut-Ebene schneidet das CSS aus (.av .skin).
+  // Spieler-Koepfe. Ein Skin wird in dieser Reihenfolge gesucht (der erste, der sich laden laesst, gewinnt):
+  //  1. der eigene Skin aus der Seite (nur Skeison), 2. die Kopie aus dem Branch "data" (skins/<name>.png, vom Sync-Skript von Mojang geholt),
+  //  3. oeffentliche Skin-Dienste, die den Mojang-Skin per Spielername liefern ({name} wird ersetzt). Damit erscheinen Koepfe auch ohne
+  //  Vorarbeit auf dem Server-PC. Die Liste leer lassen, wenn keine Fremddienste angefragt werden sollen.
+  var SKIN_FALLBACKS = ['https://minotar.net/skin/{name}', 'https://mc-heads.net/skin/{name}'];
   var LOCAL_SKINS = { skeison: new URL('../skin/skeison.png', document.baseURI).href };
-  function skinUrl(name) { var k = name.toLowerCase(); return LOCAL_SKINS[k] || DATA_BASE + 'skins/' + encodeURIComponent(k) + '.png'; }
+  var skinCache = {};
+  // Ergebnis: { url, legacy } oder null; legacy = altes 64x32-Format (Kopf liegt dort in anderer Hoehe, siehe .av .skin.legacy im CSS)
+  function loadSkin(name) {
+    var k = name.toLowerCase(); if (skinCache[k]) return skinCache[k];
+    var list = []; if (LOCAL_SKINS[k]) list.push(LOCAL_SKINS[k]);
+    list.push(DATA_BASE + 'skins/' + encodeURIComponent(k) + '.png');
+    if (/^[A-Za-z0-9_]{1,16}$/.test(name)) SKIN_FALLBACKS.forEach(function (t) { list.push(t.replace('{name}', encodeURIComponent(name))); });
+    skinCache[k] = new Promise(function (done) {
+      (function next(n) {
+        if (n >= list.length) return done(null);
+        var im = new Image();
+        im.onload = function () { // nur echte Skin-Dateien (quadratisch oder doppelt so breit wie hoch, mind. 64 Pixel) zaehlen
+          var w = im.naturalWidth, h = im.naturalHeight, ok = w >= 64 && (h === w || h * 2 === w);
+          if (ok) done({ url: list[n], legacy: h * 2 === w }); else next(n + 1);
+        };
+        im.onerror = function () { next(n + 1); };
+        im.src = list[n];
+      })(0);
+    });
+    return skinCache[k];
+  }
+  // Buchstabe in der Spielerfarbe als Ersatz, bis (oder falls) ein Skin gefunden ist; Kopf und Hut-Ebene schneidet das CSS aus (.av .skin)
   function avatar(name, small) {
     var a = el('span', 'av' + (small ? ' sm' : ''), name.charAt(0).toUpperCase()); a.style.background = hue(name);
-    var h = el('i', 'skin'); h.style.setProperty('--skin', 'url("' + skinUrl(name) + '")'); a.appendChild(h); return a;
+    var h = el('i', 'skin'); a.appendChild(h);
+    loadSkin(name).then(function (r) { if (!r) return; h.style.setProperty('--skin', 'url("' + r.url + '")'); if (r.legacy) h.classList.add('legacy'); });
+    return a;
   }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
   function getJson(url) { return fetch(url + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); }
