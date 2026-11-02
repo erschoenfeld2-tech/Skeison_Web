@@ -1,4 +1,4 @@
-// Liest die Pokedex-Dateien der Spieler (Cobblemon) und berechnet die Rangliste "Collector":
+// Liest die Pokedex-Dateien der Spieler (Cobblemon) und berechnet die Ranglisten "Collector" und "Legendaerer Trainer":
 // die Anzahl VERSCHIEDENER gefangener Pokemon-Arten (gesehene zaehlen nicht; die bisherige Rangliste heisst jetzt "Pokedex Collector").
 // Wird vom Sync-Skript (sync-github.js) benutzt und in leaderboards.json / history.json eingefuegt.
 // Dateiformat (Cobblemon 1.8.2): <welt>/pokedex/<xx>/<uuid>.nbt (gzip-NBT; aeltere Staende evtl. .json) mit
@@ -7,6 +7,7 @@
 'use strict';
 const fs = require('fs'), path = require('path');
 const { parse: parseNbt } = require('./nbt.js');
+const { isLegendary } = require('./legendary.js');
 
 const UUID_FILE = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}\.(json|nbt)$/i;
 const DIRS = ['pokedex', 'cobblemonplayerdata'];
@@ -108,32 +109,60 @@ function diagnose(world) {
 
 const byValue = (a, b) => b.value - a.value || a.name.localeCompare(b.name);
 
-// Fuegt die Rangliste "caught" (Titel "Collector") in leaderboards (lb) ein und die Wochensieger in history (hist).
-// Woche = Neue Arten seit Wochenbeginn: beim ersten Lauf einer neuen Woche wird der Stand als Ausgangspunkt gemerkt (state.base).
-// In der Woche des Serverstarts (firstWeek) ist der Ausgangspunkt leer, die Wochenwerte sind dort gleich den Gesamtwerten.
+const KEEP = 100; // so viele Plaetze pro Rangliste und Woche bleiben in der Historie erhalten
+
+// Fuegt die Ranglisten "caught" (Titel "Collector") und "legend" (Titel "Legendaerer Trainer") in leaderboards (lb) ein und
+// die Wochenergebnisse in history (hist). Woche = Neue Arten seit Wochenbeginn: beim ersten Lauf einer neuen Woche wird der Stand
+// als Ausgangspunkt gemerkt (state.base). In der Woche des Serverstarts (firstWeek) ist der Ausgangspunkt leer, die Wochenwerte
+// sind dort gleich den Gesamtwerten.
+// Beim Wechsel der Woche wird die komplette Wochenliste ALLER Ranglisten (nicht nur das Podest) in state.archive abgelegt und in die
+// Historie uebernommen; history[].full[<rangliste>] = true markiert Eintraege mit vollstaendiger Liste.
 function augment({ lb, hist, dex, names, state, firstWeek }) {
   const ws = lb.weekStart;
   if (ws && state.week !== ws) {
-    if (state.week && Array.isArray(state.last)) (state.winners = state.winners || {})[state.week] = state.last.slice(0, 3);
+    if (state.week) {
+      const lists = state.lastAll || (Array.isArray(state.last) ? { caught: state.last } : null); // Stand des letzten Laufs der alten Woche
+      if (lists) (state.archive = state.archive || {})[state.week] = lists;
+    }
     state.week = ws; state.base = {};
     if (ws > firstWeek) for (const [u, d] of dex) state.base[u] = [...d.caught];
   }
-  const total = [], week = [], base = state.base || {};
+  const total = [], week = [], lTotal = [], lWeek = [], base = state.base || {};
   for (const [u, d] of dex) {
     if (!d.caught.size) continue;
     const name = names[u] || u.slice(0, 8), seen = new Set(base[u] || []);
     total.push({ name, value: d.caught.size });
     let n = 0; for (const sp of d.caught) if (!seen.has(sp)) n++;
     if (n) week.push({ name, value: n });
+    let lt = 0, lw = 0; for (const sp of d.caught) if (isLegendary(sp)) { lt++; if (!seen.has(sp)) lw++; }
+    if (lt) lTotal.push({ name, value: lt });
+    if (lw) lWeek.push({ name, value: lw });
   }
-  total.sort(byValue); week.sort(byValue); state.last = week;
-  const board = { id: 'caught', title: 'Collector', desc: 'Die meisten verschiedenen gefangenen Pokémon', icon: '🎒', unit: 'Arten', week, total };
-  const own = lb.boards.findIndex(b => b.id === 'caught');
-  if (own >= 0) lb.boards[own] = board;
-  else { const at = lb.boards.findIndex(b => b.id === 'collector'); lb.boards.splice(at < 0 ? lb.boards.length : at, 0, board); }
+  total.sort(byValue); week.sort(byValue); lTotal.sort(byValue); lWeek.sort(byValue); state.last = week;
+  const upsert = (board, insertAt) => {
+    const own = lb.boards.findIndex(b => b.id === board.id);
+    if (own >= 0) lb.boards[own] = board; else lb.boards.splice(insertAt(), 0, board);
+  };
+  upsert({ id: 'caught', title: 'Collector', desc: 'Die meisten verschiedenen gefangenen Pokémon', icon: '🎒', unit: 'Arten', week, total },
+    () => { const at = lb.boards.findIndex(b => b.id === 'collector'); return at < 0 ? lb.boards.length : at; });
+  upsert({ id: 'legend', title: 'Legendärer Trainer', desc: 'Die meisten verschiedenen gefangenen legendären Pokémon', icon: '🐉', unit: 'Legendäre', week: lWeek, total: lTotal },
+    () => lb.boards.findIndex(b => b.id === 'caught') + 1);
+  state.lastAll = {}; for (const b of lb.boards) state.lastAll[b.id] = (b.week || []).slice(0, KEEP);
+
+  // aeltere Staende des Skripts: nur das Podest fuer "Collector"
   for (const [w, top] of Object.entries(state.winners || {})) {
+    if ((state.archive || {})[w]) continue;
     const h = hist.find(e => e.weekStart === w);
     if (h) { h.winners = h.winners || {}; h.winners.caught = top; }
+  }
+  for (const [w, lists] of Object.entries(state.archive || {})) {
+    const h = hist.find(e => e.weekStart === w);
+    if (!h) continue;
+    h.winners = h.winners || {}; h.full = h.full || {};
+    for (const [id, list] of Object.entries(lists)) {
+      const cur = h.winners[id] || [];
+      if (list.length && list.length >= cur.length) { h.winners[id] = list; h.full[id] = true; }
+    }
   }
   return { lb, hist, state };
 }
@@ -145,4 +174,4 @@ function mondayOf(isoTime) {
   return d.toISOString().slice(0, 10);
 }
 
-module.exports = { readDex, augment, mondayOf, knowledge, findRecords, candidateDirs, diagnose };
+module.exports = { readDex, augment, mondayOf, knowledge, findRecords, candidateDirs, diagnose, KEEP };
