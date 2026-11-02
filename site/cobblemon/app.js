@@ -14,14 +14,18 @@
   // Anzeigenamen der Ranglisten (ueberschreiben die Texte aus leaderboards.json)
   var BOARD_META = {
     collector: { title: 'Pokédex Collector', desc: 'Die meisten Pokédex-Einträge', icon: '📖' },
-    caught: { title: 'Collector', desc: 'Die meisten verschiedenen gefangenen Pokémon', icon: '🎒', unit: 'Arten' }
+    caught: { title: 'Collector', desc: 'Die meisten verschiedenen gefangenen Pokémon', icon: '🎒', unit: 'Arten' },
+    legend: { title: 'Legendärer Trainer', desc: 'Die meisten verschiedenen gefangenen legendären Pokémon', icon: '🐉', unit: 'Legendäre' }
   };
   function applyBoardMeta(d) {
     d.boards.forEach(function (b) { var m = BOARD_META[b.id]; if (m) { b.title = m.title; b.desc = m.desc; b.icon = m.icon; if (m.unit && !b.unit) b.unit = m.unit; } });
-    if (!d.boards.some(function (b) { return b.id === 'caught'; })) { // Daten kommen erst mit dem aktualisierten Sync-Skript
-      var at = d.boards.map(function (b) { return b.id; }).indexOf('collector');
-      d.boards.splice(at < 0 ? d.boards.length : at, 0, { id: 'caught', title: BOARD_META.caught.title, desc: BOARD_META.caught.desc, icon: BOARD_META.caught.icon, unit: 'Arten', week: [], total: [], pending: true });
-    }
+    // Diese Ranglisten kommen vom Sync-Skript auf dem Server-PC; bis dahin zeigt die Seite eine Platzhalter-Karte mit dem Grund
+    ['caught', 'legend'].forEach(function (id) {
+      if (d.boards.some(function (b) { return b.id === id; })) return;
+      var ids = d.boards.map(function (b) { return b.id; }), m = BOARD_META[id];
+      var at = id === 'legend' ? ids.indexOf('caught') + 1 : ids.indexOf('collector'); // "Legendärer Trainer" hinter "Collector", dieser vor "Pokédex Collector"
+      d.boards.splice(at < 0 ? d.boards.length : at, 0, { id: id, title: m.title, desc: m.desc, icon: m.icon, unit: m.unit, week: [], total: [], pending: true });
+    });
   }
   // sync-status.json: Das Sync-Skript auf dem Server-PC meldet dort, was es tut und warum etwas fehlt (undefined = noch nicht geladen, null = Datei fehlt)
   var syncStatus;
@@ -37,7 +41,7 @@
     if (c.status === 'ok') return 'Die Rangliste wird gerade berechnet und erscheint gleich.';
     return 'Die Daten folgen mit dem nächsten Server-Update.';
   }
-  var mode = 'week', data = null, hist = null, openBoardId = null, phase = null;
+  var mode = 'week', data = null, hist = null, openBoardId = null, histView = null, phase = null; // histView: { week, board } = Wochensieger-Liste im Dialog
   var STALE_MS = 45 * 60000; // aelter: Status unbekannt (Sync laedt ohne Aenderung nur alle 30 min hoch)
   function live() { return Date.now() >= START; }
   // Wochen laufen Montag bis Sonntag; Woche 1 ist die Woche des Serverstarts
@@ -166,15 +170,22 @@
     if (!list.length) ul.appendChild(el('li', 'empty', 'Keine Treffer.'));
   }
   function renderBoardDlg() {
-    var b = data && data.boards.filter(function (x) { return x.id === openBoardId; })[0];
+    var b = histView ? histView.board : data && data.boards.filter(function (x) { return x.id === openBoardId; })[0];
     if (!b) return;
-    $('bdTitle').textContent = b.icon + ' ' + b.title; $('bdDesc').textContent = b.desc;
+    var past = histView ? (histView.week.winners[b.id] || []) : null;
+    $('boardDlg').classList.toggle('past', !!histView);
+    $('bdTitle').textContent = b.icon + ' ' + b.title + (histView ? ' · Woche ' + weekNo(histView.week.weekStart) : '');
+    $('bdDesc').textContent = histView
+      ? weekRange(histView.week.weekStart) + ' · ' + past.length + ' Teilnehmer' + (past.length === 3 && !(histView.week.full && histView.week.full[b.id]) ? ' · Für diese Woche sind nur die ersten drei Plätze gespeichert.' : '')
+      : b.desc;
     var q = $('bdSearch').value.trim().toLowerCase();
-    var all = (b[mode] || []).map(function (e, i) { return { name: e.name, value: e.value, rank: i + 1 }; });
+    var all = (past || b[mode] || []).map(function (e, i) { return { name: e.name, value: e.value, rank: i + 1 }; });
     rowsInto($('bdList'), q ? all.filter(function (e) { return e.name.toLowerCase().indexOf(q) >= 0; }) : all, b);
     document.querySelectorAll('[data-bmode]').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-bmode') === mode); });
   }
-  function openBoard(id) { openBoardId = id; $('bdSearch').value = ''; renderBoardDlg(); $('boardDlg').showModal(); }
+  function openBoard(id) { openBoardId = id; histView = null; $('bdSearch').value = ''; renderBoardDlg(); $('boardDlg').showModal(); }
+  function openPastBoard(week, board) { histView = { week: week, board: board }; $('bdSearch').value = ''; renderBoardDlg(); $('boardDlg').showModal(); }
+  $('boardDlg').addEventListener('close', function () { histView = null; $('boardDlg').classList.remove('past'); });
   function setMode(m) {
     mode = m;
     document.querySelectorAll('.seg button[data-mode]').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-mode') === m); });
@@ -217,13 +228,22 @@
       btn.type = 'button'; btn.setAttribute('aria-expanded', 'false'); when.hidden = true;
       btn.addEventListener('click', function () { when.hidden = !when.hidden; btn.setAttribute('aria-expanded', String(!when.hidden)); });
       h.appendChild(btn); h.appendChild(when); c.appendChild(h);
-      var ul = el('ul');
+      var ul = el('ul', 'win-rows');
       data.boards.filter(function (b) { return !b.pending; }).forEach(function (b) {
-        var first = (w.winners[b.id] || [])[0];
-        var li = el('li'); li.appendChild(el('span', '', b.icon + ' ' + b.title));
-        var win = el('strong', 'who-inline');
-        if (first) { win.appendChild(avatar(first.name, true)); win.appendChild(document.createTextNode(first.name + ' (' + nf.format(first.value) + ')')); } else win.textContent = '–';
-        li.appendChild(win); ul.appendChild(li);
+        var list = (w.winners || {})[b.id] || [], first = list[0];
+        var li = el('li'), row = el('button', 'win-row'), who = el('span', 'who-inline');
+        row.type = 'button'; row.disabled = !first;
+        row.appendChild(el('span', 'wr-ico', b.icon));
+        var t = el('span', 'wr-title', b.title); if (first) t.appendChild(el('small', '', list.length + ' Teilnehmer'));
+        row.appendChild(t);
+        if (first) {
+          who.appendChild(avatar(first.name, true)); who.appendChild(el('span', 'wr-name', first.name));
+          who.appendChild(el('b', 'wr-val', nf.format(first.value)));
+          row.appendChild(who); row.appendChild(el('span', 'wr-go', '›'));
+          row.setAttribute('aria-label', b.title + ': ' + first.name + ' gewinnt mit ' + nf.format(first.value) + ' ' + (b.unit || '') + ' – alle Teilnehmer anzeigen');
+          row.addEventListener('click', function () { openPastBoard(w, b); });
+        } else { who.textContent = '–'; row.appendChild(who); }
+        li.appendChild(row); ul.appendChild(li);
       });
       c.appendChild(ul); box.appendChild(c);
     });
