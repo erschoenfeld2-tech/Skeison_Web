@@ -1,7 +1,7 @@
 {
   "pack": {
     "name": "Cobblemon Server Pack",
-    "version": "1.5.5",
+    "version": "1.5.6",
     "minecraft": "1.21.1",
     "neoforge": "21.1.262"
   },
@@ -160,7 +160,21 @@
       "kind": "mod",
       "file": "missingmons-cobblemon-3.6.1.jar",
       "text": "Erweiterung mit Modellen und Texturen für Pokémon, die Cobblemon noch nicht mitliefert (z. B. Pawmi, Pawmo, Pawmot). Ohne sie siehst du an diesen Stellen die Standard-Puppe. Nur auf deinem Rechner, der Server braucht sie nicht und bekommt dadurch keine zusätzlichen Spawns.",
-      "links": []
+      "links": [
+        { "label": "Datei direkt laden", "url": "https://cdn.modrinth.com/data/jbbBrQVa/versions/8MaQRS0b/missingmons-cobblemon-3.6.1.jar" }
+      ]
+    },
+    {
+      "id": "qekxLrOP",
+      "name": "Cobbledex (Pokémon-Suche in JEI)",
+      "cat": "cobblemon",
+      "side": "client",
+      "kind": "mod",
+      "file": "cobbledex-rei-emi-jei-neoforge-2.32.14.jar",
+      "text": "Macht alle Pokémon in der JEI-Leiste (Item-Liste) suchbar. Zu jedem Pokémon siehst du Spawn-Orte, Entwicklungen, Drops, Attacken und Werte. Nur auf deinem Rechner, der Server braucht sie nicht.",
+      "links": [
+        { "label": "Datei direkt laden", "url": "https://cdn.modrinth.com/data/qekxLrOP/versions/bxd0xXZI/cobbledex-rei-emi-jei-neoforge-2.32.14.jar" }
+      ]
     },
     {
       "id": "12e2QV8Q",
