@@ -25,6 +25,33 @@
     { id: 'barbie', name: 'Barbie-Pink', desc: 'Knallig pink, glitzernd und verspielt' }
   ];
   var EMOJIS = '🎁 🎄 🎂 🎉 💍 🍼 🏡 🎓 🐣 ⭐ 🦊 🐻 🐼 🐸 🦄 🐙 🌻 🍀 🌈 🔥 ⚡ 🎮 🎧 📚 🎨 ⚽ 🚲 ✈️ 🍕 ☕ 👾 🧸'.split(' ');
+  var CATEGORIES = ['Technik', 'Mode', 'Schuhe', 'Bücher', 'Spiele', 'Haushalt', 'Küche', 'Deko', 'Beauty', 'Sport', 'Outdoor', 'Hobby', 'Erlebnis', 'Gutschein', 'Spielzeug', 'Schmuck', 'Sonstiges'];
+  var PRICE_BANDS = [['', 'Jeder Preis'], ['0-25', 'bis 25 €'], ['25-50', '25 – 50 €'], ['50-100', '50 – 100 €'], ['100-250', '100 – 250 €'], ['250-', 'über 250 €'], ['none', 'ohne Preis']];
+  var SORTS = [['prio', 'Wichtigste zuerst'], ['value', 'Wichtig & wertvoll zuerst'], ['cheap', 'Preis aufsteigend'], ['pricey', 'Preis absteigend'], ['cat', 'Nach Kategorie'], ['az', 'A – Z'], ['new', 'Neueste zuerst']];
+  // Profil-Symbole: Gruppen mit Auswahl; Eintraege mit Varianten (Farben, Hauttoene) klappen nach dem Anklicken eine Auswahl auf
+  var HEARTS = ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '🩷', '🩵', '🩶'];
+  var VARIANTS = {
+    '❤️': HEARTS, '💖': ['💖', '💗', '💓', '💞', '💕', '💘', '💝'], '⭐': ['⭐', '🌟', '💫', '✨', '🌠', '⚡'],
+    '🔴': ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤'], '🟥': ['🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '⬛', '⬜', '🟫'],
+    '🌸': ['🌸', '🌹', '🌺', '🌻', '🌼', '🌷', '🪻', '💐'], '🦋': ['🦋', '🐝', '🐞', '🐛'],
+    '👍': ['👍', '👍🏻', '👍🏼', '👍🏽', '👍🏾', '👍🏿'], '👋': ['👋', '👋🏻', '👋🏼', '👋🏽', '👋🏾', '👋🏿'], '🙌': ['🙌', '🙌🏻', '🙌🏼', '🙌🏽', '🙌🏾', '🙌🏿'],
+    '💪': ['💪', '💪🏻', '💪🏼', '💪🏽', '💪🏾', '💪🏿'], '🧑': ['🧑', '🧑🏻', '🧑🏼', '🧑🏽', '🧑🏾', '🧑🏿'], '🧁': ['🧁', '🍰', '🎂', '🍩', '🍪']
+  };
+  var GLYPHS = '★ ♥ ✦ ✿ ❀ ☀ ☾ ♪ ♛ ✈ ☘ ❄ ♠ ♣ ♦ ✚ ☯ ✧ ❖ ✪ ⚑ ☂ ✂ ✎'.split(' ').map(function (g) { return g + '︎'; });
+  var GLYPH_COLORS = ['#ffcb05', '#ff9f43', '#ff4d6d', '#ff5fa2', '#a55eea', '#5b85ff', '#2ec4ff', '#1abc9c', '#2ecc71', '#b8e35a', '#f5f5f5', '#8395a7'];
+  var AV_CATS = [
+    { id: 'top', label: '⭐ Beliebt', items: '🎁 🦊 🐻 🐼 🦄 🐙 🌻 🍀 🌈 🔥 ⚡ 🎮 🎧 📚 🎨 ⚽ 🚲 ✈️ 🍕 ☕ 👾 🧸 🐸'.split(' ') },
+    { id: 'heart', label: '❤️ Herzen', items: ['❤️', '💖', '💝', '🧁', '💌', '💞'] },
+    { id: 'star', label: '⭐ Sterne', items: ['⭐', '✨', '🌙', '☀️', '🌈', '☄️', '🪐', '🔮'] },
+    { id: 'shape', label: '🔴 Farben', items: ['🔴', '🟥', '🔶', '🔷', '💠', '🔰', '🏵️', '🎯'] },
+    { id: 'glyph', label: '✦ Symbole', glyphs: true },
+    { id: 'face', label: '😀 Gesichter', items: '😀 😄 😎 🤩 😇 🥳 😴 🤓 🥰 😺 🤠 🧐 😈 👻 🤖 👽 🧑 🧙 🧚 🦸'.split(' ') },
+    { id: 'hand', label: '👍 Hände', items: ['👍', '👋', '🙌', '💪', '🤞', '✌️', '🤟', '🫶'] },
+    { id: 'animal', label: '🐾 Tiere', items: '🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐰 🐱 🐶 🦄 🐙 🦉 🦋 🐢 🐬 🦈 🐧 🦆 🦔 🐝'.split(' ') },
+    { id: 'nature', label: '🌸 Natur', items: ['🌸', '🌻', '🍀', '🌵', '🌴', '🍁', '🍄', '🌊', '⛰️', '🌋', '🌲', '🪴'] },
+    { id: 'food', label: '🍕 Essen', items: '🍕 🍔 🍟 🌮 🍣 🍜 🍩 🍪 🍫 🍓 🍒 🍉 🥑 🧀 ☕ 🍵 🍷 🍺'.split(' ') },
+    { id: 'hobby', label: '🎮 Hobby', items: '🎮 🎧 🎸 🎹 🎬 📚 🎨 ⚽ 🏀 🎾 🚲 🏊 🎯 🎲 ♟️ 🧶 📷 ✈️ 🚗 🏕️'.split(' ') }
+  ];
   var GROUP_EMOJIS = '👪 ❤️ 🏠 🎓 💼 ⚽ 🎮 🍻 🌍 ⭐ 👵 🧑‍🤝‍🧑'.split(' ');
   var COLORS = ['#ffcb05', '#ff6b6b', '#ff9f43', '#2ecc71', '#1abc9c', '#5b85ff', '#a55eea', '#ff5fa2', '#8395a7', '#e1b12c'];
   var RELATIONS = ['Mutter', 'Vater', 'Schwester', 'Bruder', 'Oma', 'Opa', 'Tante', 'Onkel', 'Cousin', 'Cousine', 'Nichte', 'Neffe',
@@ -55,7 +82,13 @@
   function fmtDate(d, year) { return (typeof d === 'string' ? asDate(d) : d).toLocaleDateString('de-DE', year ? { day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'long' }); }
   function inDays(n) { return n === 0 ? 'heute' : n === 1 ? 'morgen' : n < 0 ? 'vor ' + -n + ' Tagen' : 'in ' + n + ' Tagen'; }
   function hue(s) { var h = 0; s = String(s || ''); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % 360; }
-  function avatar(p, cls) { return '<span class="av ' + (cls || '') + '" style="--c:' + esc(p.color) + '" aria-hidden="true">' + esc(p.avatar) + '</span>'; }
+  // Symbole koennen eine Farbe tragen: "★|#ff4d6d"
+  function glyph(v) {
+    v = String(v || '🎁'); var i = v.indexOf('|');
+    if (i > 0 && /^#[0-9a-fA-F]{6}$/.test(v.slice(i + 1))) return '<i class="g" style="color:' + v.slice(i + 1) + '">' + esc(v.slice(0, i)) + '</i>';
+    return esc(v);
+  }
+  function avatar(p, cls) { return '<span class="av ' + (cls || '') + '" style="--c:' + esc(p.color) + '" aria-hidden="true">' + glyph(p.avatar) + '</span>'; }
   function handle(p) { return esc(p.name) + '<span class="code">#' + esc(p.code) + '</span>'; }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
   function parsePrice(s) {
@@ -83,6 +116,7 @@
     rate: 'Zu viele Versuche. Bitte in einer Stunde erneut probieren.', already_reserved: 'Das hat gerade jemand anderes reserviert.',
     no_access: 'Diese Liste ist für dich nicht (mehr) freigegeben.', own_item: 'Eigene Wünsche kannst du nicht reservieren.',
     received: 'Dieser Wunsch wurde schon erfüllt.', bad_quantity: 'Diese Anzahl ist nicht möglich.', not_authenticated: 'Bitte melde dich erneut an.',
+    not_friend: 'Vorschläge können nur Freunde machen, nicht Bekannte.', too_many: 'Du hast hier schon 10 offene Vorschläge.',
     no_profile: 'Dein Profil wurde nicht gefunden. Bitte melde dich ab und wieder an.',
     not_admin: 'Dafür brauchst du Admin-Rechte.', self: 'Dein eigenes Konto kannst du hier nicht löschen.', is_admin: 'Admin-Konten können hier nicht gelöscht werden.',
     over_email_send_rate_limit: 'Zu viele Versuche. Bitte später erneut probieren.', same_password: 'Das ist schon dein aktuelles Passwort.'
@@ -187,6 +221,7 @@
         var rows = await Api.get('wl_profiles', 'id=eq.' + Api.user.id);
         if (!rows.length) throw Object.assign(new Error('no_profile'), { code: 'no_profile' });
         me = rows[0];
+        await loadMyExtras();
         isAdmin = (await Api.get('wl_admins', 'select=user_id&user_id=eq.' + me.id)).length > 0;
       }
       if (ctx.stale()) return;
@@ -210,8 +245,11 @@
 
   // ---------- Daten ----------
   async function loadFriends() {
-    var res = await Promise.all([Api.get('wl_friendships', 'select=*'), Api.get('wl_profiles', 'id=neq.' + me.id), Api.get('wl_contacts', 'select=*'), Api.get('wl_trust', 'select=person,level')]);
-    var byId = {}, cById = {}, lvl = {}, out = { friends: [], incoming: [], outgoing: [] };
+    var res = await Promise.all([Api.get('wl_friendships', 'select=*'), Api.get('wl_profiles', 'id=neq.' + me.id), Api.get('wl_contacts', 'select=*'), Api.get('wl_trust', 'select=person,level'),
+      Api.get('wl_profile_private', 'select=*'), Api.get('wl_profile_sizes', 'select=*&order=sort.asc,created_at.asc')]);
+    var byId = {}, cById = {}, lvl = {}, priv = {}, sizes = {}, out = { friends: [], incoming: [], outgoing: [] };
+    res[4].forEach(function (x) { priv[x.id] = x; });
+    res[5].forEach(function (x) { (sizes[x.profile] = sizes[x.profile] || []).push(x); });
     res[3].forEach(function (t) { lvl[t.person] = t.level; });
     res[1].forEach(function (p) { byId[p.id] = p; });
     res[2].forEach(function (c) { cById[c.friend] = c; });
@@ -220,10 +258,19 @@
       if (!p) return;
       p.contact = cById[other] || { relation: '', tags: [], note: '' };
       p.level = lvl[other] || 'friend';
+      // Persönliches sieht man nur als Freund; Größen sehen auch Bekannte
+      var pr = priv[other]; p.restricted = !pr;
+      p.bio = pr ? pr.bio : ''; p.birthday = pr ? pr.birthday : null; p.likes = pr ? pr.likes : ''; p.dislikes = pr ? pr.dislikes : '';
+      p.sizesList = sizes[other] || [];
       if (f.status === 'accepted') out.friends.push(p); else if (f.addressee === me.id) out.incoming.push(p); else out.outgoing.push(p);
     });
     out.friends.sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
     return out;
+  }
+  async function loadMyExtras() {
+    var r = await Promise.all([Api.get('wl_profile_private', 'id=eq.' + me.id), Api.get('wl_profile_sizes', 'profile=eq.' + me.id + '&order=sort.asc,created_at.asc')]);
+    var pr = r[0][0] || {};
+    me.bio = pr.bio || ''; me.birthday = pr.birthday || null; me.likes = pr.likes || ''; me.dislikes = pr.dislikes || ''; me.sizesList = r[1];
   }
   function loadGroups() { return Api.get('wl_groups', 'select=*,wl_group_members(member)&order=created_at'); }
   async function syncLinks(table, key, id, col, values) {
@@ -236,9 +283,10 @@
     opt = opt || {};
     var chips = [];
     if (p.birthday) { var b = nextBirthday(p.birthday); chips.push('<li><span>🎂</span>' + fmtDate(p.birthday) + ' <small>' + (b.days === 0 ? 'heute!' : inDays(b.days)) + '</small></li>'); }
-    if (p.sizes) chips.push('<li><span>👕</span>' + esc(p.sizes) + '</li>');
+    if (p.sizesList && p.sizesList.length) chips.push('<li><span>👕</span>' + p.sizesList.map(function (s) { return '<b>' + esc(s.label) + '</b> ' + esc(s.value); }).join(' · ') + '</li>');
     if (p.likes) chips.push('<li><span>💚</span>' + esc(p.likes) + '</li>');
     if (p.dislikes) chips.push('<li><span>🚫</span>' + esc(p.dislikes) + '</li>');
+    if (p.restricted && !opt.self) chips.push('<li><span>🔒</span><small>Mehr zeigt ' + esc(p.name) + ' dir erst als Freund.</small></li>');
     var c = p.contact, label = c && (c.relation || (c.tags && c.tags.length))
       ? '<div class="pc-label" title="Nur für dich sichtbar">' + (c.relation ? '<b>' + esc(c.relation) + '</b>' : '') + (c.tags || []).map(function (t) { return '<span class="tagchip">' + esc(t) + '</span>'; }).join('') + '<small>🔒 nur für dich</small></div>' : '';
     return '<article class="pcard2 ' + (opt.big ? 'big' : '') + '" data-theme="' + esc(p.theme) + '">' +
@@ -298,7 +346,7 @@
       (it.note ? '<p class="use"><span>Wofür</span>' + esc(it.note) + '</p>' : '') +
       '<div class="wish-meta"><span class="dots" title="' + PRIO[it.priority] + '">' + '●●●'.slice(0, it.priority) + '<i>' + '●●●'.slice(it.priority) + '</i> ' + PRIO[it.priority] + '</span>' +
       (url ? '<a class="shop" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(host(url)) + ' ↗</a>' : '') +
-      (it.group_gift ? '<span class="gg-tag">🧩 Gruppengeschenk</span>' : '') + '</div>' +
+      (it.category ? '<span class="cat-tag">' + esc(it.category) + '</span>' : '') + (it.group_gift ? '<span class="gg-tag">🧩 Gruppengeschenk</span>' : '') + '</div>' +
       '<div class="wish-act">' + act + '</div></div></article>';
   }
 
@@ -311,6 +359,49 @@
   function emojiPicker(name, list, current) {
     if (list.indexOf(current) < 0) list = [current].concat(list);
     return '<div class="epick">' + list.map(function (e) { return '<label><input type="radio" name="' + name + '" value="' + esc(e) + '"' + (e === current ? ' checked' : '') + '><span>' + esc(e) + '</span></label>'; }).join('') + '</div>';
+  }
+  // Auswahl mit Gruppen; nach dem Anklicken von Herzen, Sternen, Haenden usw. erscheint eine Variantenauswahl (Farben/Hauttoene),
+  // bei Symbolen eine Farbauswahl. opt.glyphs = false blendet die farbigen Symbole aus (z. B. fuer Listen).
+  function richPicker(name, current, opt) {
+    opt = opt || {};
+    var cats = AV_CATS.filter(function (c) { return opt.glyphs !== false || !c.glyphs; });
+    return '<div class="rpick" data-glyphs="' + (opt.glyphs === false ? '0' : '1') + '"><input type="hidden" name="' + name + '" value="' + esc(current) + '">' +
+      '<div class="rhead"><span class="rcur" aria-live="polite"></span><div class="rtabs" role="tablist">' + cats.map(function (c, i) {
+        return '<button type="button" role="tab" class="rtab' + (i ? '' : ' on') + '" data-cat="' + c.id + '">' + esc(c.label) + '</button>'; }).join('') + '</div></div>' +
+      '<div class="rgrid"></div><div class="rvar" hidden></div></div>';
+  }
+  function bindPickers(scope) {
+    $$('.rpick', scope).forEach(function (root) {
+      var input = $('input', root), grid = $('.rgrid', root), vr = $('.rvar', root), cur = $('.rcur', root);
+      var cats = AV_CATS.filter(function (c) { return root.dataset.glyphs !== '0' || !c.glyphs; }), catId = cats[0].id, base = null;
+      function btn(v, label, extra) { return '<button type="button" class="ri' + (input.value === v ? ' on' : '') + '" data-v="' + esc(v) + '"' + (extra || '') + ' aria-pressed="' + (input.value === v) + '">' + label + '</button>'; }
+      function paint() {
+        var c = cats.filter(function (x) { return x.id === catId; })[0];
+        grid.innerHTML = c.glyphs ? GLYPHS.map(function (g) { return btn(g, g, ' data-glyph="1"'); }).join('')
+          : c.items.map(function (e) { return btn(e, esc(e), VARIANTS[e] ? ' data-var="1" title="Antippen für Varianten"' : ''); }).join('');
+        cur.innerHTML = '<span class="av lg" style="--c:var(--accent)">' + glyph(input.value) + '</span>';
+        $$('.rtab', root).forEach(function (t) { t.classList.toggle('on', t.dataset.cat === catId); });
+      }
+      function set(v) { input.value = v; input.dispatchEvent(new Event('input', { bubbles: true })); paint(); }
+      function variants(v) {
+        if (!VARIANTS[v] && !/︎$/.test(v)) { vr.hidden = true; return; }
+        vr.hidden = false;
+        if (VARIANTS[v]) vr.innerHTML = '<small class="muted">Variante wählen</small>' + VARIANTS[v].map(function (x) { return '<button type="button" class="ri sm' + (input.value === x ? ' on' : '') + '" data-v="' + esc(x) + '">' + esc(x) + '</button>'; }).join('');
+        else vr.innerHTML = '<small class="muted">Farbe wählen</small>' + GLYPH_COLORS.map(function (c) { return '<button type="button" class="ri sm col' + (input.value === v + '|' + c ? ' on' : '') + '" data-c="' + c + '" style="--c:' + c + '" aria-label="Farbe ' + c + '"><i style="background:' + c + '"></i></button>'; }).join('');
+        vr.dataset.base = v;
+      }
+      root.addEventListener('click', function (e) {
+        var t = e.target.closest('button'); if (!t) return;
+        if (t.classList.contains('rtab')) { catId = t.dataset.cat; vr.hidden = true; return paint(); }
+        if (t.dataset.c) { set(vr.dataset.base + '|' + t.dataset.c); return variants(vr.dataset.base); }
+        if (t.dataset.v == null) return;
+        var v = t.dataset.v, inVar = !!t.closest('.rvar');
+        if (t.dataset.glyph) { set(v + '|' + GLYPH_COLORS[0]); return variants(v); }
+        set(v); if (!inVar) variants(v); else { $$('.rvar .ri', root).forEach(function (b) { b.classList.toggle('on', b.dataset.v === v); }); }
+      });
+      var cv = input.value; if (cv.indexOf('|') > 0) { catId = 'glyph'; if (cats.filter(function (x) { return x.id === 'glyph'; }).length) base = cv.split('|')[0]; else catId = cats[0].id; }
+      paint(); if (base) variants(base);
+    });
   }
   function colorPicker(name, current) {
     return '<div class="cpick">' + COLORS.map(function (c) { return '<label style="--c:' + c + '"><input type="radio" name="' + name + '" value="' + c + '"' + (c === current ? ' checked' : '') + ' aria-label="Farbe ' + c + '"><span></span></label>'; }).join('') + '</div>';
@@ -350,7 +441,7 @@
       '<a class="tile" href="./?seite=freunde"><b>' + fr.friends.length + '</b><span>' + (fr.friends.length === 1 ? 'Freund' : 'Freunde') + '</span></a>' +
       '<a class="tile" href="./?seite=geschenke"><b>' + open + '</b><span>noch zu besorgen</span></a>' +
       '<div class="tile soon"><h3>Bald anstehend</h3>' + (ev.length ? '<ul class="events">' + ev.slice(0, 5).map(function (e) {
-        return '<li><a href="' + e.href + '"><span class="ev-ico"' + (e.color ? ' style="--c:' + esc(e.color) + '"' : '') + '>' + esc(e.ico) + '</span><span><b>' + e.title + '</b><small>' + e.sub + '</small></span><em>' + inDays(e.days) + '</em></a></li>';
+        return '<li><a href="' + e.href + '"><span class="ev-ico"' + (e.color ? ' style="--c:' + esc(e.color) + '"' : '') + '>' + glyph(e.ico) + '</span><span><b>' + e.title + '</b><small>' + e.sub + '</small></span><em>' + inDays(e.days) + '</em></a></li>';
       }).join('') + '</ul>' : '<p class="muted">Keine Anlässe in den nächsten Wochen. Trag Geburtstage im Profil und Daten bei Listen ein.</p>') + '</div>' +
       '</div></div>' +
       '<section id="meine"><div class="sec-head"><h2>Meine Listen</h2><button type="button" class="btn" data-act="new-list">+ Neue Liste</button></div>' +
@@ -371,14 +462,23 @@
     if (!isId(r.id)) throw Object.assign(new Error('no_access'), { code: 'no_access' });
     var rows = await Api.get('wl_lists', 'id=eq.' + r.id + '&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,code,avatar,color,theme)');
     if (!rows.length) throw Object.assign(new Error('no_access'), { code: 'no_access' });
-    var st = { list: rows[0], sort: 'prio', only: false, ctx: ctx };
+    var st = { list: rows[0], sort: 'prio', f: { q: '', cat: '', prio: '', price: '', only: false }, ctx: ctx };
     st.owner = st.list.owner.id === me.id;
     await loadListData(st);
     paintList(st, false);
     app.onclick = function (e) { listAction(e, st); };
     app.onchange = function (e) {
-      if (e.target.name === 'sort') { st.sort = e.target.value; paintList(st, true); }
-      if (e.target.name === 'only') { st.only = e.target.checked; paintList(st, true); }
+      var n = e.target.name;
+      if (n === 'sort') st.sort = e.target.value;
+      else if (n === 'only') st.f.only = e.target.checked;
+      else if (n === 'prio' || n === 'price') st.f[n] = e.target.value;
+      else return;
+      paintList(st, true);
+    };
+    app.oninput = function (e) {
+      if (e.target.name !== 'q') return;
+      st.f.q = e.target.value; paintList(st, true);
+      var i = $('[name=q]', app); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
     };
   }
   async function loadListData(st) {
@@ -387,8 +487,11 @@
       st.owner ? Promise.resolve([]) : Api.rpc('wl_list_reservations', { p_list: st.list.id }),
       st.owner && st.list.visibility === 'custom' ? Promise.all([
         Api.get('wl_list_groups', 'list_id=eq.' + st.list.id + '&select=group:wl_groups(name,emoji)'),
-        Api.get('wl_list_people', 'list_id=eq.' + st.list.id + '&select=person:wl_profiles(name)')]) : Promise.resolve(null)
+        Api.get('wl_list_people', 'list_id=eq.' + st.list.id + '&select=person:wl_profiles(name)')]) : Promise.resolve(null),
+      st.owner ? Api.get('wl_suggestions', 'list_id=eq.' + st.list.id + '&select=*,author:wl_profiles!wl_suggestions_author_fkey(name,avatar,color)&order=created_at') : Promise.resolve([]),
+      st.owner ? Promise.resolve(false) : Api.rpc('wl_can_suggest', { p_list: st.list.id }).catch(function () { return false; })
     ]);
+    st.sugg = res[3]; st.canSuggest = !!res[4];
     st.items = res[0];
     st.res = {};
     res[1].forEach(function (x) { (st.res[x.item_id] = st.res[x.item_id] || []).push(x); });
@@ -397,16 +500,34 @@
   function paintList(st, quiet) {
     var l = st.list, items = st.items.slice(), d = l.event_date ? daysUntil(l.event_date) : null;
     setTheme(l.theme);
+    var pr = function (it) { return it.price == null ? -1 : it.price; };
     var cmp = {
       prio: function (a, b) { return b.priority - a.priority; },
+      value: function (a, b) { return (b.priority - a.priority) || (pr(b) - pr(a)); },
       cheap: function (a, b) { return (a.price == null ? 1e9 : a.price) - (b.price == null ? 1e9 : b.price); },
-      pricey: function (a, b) { return (b.price == null ? -1 : b.price) - (a.price == null ? -1 : a.price); },
+      pricey: function (a, b) { return pr(b) - pr(a); },
+      cat: function (a, b) { return (!a.category - !b.category) || (a.category || '').localeCompare(b.category || '', 'de') || (b.priority - a.priority); },
+      az: function (a, b) { return a.title.localeCompare(b.title, 'de'); },
       new: function (a, b) { return a.created_at < b.created_at ? 1 : -1; }
     }[st.sort];
     items.sort(function (a, b) { return (a.received - b.received) || cmp(a, b); });
     var free = st.items.filter(function (it) { return isFree(it, st.res[it.id]); }).length;
-    if (st.only) items = items.filter(function (it) { return st.owner ? !it.received : isFree(it, st.res[it.id]); });
-    var total = st.items.reduce(function (s, it) { return s + (it.received || it.price == null ? 0 : it.price * it.quantity); }, 0);
+    var F = st.f, qq = F.q.trim().toLowerCase();
+    var filtered = !!(qq || F.cat || F.prio || F.price || F.only);
+    items = items.filter(function (it) {
+      if (qq && (it.title + ' ' + it.note + ' ' + it.category).toLowerCase().indexOf(qq) < 0) return false;
+      if (F.cat && it.category !== F.cat) return false;
+      if (F.prio && String(it.priority) !== F.prio) return false;
+      if (F.price) {
+        if (F.price === 'none') { if (it.price != null) return false; }
+        else { var b = F.price.split('-'); if (it.price == null || it.price < +b[0] || (b[1] && it.price >= +b[1])) return false; }
+      }
+      if (F.only && (st.owner ? it.received : !isFree(it, st.res[it.id]))) return false;
+      return true;
+    });
+    var total = items.reduce(function (s, it) { return s + (it.received || it.price == null ? 0 : it.price * it.quantity); }, 0);
+    var catCount = {}; st.items.forEach(function (it) { if (it.category) catCount[it.category] = (catCount[it.category] || 0) + 1; });
+    var cats = Object.keys(catCount).sort(function (x, y) { return x.localeCompare(y, 'de'); });
 
     var vis = l.visibility === 'custom' ? '🎯 ' + (st.share && st.share.length ? esc(st.share.join(', ')) : 'noch niemand ausgewählt') : VIS[l.visibility];
     view(st.ctx,
@@ -418,15 +539,26 @@
       (d !== null && d >= 0 ? '<div class="lh-cd"><b>' + d + '</b><span>' + (d === 1 ? 'Tag' : 'Tage') + (l.occasion ? ' bis ' + esc(l.occasion) : '') + '</span></div>' : '') + '</div>' +
       '<div class="lh-bar">' + (st.owner
         ? '<span class="pill" title="Wer diese Liste sehen kann">' + vis + '</span><span class="sp"></span><button type="button" class="btn ghost" data-act="share">🔗 Teilen</button><button type="button" class="btn ghost" data-act="edit-list">⚙ Liste bearbeiten</button><button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>'
-        : '<a class="owner-chip" href="./?seite=freund&id=' + l.owner.id + '">' + avatar(l.owner, 'sm') + '<span>Liste von <b>' + esc(l.owner.name) + '</b></span></a><span class="sp"></span><span class="pill">' + free + ' von ' + st.items.length + ' Wünschen noch frei</span>') + '</div>' +
+        : '<a class="owner-chip" href="./?seite=freund&id=' + l.owner.id + '">' + avatar(l.owner, 'sm') + '<span>Liste von <b>' + esc(l.owner.name) + '</b></span></a><span class="sp"></span><span class="pill">' + free + ' von ' + st.items.length + ' Wünschen noch frei</span>' + (st.canSuggest ? '<button type="button" class="btn" data-act="suggest">💡 Vorschlag machen</button>' : '')) + '</div>' +
       (st.owner ? '<p class="surprise">🙈 <b>Überraschungsschutz:</b> Was reserviert wurde, siehst du auf deinen eigenen Listen nicht.</p>' : '') +
       '</header>' +
-      (st.items.length ? '<div class="toolbar"><label>Sortieren <select name="sort">' +
-        [['prio', 'Wichtigste zuerst'], ['cheap', 'Preis aufsteigend'], ['pricey', 'Preis absteigend'], ['new', 'Neueste zuerst']].map(function (o) { return '<option value="' + o[0] + '"' + (st.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
-        '</select></label><label class="check"><input type="checkbox" name="only"' + (st.only ? ' checked' : '') + '> ' + (st.owner ? 'Erhaltene ausblenden' : 'Nur freie Wünsche') + '</label>' +
-        '<span class="sp"></span><span class="muted">' + plural(st.items.length, 'Wunsch', 'Wünsche') + (total ? ' · zusammen ca. ' + esc(money(total, 'EUR')) : '') + '</span></div>' : '') +
+      (st.owner && st.sugg && st.sugg.length ? '<section class="sugg panel"><h2>💡 Vorschläge von Freunden <small class="muted">' + st.sugg.length + '</small></h2>' +
+        '<p class="muted small">🔒 Nur du siehst diese Vorschläge. Übernimm sie in deine Liste oder verwirf sie.</p><ul class="plist">' + st.sugg.map(function (s) {
+          return '<li data-sid="' + s.id + '">' + avatar(s.author, 'sm') + '<span><b>' + esc(s.title) + '</b><small>von ' + esc(s.author.name) + [s.price != null ? ' · ' + esc(money(s.price, s.currency)) : '', s.category ? ' · ' + esc(s.category) : '', s.note ? ' · ' + esc(s.note) : ''].join('') + '</small></span><span class="sp"></span>' +
+            (safeUrl(s.url) ? '<a class="link-btn" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' + esc(host(s.url)) + ' ↗</a>' : '') +
+            '<button type="button" class="btn small" data-act="sugg-ok">✓ Übernehmen</button><button type="button" class="btn small ghost" data-act="sugg-no">Verwerfen</button></li>';
+        }).join('') + '</ul></section>' : '') +
+      (st.items.length ? '<div class="toolbar tb2"><input type="search" name="q" value="' + esc(F.q) + '" placeholder="Wünsche durchsuchen …" aria-label="Wünsche durchsuchen" autocomplete="off">' +
+        '<label>Sortieren <select name="sort">' + SORTS.map(function (o) { return '<option value="' + o[0] + '"' + (st.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
+        '<label>Wichtigkeit <select name="prio"><option value="">Alle</option>' + [3, 2, 1].map(function (p) { return '<option value="' + p + '"' + (F.prio === String(p) ? ' selected' : '') + '>' + '●●●'.slice(0, p) + ' ' + PRIO[p] + '</option>'; }).join('') + '</select></label>' +
+        '<label>Preis <select name="price">' + PRICE_BANDS.map(function (o) { return '<option value="' + o[0] + '"' + (F.price === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
+        '<label class="check"><input type="checkbox" name="only"' + (F.only ? ' checked' : '') + '> ' + (st.owner ? 'Erhaltene ausblenden' : 'Nur freie Wünsche') + '</label>' +
+        (filtered ? '<button type="button" class="link-btn" data-act="reset-filters">Filter zurücksetzen</button>' : '') +
+        '<span class="sp"></span><span class="muted">' + (filtered ? items.length + ' von ' : '') + plural(st.items.length, 'Wunsch', 'Wünsche') + (total ? ' · zusammen ca. ' + esc(money(total, 'EUR')) : '') + '</span></div>' +
+        (cats.length ? '<div class="catchips" role="group" aria-label="Kategorien"><button type="button" class="cc' + (F.cat ? '' : ' on') + '" data-act="cat" data-cat="">Alle</button>' +
+          cats.map(function (c) { return '<button type="button" class="cc' + (F.cat === c ? ' on' : '') + '" data-act="cat" data-cat="' + esc(c) + '">' + esc(c) + ' <small>' + catCount[c] + '</small></button>'; }).join('') + '</div>' : '') : '') +
       (items.length ? '<div class="wishes" data-stagger>' + items.map(function (it) { return wishCard(it, { owner: st.owner, res: st.res[it.id], emoji: l.emoji }); }).join('') + '</div>'
-        : st.items.length ? emptyBox('🎉', 'Alles vergeben', 'Mit diesem Filter ist gerade nichts übrig.')
+        : st.items.length ? (filtered ? emptyBox('🔎', 'Nichts gefunden', 'Mit diesen Filtern passt gerade kein Wunsch.', '<button type="button" class="btn ghost" data-act="reset-filters">Filter zurücksetzen</button>') : emptyBox('🎉', 'Alles vergeben', 'Mit diesem Filter ist gerade nichts übrig.'))
           : st.owner ? emptyBox('✨', 'Füge deinen ersten Wunsch hinzu', 'Produktlink einfügen genügt: Bild, Titel und Preis werden automatisch übernommen.', '<button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>')
             : emptyBox('🕊️', 'Noch leer', esc(l.owner.name) + ' hat hier noch keine Wünsche eingetragen.')), quiet);
   }
@@ -444,6 +576,9 @@
     if (act === 'edit-item') return itemDialog(st, it);
     if (act === 'edit-list') return listDialog(st.list);
     if (act === 'share') return shareDialog(st);
+    if (act === 'suggest') return itemDialog(st, null, { suggest: true });
+    if (act === 'cat') { st.f.cat = b.dataset.cat === st.f.cat ? '' : b.dataset.cat; return paintList(st, true); }
+    if (act === 'reset-filters') { st.f = { q: '', cat: '', prio: '', price: '', only: false }; return paintList(st, true); }
     try {
       if (act === 'del-item') {
         if (!(await confirmDlg('„' + it.title + '“ wirklich löschen?', 'Löschen'))) return;
@@ -458,35 +593,44 @@
       } else if (act === 'unreserve') {
         await busy(b, function () { return Api.rpc('wl_unreserve', { p_item: it.id }); });
         FX.toast('Reservierung freigegeben');
+      } else if (act === 'sugg-ok') {
+        await busy(b, function () { return Api.rpc('wl_suggestion_accept', { p_id: b.closest('[data-sid]').dataset.sid }); });
+        FX.toast('Zur Liste hinzugefügt ✨');
+      } else if (act === 'sugg-no') {
+        await busy(b, function () { return Api.rpc('wl_suggestion_dismiss', { p_id: b.closest('[data-sid]').dataset.sid }); });
+        FX.toast('Vorschlag verworfen');
       } else return;
     } catch (err) { FX.toast(errText(err)); }
     await loadListData(st).catch(function () {});
     paintList(st, true);
   }
 
-  function itemDialog(st, it) {
-    var x = it || { title: '', url: '', image_url: '', price: null, currency: 'EUR', note: '', priority: 2, quantity: 1, group_gift: false };
-    openDlg(dlgHead(it ? 'Wunsch bearbeiten' : 'Neuer Wunsch') +
+  function itemDialog(st, it, opt) {
+    var sug = !!(opt && opt.suggest), x = it || { title: '', url: '', image_url: '', price: null, currency: 'EUR', note: '', category: '', priority: 2, quantity: 1, group_gift: false };
+    var catList = CATEGORIES.slice(); st.items.forEach(function (i) { if (i.category && catList.indexOf(i.category) < 0) catList.push(i.category); });
+    openDlg(dlgHead(sug ? '💡 Vorschlag für ' + esc(st.list.owner.name) : it ? 'Wunsch bearbeiten' : 'Neuer Wunsch') + (sug ? '<p class="muted small">🔒 Nur ' + esc(st.list.owner.name) + ' sieht deinen Vorschlag und entscheidet, ob er in die Liste kommt.</p>' : '') +
       '<form class="form item-form" novalidate><div class="item-grid"><div>' +
       '<label>Produktlink <small class="muted">optional</small><span class="url-row"><input name="url" type="url" inputmode="url" placeholder="https://…" value="' + esc(x.url || '') + '" autofocus><button type="button" class="btn small ghost" data-act="fetch">Vorschau laden</button></span></label>' +
       '<p class="msg fetch-msg"></p>' +
-      '<label>Was wünschst du dir?<input name="title" required maxlength="120" value="' + esc(x.title) + '" placeholder="z. B. Wanderrucksack 30 l"></label>' +
-      '<label>Wofür? <small class="muted">kurzer Einsatzzweck</small><textarea name="note" rows="2" maxlength="400" placeholder="z. B. Für Tagestouren in den Alpen">' + esc(x.note) + '</textarea></label>' +
+      '<label>' + (sug ? 'Was schlägst du vor?' : 'Was wünschst du dir?') + '<input name="title" required maxlength="120" value="' + esc(x.title) + '" placeholder="z. B. Wanderrucksack 30 l"></label>' +
+      '<label>' + (sug ? 'Warum passt das?' : 'Wofür?') + ' <small class="muted">kurzer Einsatzzweck</small><textarea name="note" rows="2" maxlength="400" placeholder="z. B. Für Tagestouren in den Alpen">' + esc(x.note) + '</textarea></label>' +
       '<div class="row2"><label>Preis<input name="price" inputmode="decimal" placeholder="z. B. 49,99" value="' + (x.price != null ? esc(String(x.price).replace('.', ',')) : '') + '"></label>' +
       '<label>Währung<select name="currency">' + ['EUR', 'USD', 'GBP', 'CHF'].map(function (c) { return '<option' + (c === x.currency ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></label></div>' +
       '<label>Bildadresse <small class="muted">wird mit der Vorschau gefüllt</small><input name="image_url" type="url" placeholder="https://…/bild.jpg" value="' + esc(x.image_url || '') + '"></label>' +
-      '<fieldset class="prio-pick"><legend>Wie sehr wünschst du es dir?</legend>' + [1, 2, 3].map(function (p) {
+      '<label>Kategorie <small class="muted">zum Filtern und Sortieren</small><input name="category" list="itemCats" maxlength="30" value="' + esc(x.category || '') + '" placeholder="z. B. Technik"></label>' +
+      '<datalist id="itemCats">' + catList.map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>' +
+      (sug ? '' : '<fieldset class="prio-pick"><legend>Wie sehr wünschst du es dir?</legend>' + [1, 2, 3].map(function (p) {
         return '<label><input type="radio" name="priority" value="' + p + '"' + (x.priority === p ? ' checked' : '') + '><span>' + '●●●'.slice(0, p) + ' ' + PRIO[p] + '</span></label>';
       }).join('') + '</fieldset>' +
       '<div class="row2"><label>Anzahl<input name="quantity" type="number" min="1" max="99" value="' + x.quantity + '"></label>' +
-      '<label class="check"><input type="checkbox" name="group_gift"' + (x.group_gift ? ' checked' : '') + '> 🧩 Gruppengeschenk <small class="muted">mehrere legen zusammen</small></label></div>' +
+      '<label class="check"><input type="checkbox" name="group_gift"' + (x.group_gift ? ' checked' : '') + '> 🧩 Gruppengeschenk <small class="muted">mehrere legen zusammen</small></label></div>') +
       '</div><div class="item-preview"><p class="eyebrow">Vorschau</p><div class="pv"></div></div></div>' +
-      '<p class="msg save-msg"></p><div class="dlg-actions"><button type="button" class="btn ghost" data-close>Abbrechen</button><button type="submit" class="btn">' + (it ? 'Speichern' : 'Hinzufügen') + '</button></div></form>', 'wide');
+      '<p class="msg save-msg"></p><div class="dlg-actions"><button type="button" class="btn ghost" data-close>Abbrechen</button><button type="submit" class="btn">' + (sug ? 'Vorschlag senden' : it ? 'Speichern' : 'Hinzufügen') + '</button></div></form>', 'wide');
     var f = $('form', dlg), pv = $('.pv', dlg);
     function data() {
       var v = vals(f);
       return { title: v.title, url: safeUrl(v.url) || null, image_url: /^https:\/\//.test(v.image_url) ? v.image_url : null, price: parsePrice(v.price),
-        currency: v.currency, note: v.note, priority: +v.priority || 2, quantity: Math.min(99, Math.max(1, +v.quantity || 1)), group_gift: v.group_gift };
+        currency: v.currency, note: v.note, category: v.category || '', priority: +v.priority || 2, quantity: Math.min(99, Math.max(1, +v.quantity || 1)), group_gift: v.group_gift };
     }
     function preview() { var d = data(); d.id = 'pv'; d.title = d.title || 'Dein Wunsch'; pv.innerHTML = wishCard(d, { demo: true, emoji: st.list.emoji }); }
     async function fetchPreview(btn) {
@@ -515,8 +659,11 @@
       if (!d.title) return say(m, 'Bitte gib an, was du dir wünschst.', false);
       if (f.url.value.trim() && !d.url) return say(m, 'Der Link muss mit https:// beginnen.', false);
       try {
-        await busy($('[type=submit]', f), function () { return it ? Api.update('wl_items', 'id=eq.' + it.id, d) : Api.insert('wl_items', Object.assign({ list_id: st.list.id }, d)); });
-        dlg.close(); FX.toast(it ? 'Gespeichert' : 'Wunsch hinzugefügt ✨');
+        await busy($('[type=submit]', f), function () {
+          if (sug) return Api.rpc('wl_suggest', { p_list: st.list.id, p_title: d.title, p_url: d.url, p_image: d.image_url, p_price: d.price, p_currency: d.currency, p_note: d.note, p_category: d.category });
+          return it ? Api.update('wl_items', 'id=eq.' + it.id, d) : Api.insert('wl_items', Object.assign({ list_id: st.list.id }, d));
+        });
+        dlg.close(); FX.toast(sug ? 'Vorschlag gesendet 💡' : it ? 'Gespeichert' : 'Wunsch hinzugefügt ✨');
         await loadListData(st); paintList(st, true);
       } catch (err) { say(m, errText(err), false); }
     });
@@ -537,7 +684,7 @@
       '<div class="row2"><label>Datum <small class="muted">für den Countdown</small><input name="event_date" type="date" value="' + esc(x.event_date || '') + '"></label>' +
       '<label class="check"><input type="checkbox" name="archived"' + (x.archived ? ' checked' : '') + '> 📦 Archiviert <small class="muted">ausgeblendet bei Freunden</small></label></div>' +
       '<label>Beschreibung <small class="muted">optional</small><textarea name="description" rows="2" maxlength="500" placeholder="Ein paar Worte an alle, die schenken wollen">' + esc(x.description) + '</textarea></label>' +
-      '<fieldset><legend>Symbol</legend>' + emojiPicker('emoji', EMOJIS, x.emoji) + '</fieldset>' +
+      '<fieldset><legend>Symbol</legend>' + richPicker('emoji', x.emoji, { glyphs: false }) + '</fieldset>' +
       '<fieldset><legend>Design</legend>' + themePicker('theme', x.theme) + '</fieldset>' +
       '<fieldset class="vis"><legend>Wer darf die Liste sehen und reservieren?</legend>' +
       [['private', '🔒 Nur ich', 'Entwurf, für niemanden sichtbar'], ['friends', '👥 Alle Freunde', 'Jeder Freund (nicht nur Bekannte)'], ['custom', '🎯 Ausgewählte', 'Nur bestimmte Gruppen und Personen']].map(function (o) {
@@ -553,6 +700,7 @@
       '<p class="msg"></p><div class="dlg-actions">' + (l ? '<button type="button" class="btn ghost danger-text" data-act="del-list">Liste löschen</button><span class="sp"></span>' : '') +
       '<button type="button" class="btn ghost" data-close>Abbrechen</button><button type="submit" class="btn">' + (l ? 'Speichern' : 'Liste anlegen') + '</button></div></form>', 'wide');
     var f = $('form', dlg);
+    bindPickers(f);
     f.addEventListener('change', function () { $('.pick-who', f).hidden = vals(f).visibility !== 'custom'; });
     if (l) $('[data-act="del-list"]', f).addEventListener('click', async function () {
       if (!(await confirmDlg('Die Liste „' + l.title + '“ mit allen Wünschen und Reservierungen löschen?', 'Endgültig löschen'))) return;
@@ -814,16 +962,20 @@
     view(ctx,
       '<header class="page-head"><p class="eyebrow">So sehen dich deine Freunde</p><h1>Dein Profil</h1></header>' +
       '<div class="profile-grid"><form class="panel form" id="pform" novalidate>' +
-      '<div class="row2"><label>Anzeigename<input name="name" required minlength="2" maxlength="24" value="' + esc(me.name) + '"></label>' +
-      '<label>Geburtstag<input name="birthday" type="date" value="' + esc(me.birthday || '') + '"></label></div>' +
+      '<label>Anzeigename<input name="name" required minlength="2" maxlength="24" value="' + esc(me.name) + '"></label>' +
       '<p class="muted small">Dein Code <b>#' + esc(me.code) + '</b> bleibt immer gleich. Freunde finden dich mit Name und Code.</p>' +
-      '<fieldset><legend>Avatar</legend>' + emojiPicker('avatar', EMOJIS, me.avatar) + '</fieldset>' +
+      '<fieldset><legend>Avatar</legend>' + richPicker('avatar', me.avatar) + '</fieldset>' +
       '<fieldset><legend>Farbe</legend>' + colorPicker('color', me.color) + '</fieldset>' +
       '<fieldset><legend>Design deiner Profilkarte und Seiten</legend>' + themePicker('theme', me.theme) + '</fieldset>' +
-      '<label>Über mich<input name="bio" maxlength="160" value="' + esc(me.bio) + '" placeholder="z. B. Kaffee, Bücher und Bergtouren"></label>' +
-      '<label>👕 Größen <small class="muted">hilft beim Schenken</small><input name="sizes" maxlength="200" value="' + esc(me.sizes) + '" placeholder="z. B. Shirt M, Schuhe 43, Ring 56"></label>' +
+      '<fieldset class="priv-sec"><legend>👕 Größen <small class="muted">sichtbar für alle, die du kennst (Bekannte und Freunde)</small></legend>' +
+      '<div id="sizeRows">' + (me.sizesList || []).map(sizeRow).join('') + '</div>' +
+      '<datalist id="sizeLabels">' + SIZE_LABELS.map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist>' +
+      '<button type="button" class="btn small ghost" data-act="add-size">+ Größe hinzufügen</button></fieldset>' +
+      '<fieldset class="priv-sec"><legend>🔒 Persönliches <small class="muted">nur für deine Freunde sichtbar, nicht für Bekannte</small></legend>' +
+      '<div class="row2"><label>Geburtstag<input name="birthday" type="date" value="' + esc(me.birthday || '') + '"></label>' +
+      '<label>Über mich<input name="bio" maxlength="160" value="' + esc(me.bio) + '" placeholder="z. B. Kaffee, Bücher und Bergtouren"></label></div>' +
       '<div class="row2"><label>💚 Mag ich<input name="likes" maxlength="200" value="' + esc(me.likes) + '" placeholder="Lieblingsfarbe, Hobbys …"></label>' +
-      '<label>🚫 Lieber nicht<input name="dislikes" maxlength="200" value="' + esc(me.dislikes) + '" placeholder="z. B. Deko, Süßes"></label></div>' +
+      '<label>🚫 Lieber nicht<input name="dislikes" maxlength="200" value="' + esc(me.dislikes) + '" placeholder="z. B. Deko, Süßes"></label></div></fieldset>' +
       '<p class="msg"></p><div class="dlg-actions"><button type="submit" class="btn">Profil speichern</button></div></form>' +
       '<aside class="sticky"><p class="eyebrow">Vorschau</p><div id="pcPrev"></div>' +
       '<div class="panel account"><h3>Konto</h3><p class="muted small">Angemeldet als ' + esc(Api.user.email) + '</p>' +
@@ -832,7 +984,12 @@
       '<button type="submit" class="btn small ghost">Passwort ändern</button></form>' +
       '<button type="button" class="btn ghost wide" data-act="logout">Abmelden</button></div></aside></div>');
     var f = $('#pform');
-    function draft() { var v = vals(f); return Object.assign({}, me, v, { birthday: v.birthday || null }); }
+    bindPickers(f);
+    function sizes() {
+      return $$('.size-row', f).map(function (r, i) { return { label: $('.sz-l', r).value.trim(), value: $('.sz-v', r).value.trim(), sort: i }; })
+        .filter(function (s) { return s.label && s.value; });
+    }
+    function draft() { var v = vals(f); return Object.assign({}, me, v, { birthday: v.birthday || null, sizesList: sizes() }); }
     function prev() { var d = draft(); $('#pcPrev').innerHTML = profileCard(d, { self: true }); setTheme(d.theme); }
     prev();
     app.oninput = function (e) { if (e.target.form === f) prev(); };
@@ -846,14 +1003,31 @@
       var d = draft(), m = $('.msg', f);
       if (d.name.length < 2 || d.name.indexOf('#') >= 0) return say(m, ERR.name, false);
       try {
-        var out = await busy($('[type=submit]', f), function () {
-          return Api.update('wl_profiles', 'id=eq.' + me.id, { name: d.name, birthday: d.birthday, avatar: d.avatar, color: d.color, theme: d.theme, bio: d.bio, sizes: d.sizes, likes: d.likes, dislikes: d.dislikes });
+        var out = await busy($('[type=submit]', f), async function () {
+          var res = await Api.update('wl_profiles', 'id=eq.' + me.id, { name: d.name, avatar: d.avatar, color: d.color, theme: d.theme });
+          await Api.upsert('wl_profile_private?on_conflict=id', { id: me.id, bio: d.bio, birthday: d.birthday, likes: d.likes, dislikes: d.dislikes });
+          await Api.remove('wl_profile_sizes', 'profile=eq.' + me.id);
+          if (d.sizesList.length) await Api.insert('wl_profile_sizes', d.sizesList);
+          return res;
         });
-        me = out[0]; $('#meLink').innerHTML = avatar(me, 'xs') + '<span>' + esc(me.name) + '</span>';
+        me = Object.assign(me, out[0], { bio: d.bio, birthday: d.birthday, likes: d.likes, dislikes: d.dislikes, sizesList: d.sizesList }); $('#meLink').innerHTML = avatar(me, 'xs') + '<span>' + esc(me.name) + '</span>';
         say(m, 'Gespeichert ✓', true); FX.toast('Profil gespeichert');
       } catch (err) { say(m, errText(err), false); }
     };
-    app.onclick = function (e) { if (e.target.closest('[data-act="logout"]')) { Api.signOut(); history.replaceState(null, '', './'); } };
+    app.onclick = function (e) {
+      var b = e.target.closest('[data-act]'); if (!b) return;
+      if (b.dataset.act === 'logout') { Api.signOut(); history.replaceState(null, '', './'); }
+      if (b.dataset.act === 'add-size') {
+        if ($$('.size-row', f).length >= 12) return FX.toast('Mehr als 12 Größen sind nicht möglich.');
+        $('#sizeRows').insertAdjacentHTML('beforeend', sizeRow({ label: '', value: '' })); $$('.sz-l', f).pop().focus();
+      }
+      if (b.dataset.act === 'rm-size') { b.closest('.size-row').remove(); prev(); }
+    };
+  }
+  var SIZE_LABELS = ['Kleidergröße', 'Shirt', 'Pullover', 'Hose', 'Jeans', 'Jacke', 'Schuhe', 'Socken', 'Handschuhe', 'Mütze', 'Ring', 'BH', 'Unterwäsche', 'Körpergröße'];
+  function sizeRow(s) {
+    return '<div class="size-row"><input class="sz-l" list="sizeLabels" maxlength="24" placeholder="z. B. Schuhe" value="' + esc(s.label) + '" aria-label="Bezeichnung">' +
+      '<input class="sz-v" maxlength="40" placeholder="z. B. 43" value="' + esc(s.value) + '" aria-label="Größe"><button type="button" class="icon-btn" data-act="rm-size" aria-label="Zeile entfernen">✕</button></div>';
   }
 
   // Neues Passwort speichern (Formular mit pw und pw2); hebt auch den Zwang nach einem Admin-Reset auf

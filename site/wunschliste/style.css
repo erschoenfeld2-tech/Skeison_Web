@@ -599,6 +599,30 @@ body[data-theme="barbie"] .deco::before { inset: 0; content: "💖        ✨   
 [data-theme="barbie"] .btn:not(.ghost) { background: linear-gradient(135deg, #e0218a, #ff6ec7); box-shadow: 0 8px 20px -8px var(--shadow); }
 .tshow[data-theme="barbie"] .ts-stage { background: linear-gradient(135deg, #ff9ccf, #ffe0f0 60%, #ff6ec7); }
 
+/* Symbol-Auswahl, Groessen, Filter, Vorschlaege */
+.av .g, .ev-ico .g { font-style: normal; font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", "Noto Sans Symbols", system-ui, sans-serif; }
+.rpick { display: grid; gap: 10px; }
+.rhead { display: flex; gap: 12px; align-items: center; } .rcur { flex: none; }
+.rtabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.rtab { cursor: pointer; font: inherit; font-size: .82rem; font-weight: 600; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); }
+.rtab.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.rgrid, .rvar { display: flex; flex-wrap: wrap; gap: 6px; }
+.rvar { align-items: center; padding: 8px; border-radius: 12px; border: 1px dashed var(--line); background: var(--panel2); } .rvar[hidden] { display: none; }
+.ri { width: 40px; height: 40px; display: grid; place-items: center; cursor: pointer; font: inherit; font-size: 1.3rem; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); position: relative; transition: transform .2s var(--ease), border-color .2s; }
+.ri:hover { transform: translateY(-2px); }
+.ri.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--bg)); box-shadow: 0 0 0 2px var(--accent); }
+.ri[data-var]::after { content: ""; position: absolute; right: 3px; bottom: 3px; width: 6px; height: 6px; border-radius: 50%; background: linear-gradient(135deg, #ff4d6d, #ffcb05, #2ec4ff); }
+.ri.sm { width: 34px; height: 34px; font-size: 1.1rem; }
+.ri.col i { width: 20px; height: 20px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.25); }
+.priv-sec legend small { font-weight: 500; }
+.size-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; margin-bottom: 8px; }
+.tb2 { flex-wrap: wrap; gap: 10px 14px; } .tb2 input[type=search] { flex: 1 1 200px; min-width: 150px; }
+.catchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 18px; }
+.cc { cursor: pointer; font: inherit; font-size: .84rem; font-weight: 600; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); }
+.cc small { color: var(--muted); } .cc.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); } .cc.on small { color: inherit; opacity: .8; }
+.cat-tag { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel2); color: var(--muted); }
+.sugg { margin: 0 0 22px; padding: 18px; } .sugg h2 { margin: 0 0 4px; font-size: 1.2rem; } .sugg .plist li { flex-wrap: wrap; }
+
 /* Teilen & Stufen */
 .share-box { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: start; margin: 14px 0; }
 .share-qr { width: 190px; padding: 8px; border-radius: 14px; background: #fff; line-height: 0; } .share-qr svg { width: 100%; height: auto; }
