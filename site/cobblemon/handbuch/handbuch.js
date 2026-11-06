@@ -4,7 +4,7 @@
   var $ = function (id) { return document.getElementById(id); };
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
   function ext(a, href) { a.href = href; a.target = '_blank'; a.rel = 'noopener'; return a; }
-  var SIDE = { both: ['both', 'Server & Client'], client: ['client', 'Nur Client'], 'optional-client': ['opt', 'Client optional'] };
+  var SIDE = { both: ['both', 'Server & Client'], client: ['client', 'Nur Client'], 'optional-client': ['opt', 'Client optional'], server: ['opt', 'Nur Server'] };
   var doc = null, cat = 'all';
 
   function norm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }

@@ -1,7 +1,7 @@
 {
   "pack": {
     "name": "Cobblemon Server Pack",
-    "version": "1.5.6",
+    "version": "1.5.7",
     "minecraft": "1.21.1",
     "neoforge": "21.1.262"
   },
@@ -97,10 +97,10 @@
       "id": "fALzjamp",
       "name": "Chunky",
       "cat": "server",
-      "side": "optional-client",
+      "side": "server",
       "kind": "mod",
       "file": "Chunky-NeoForge-1.4.23.jar",
-      "text": "Erzeugt die Welt im Voraus (Pregeneration), damit beim Erkunden weniger gerechnet werden muss.",
+      "text": "Erzeugt die Welt im Voraus (Pregeneration), damit beim Erkunden weniger gerechnet werden muss. Nur auf dem Server; im Client wird es nicht mehr installiert, weil es dort zusammen mit Distant Horizons den Beitritt verhindert.",
       "links": []
     },
     {
@@ -159,9 +159,10 @@
       "side": "client",
       "kind": "mod",
       "file": "missingmons-cobblemon-3.6.1.jar",
-      "text": "Erweiterung mit Modellen und Texturen für Pokémon, die Cobblemon noch nicht mitliefert (z. B. Pawmi, Pawmo, Pawmot). Ohne sie siehst du an diesen Stellen die Standard-Puppe. Nur auf deinem Rechner, der Server braucht sie nicht und bekommt dadurch keine zusätzlichen Spawns.",
+      "text": "Erweiterung mit Modellen und Texturen für Pokémon, die Cobblemon noch nicht mitliefert (z. B. Pawmi, Pawmo, Pawmot). Ohne sie siehst du an diesen Stellen die Standard-Puppe. Nur auf deinem Rechner, der Server braucht sie nicht. Aus Lizenzgründen ist sie nicht im Modpack: Lade sie selbst und bereite sie mit dem Hilfsskript vor (siehe Anleitung), sonst stürzt das Spiel bei einigen Pokémon ab.",
       "links": [
-        { "label": "Datei direkt laden", "url": "https://cdn.modrinth.com/data/jbbBrQVa/versions/8MaQRS0b/missingmons-cobblemon-3.6.1.jar" }
+        { "label": "Datei direkt laden", "url": "https://cdn.modrinth.com/data/jbbBrQVa/versions/8MaQRS0b/missingmons-cobblemon-3.6.1.jar" },
+        { "label": "Anleitung und Hilfsskript", "url": "../download/missingmons.html" }
       ]
     },
     {
