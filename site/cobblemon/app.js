@@ -5,11 +5,13 @@
   // Bewerbungen laufen ueber Supabase (nur oeffentlicher Schluessel; Einfuegen erlaubt, Lesen nicht).
   var SUPABASE_URL = 'https://pumdupjmmvimlxqvuymg.supabase.co', SUPABASE_KEY = 'sb_publishable_VcunJmqIHajV3s2gfUMWSQ_MlIpmkas';
   // Zeitplan (alle Zeiten deutsche Zeit): Nether und End oeffnen jeweils nach den angegebenen Tagen.
-  var START = new Date('2026-10-30T15:00:00+01:00').getTime(), DAY = 86400000;
+  var START = new Date('2026-10-30T15:00:00+01:00').getTime(), DAY = 86400000, HOUR = 3600000;
   var MILESTONES = [
     { id: 'start', icon: '🚀', title: 'Serverstart', at: START, text: 'Der Server geht online, die Wertungen beginnen.' },
-    { id: 'nether', icon: '🔥', title: 'Nether öffnet', at: START + 7 * DAY, text: 'Eine Woche nach Serverstart wird der Nether freigeschaltet.' },
-    { id: 'end', icon: '🌌', title: 'End öffnet', at: START + 14 * DAY, text: 'Eine Woche nach dem Nether folgt das End mit dem schwereren Enderdrachen.' }
+    { id: 'nether', icon: '🔥', title: 'Nether öffnet', at: START + 7 * DAY + 3 * HOUR, // 18:00 Uhr
+       text: 'Eine Woche nach Serverstart wird der Nether freigeschaltet.' },
+    { id: 'end', icon: '🌌', title: 'End öffnet', at: START + 14 * DAY + 6 * HOUR, // 21:00 Uhr
+       text: 'Eine Woche nach dem Nether folgt das End mit dem schwereren Enderdrachen.' }
   ];
   // Anzeigenamen der Ranglisten (ueberschreiben die Texte aus leaderboards.json)
   var BOARD_META = {
