@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MissingMons einrichten · Cobblemon Server</title>
+<meta name="description" content="Anleitung: MissingMons für das Modpack 1.5.7 einrichten.">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="wrap" style="max-width:760px;margin:2rem auto;padding:0 16px;line-height:1.6">
+<h1>MissingMons einrichten (Modpack 1.5.7)</h1>
+<p>MissingMons liefert Modelle für Pokémon, die Cobblemon noch nicht mitbringt (Pawmi-Reihe, Rowlet-Animationen u. a.). Aus Lizenzgründen darf sie nicht im Modpack mitgeliefert werden, und sie muss für Cobblemon 1.8.2 einmal lokal angepasst werden. Das dauert etwa 5 Minuten.</p>
+<ol>
+<li>Modpack <strong>1.5.7</strong> im NoRisk-Launcher installieren oder das Profil aktualisieren. Hast du Chunky selbst hinzugefügt, schalte es aus.</li>
+<li>Lade <a href="https://cdn.modrinth.com/data/jbbBrQVa/versions/8MaQRS0b/missingmons-cobblemon-3.6.1.jar">missingmons-cobblemon-3.6.1.jar</a> von Modrinth (ca. 3,5 MB).</li>
+<li>Lade das Hilfsskript <a href="MissingMons-Fix-v2.ps1" download>MissingMons-Fix-v2.ps1</a> und lege es in denselben Ordner.</li>
+<li>Öffne dort ein Terminal (Rechtsklick in den Ordner, „Im Terminal öffnen“) und führe aus:<br>
+<code>powershell -ExecutionPolicy Bypass -File .\MissingMons-Fix-v2.ps1 -Quelle .\missingmons-cobblemon-3.6.1.jar</code><br>
+Am Ende muss stehen: „Animationsdateien umbenannt: 33“ und „Poser angepasst: 33“.</li>
+<li>Es entsteht <code>missingmons-cobblemon-3.6.1-localfix.jar</code>. Im Launcher beim Profil „Ordner öffnen“, dann in den Ordner <code>custom_mods</code> legen.</li>
+<li>Erscheint MissingMons zusätzlich in der Modliste des Launchers, schalte diese Version <strong>aus</strong>. Nur die <code>localfix</code>-Datei darf aktiv sein.</li>
+<li>Spiel starten und beitreten.</li>
+</ol>
+<p><strong>Wichtig:</strong> Die angepasste Datei ist nur für deinen eigenen Rechner. Gib sie nicht weiter (Lizenz des MissingMons-Autors). Das Skript enthält keine Mod-Inhalte und verändert deine Originaldatei nicht.</p>
+<p>Probleme? Schicke uns die Datei <code>logs/latest.log</code> aus deinem Profilordner.</p>
+<p><a href="../">← Zurück zur Server-Seite</a></p>
+</main>
+</body>
+</html>
