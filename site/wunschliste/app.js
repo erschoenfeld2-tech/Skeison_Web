@@ -185,6 +185,7 @@
   function route() {
     var q = new URLSearchParams(location.search);
     if (q.get('teilen')) return { page: 'teilen', id: q.get('teilen') };
+    if (q.get('einladung')) return { page: 'einladung', id: q.get('einladung') };
     if (q.get('liste')) return { page: 'liste', id: q.get('liste') };
     return { page: q.get('seite') || 'home', id: q.get('id') };
   }
@@ -219,10 +220,10 @@
     var signedIn = !!Api.user;
     document.body.classList.toggle('is-in', signedIn);
     if (!signedIn) document.body.classList.remove('is-locked');
-    var r = route(), preview = !signedIn && r.page === 'teilen';
+    var r = route(), preview = !signedIn && (r.page === 'teilen' || r.page === 'einladung');
     document.body.classList.toggle('is-preview', preview);
     if (authEl.parentNode !== authHome) authHome.appendChild(authEl);
-    if (preview) { app.onclick = app.onchange = app.oninput = app.onsubmit = null; app.setAttribute('data-page', 'teilen'); return previewPage(ctx, r.id); }
+    if (preview) { app.onclick = app.onchange = app.oninput = app.onsubmit = null; app.setAttribute('data-page', r.page); return r.page === 'teilen' ? previewPage(ctx, r.id) : invitePreview(ctx, r.id); }
     if (!signedIn) { setTheme(null); landing(); return; }
     $$('[data-nav]').forEach(function (a) {
       var on = a.getAttribute('data-nav') === r.page || (r.page === 'freund' && a.getAttribute('data-nav') === 'freunde');
@@ -799,7 +800,8 @@
       '<header class="page-head"><p class="eyebrow">Nur Freunde sehen sich gegenseitig</p><h1>Freunde &amp; Gruppen</h1></header>' +
       '<div class="friends-top" data-stagger>' +
       '<div class="panel handle-box"><p class="eyebrow">Dein Freundescode</p><button type="button" class="handle-big" data-act="copy-handle">' + handle(me, true) + ' <small>kopieren</small></button>' +
-      '<p class="muted small">Schick ihn Freunden und Familie. Sie geben ihn bei sich ein, du bestätigst die Anfrage, fertig. Die Codes deiner Freunde siehst du nicht, damit niemand sie weitergeben kann.</p></div>' +
+      '<p class="muted small">Schick ihn Freunden und Familie. Sie geben ihn bei sich ein, du bestätigst die Anfrage, fertig. Die Codes deiner Freunde siehst du nicht, damit niemand sie weitergeben kann.</p>' +
+      '<button type="button" class="btn ghost wide" data-act="invite">🔗 Einladungslink &amp; QR-Code</button></div>' +
       '<form class="panel add-friend" novalidate><label>Freund hinzufügen<span class="url-row"><input name="handle" placeholder="Name#CODE" autocomplete="off" maxlength="40" required><button type="submit" class="btn">Anfrage senden</button></span></label><p class="msg"></p></form>' +
       '</div>' +
       (fr.incoming.length || fr.outgoing.length ? '<section class="requests"><h2>Anfragen</h2><ul class="plist">' +
@@ -840,6 +842,7 @@
       var b = e.target.closest('[data-act]'); if (!b) return;
       var holder = b.closest('[data-id]'), act = b.dataset.act, id = holder && holder.getAttribute('data-id');
       if (act === 'copy-handle') return copy(me.name + '#' + me.code, 'Code kopiert');
+      if (act === 'invite') return inviteDialog();
       if (act === 'label') return labelDialog(byId[id], render);
       if (act === 'new-group') return groupDialog(null, fr.friends);
       if (act === 'edit-group') return groupDialog(groups.filter(function (g) { return g.id === id; })[0], fr.friends);
@@ -1204,24 +1207,29 @@
   }
 
 
-  // ---------- Teilen per Link / QR-Code ----------
-  function shareUrl(token) { return location.origin + location.pathname + '?teilen=' + token; }
-  async function shareDialog(st) {
-    var l = st.list, token = null;
-    try { var rows = await Api.get('wl_share_links', 'list_id=eq.' + l.id + '&select=token'); token = rows[0] && rows[0].token; }
-    catch (e) { return FX.toast(errText(e)); }
+  // ---------- Links mit QR-Code (Liste teilen, Freunde einladen) ----------
+  function pageUrl(param, token) { return location.origin + location.pathname + '?' + param + '=' + token; }
+  function qrSvg(url) { var q = qrcode(0, 'M'); q.addData(url); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); }
+  function saveQr(svg, file) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
+    a.download = file; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+  // Gemeinsamer Dialog: Link anlegen, anzeigen (mit QR-Code), kopieren, teilen, speichern, erneuern, abschalten
+  async function linkDialog(cfg) {
+    var token = null;
+    try { token = await cfg.load(); } catch (e) { return FX.toast(errText(e)); }
     function paint() {
-      var url = token && shareUrl(token), qr = '';
-      if (url) { var q = qrcode(0, 'M'); q.addData(url); q.make(); qr = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); }
-      openDlg(dlgHead('Liste teilen') +
-        '<p class="muted">Schick den Link oder zeige den QR-Code. Wer ihn öffnet, sieht <b>ohne Anmeldung nur eine Vorschau</b>. Zum Reservieren meldet man sich an und ist danach bei dir <b>Bekannt</b>: sieht nur diese Liste, nicht deine anderen.</p>' +
-        (url ? '<div class="share-box"><div class="share-qr" aria-label="QR-Code zum Scannen">' + qr + '</div><div class="share-side">' +
-          '<label>Dein Freigabe-Link<input readonly value="' + esc(url) + '" data-sel></label>' +
+      var url = token && cfg.urlOf(token);
+      openDlg(dlgHead(cfg.title) + '<p class="muted">' + cfg.intro + '</p>' +
+        (url ? '<div class="share-box"><div class="share-qr" aria-label="QR-Code zum Scannen">' + qrSvg(url) + '</div><div class="share-side">' +
+          '<label>' + cfg.label + '<input readonly value="' + esc(url) + '" data-sel></label>' +
           '<div class="dlg-actions start"><button type="button" class="btn" data-act="copy">Link kopieren</button>' +
           (navigator.share ? '<button type="button" class="btn ghost" data-act="native">Teilen …</button>' : '') +
           '<button type="button" class="btn ghost" data-act="qr-save">QR speichern</button></div>' +
-          (l.visibility === 'private' ? '<p class="msg err">Die Liste ist noch auf „Nur ich“. Bitte stelle sie unter „Liste bearbeiten“ auf „Alle Freunde“ oder „Ausgewählte“, sonst sehen Gäste nichts.</p>' : '') +
-          '<button type="button" class="link-btn danger-text" data-act="off">Link deaktivieren</button></div></div>'
+          (cfg.extra ? cfg.extra() : '') +
+          '<div class="dlg-actions start">' + (cfg.resetText ? '<button type="button" class="link-btn" data-act="reset">↻ Neuen Link erzeugen</button>' : '') +
+          '<button type="button" class="link-btn danger-text" data-act="off">Link deaktivieren</button></div></div></div>'
           : '<div class="dlg-actions start"><button type="button" class="btn" data-act="on">🔗 Link erstellen</button></div>') +
         '<div class="dlg-actions"><button type="button" class="btn ghost" data-close>Fertig</button></div>', 'wide');
       // Die Sicherheitsabfrage nutzt denselben Dialog und schliesst ihn; danach den Handler wieder anhaengen
@@ -1238,23 +1246,94 @@
       var act = b.dataset.act;
       try {
         if (act === 'on') {
-          token = await busy(b, function () { return Api.rpc('wl_share_enable', { p_list: l.id }); });
-          if (l.visibility === 'private') l.visibility = 'custom';
-          paint(); render();
+          token = await busy(b, function () { return cfg.enable(false); });
+          paint(); if (cfg.onEnable) cfg.onEnable();
+        } else if (act === 'reset') {
+          if (!(await confirmDlg(cfg.resetText, 'Neuen Link erzeugen'))) return paint();
+          token = await cfg.enable(true); FX.toast('Neuer Link erstellt'); paint();
         } else if (act === 'off') {
-          if (!(await confirmDlg('Der Link und der QR-Code funktionieren danach nicht mehr. Wer die Liste schon freigeschaltet bekam, behält den Zugriff.', 'Deaktivieren'))) return;
-          await Api.rpc('wl_share_disable', { p_list: l.id }); token = null; FX.toast('Link deaktiviert');
-          paint();
-        } else if (act === 'copy') copy(shareUrl(token), 'Link kopiert');
-        else if (act === 'native') navigator.share({ title: l.title, text: 'Meine Wunschliste: ' + l.title, url: shareUrl(token) }).catch(function () {});
-        else if (act === 'qr-save') {
-          var svg = $('.share-qr svg', dlg), a = document.createElement('a');
-          a.href = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
-          a.download = 'wunschliste-qr.svg'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
-        }
+          if (!(await confirmDlg(cfg.offText, 'Deaktivieren'))) return paint();
+          await cfg.disable(); token = null; FX.toast('Link deaktiviert'); paint();
+        } else if (act === 'copy') copy(cfg.urlOf(token), 'Link kopiert');
+        else if (act === 'native') navigator.share({ title: cfg.shareTitle, text: cfg.shareText, url: cfg.urlOf(token) }).catch(function () {});
+        else if (act === 'qr-save') saveQr($('.share-qr svg', dlg), cfg.file);
       } catch (err) { FX.toast(errText(err)); }
     }
     paint();
+  }
+
+  function shareDialog(st) {
+    var l = st.list;
+    return linkDialog({
+      title: 'Liste teilen', label: 'Dein Freigabe-Link', file: 'wunschliste-qr.svg', shareTitle: l.title, shareText: 'Meine Wunschliste: ' + l.title,
+      intro: 'Schick den Link oder zeige den QR-Code. Wer ihn öffnet, sieht <b>ohne Anmeldung nur eine Vorschau</b>. Zum Reservieren meldet man sich an und ist danach bei dir <b>Bekannt</b>: sieht nur diese Liste, nicht deine anderen.',
+      load: function () { return Api.get('wl_share_links', 'list_id=eq.' + l.id + '&select=token').then(function (rows) { return rows[0] && rows[0].token; }); },
+      enable: function () { return Api.rpc('wl_share_enable', { p_list: l.id }); },
+      disable: function () { return Api.rpc('wl_share_disable', { p_list: l.id }); },
+      urlOf: function (t) { return pageUrl('teilen', t); },
+      extra: function () { return l.visibility === 'private' ? '<p class="msg err">Die Liste ist noch auf „Nur ich“. Bitte stelle sie unter „Liste bearbeiten“ auf „Alle Freunde“ oder „Ausgewählte“, sonst sehen Gäste nichts.</p>' : ''; },
+      onEnable: function () { if (l.visibility === 'private') l.visibility = 'custom'; render(); },
+      offText: 'Der Link und der QR-Code funktionieren danach nicht mehr. Wer die Liste schon freigeschaltet bekam, behält den Zugriff.'
+    });
+  }
+
+  // Persoenlicher Einladungslink: befreunden ohne Code
+  function inviteDialog() {
+    return linkDialog({
+      title: '🤝 Freunde per Link einladen', label: 'Dein Einladungslink', file: 'freundschaft-qr.svg', shareTitle: 'Wunschliste',
+      shareText: me.name + ' lädt dich ein, auf der Wunschliste befreundet zu sein',
+      intro: 'Wer den Link öffnet oder den QR-Code scannt, kann sich mit einem Klick mit dir befreunden, ganz ohne deinen Code. Ihr seid dann <b>Freunde</b> und seht alles, was ihr für „Alle Freunde“ freigebt. <b>Teile ihn nur mit Leuten, die du kennst.</b> Mit „Neuen Link erzeugen“ machst du einen weitergegebenen Link jederzeit ungültig.',
+      load: function () { return Api.get('wl_friend_links', 'select=token').then(function (rows) { return rows[0] && rows[0].token; }); },
+      enable: function (reset) { return Api.rpc('wl_friend_link_enable', { p_reset: !!reset }); },
+      disable: function () { return Api.rpc('wl_friend_link_disable'); },
+      urlOf: function (t) { return pageUrl('einladung', t); },
+      resetText: 'Neuen Link erzeugen? Der bisherige Link und QR-Code funktionieren dann nicht mehr. Bestehende Freundschaften bleiben.',
+      offText: 'Einladungslink deaktivieren? Niemand kann sich dann mehr darüber mit dir befreunden. Bestehende Freundschaften bleiben.'
+    });
+  }
+
+  // Einladung ansehen, ohne angemeldet zu sein: wer lädt ein, darunter Anmelden oder Registrieren
+  async function invitePreview(ctx, token) {
+    app.innerHTML = loading();
+    var d = null;
+    try { d = /^[0-9a-f]{32}$/.test(token) ? await Api.pub('wl_friend_link_preview', { p_token: token }) : null; } catch (e) { d = null; }
+    if (ctx.stale()) return;
+    if (!d) { setTheme(null); app.innerHTML = inviteGone(); return; }
+    setTheme(d.theme);
+    app.innerHTML = '<div class="invite-card panel" data-theme="' + esc(d.theme) + '">' + avatar(d, 'xl') +
+      '<p class="eyebrow">Einladung</p><h1>' + esc(d.name) + ' möchte mit dir befreundet sein</h1>' +
+      '<p class="lead">Melde dich an oder erstelle kostenlos ein Konto. Danach bestätigst du die Freundschaft mit einem Klick.</p></div><div id="authSlot"></div>';
+    $('#authSlot', app).appendChild(authEl);
+    setTab('register');
+  }
+  function inviteGone() {
+    return '<div class="empty big"><span class="e-ico">🔗</span><h2>Diese Einladung ist nicht mehr gültig</h2><p>Der Link wurde erneuert oder abgeschaltet. Frag die Person nach einem neuen Link.</p><a class="btn" href="./">Zur Wunschliste</a></div>';
+  }
+
+  // Einladung angemeldet: erst nach einem Klick befreunden (nur das Oeffnen eines Links befreundet niemanden)
+  async function invitePage(ctx, r) {
+    var d = /^[0-9a-f]{32}$/.test(r.id || '') ? await Api.rpc('wl_friend_link_preview', { p_token: r.id }) : null;
+    if (ctx.stale()) return;
+    setTheme(d ? d.theme : me.theme);
+    if (!d) return view(ctx, inviteGone());
+    var body = d.status === 'self'
+      ? '<h1>Das ist dein eigener Einladungslink</h1><p class="lead">Schick ihn an Leute, mit denen du befreundet sein möchtest, oder zeig ihnen den QR-Code.</p><div class="dlg-actions"><button type="button" class="btn" data-act="invite">Link &amp; QR-Code zeigen</button></div>'
+      : d.status === 'friends'
+        ? '<h1>Ihr seid schon befreundet</h1><p class="lead">Du und ' + esc(d.name) + ' seid bereits Freunde.</p><div class="dlg-actions"><a class="btn" href="./?seite=freund&id=' + esc(d.id) + '">Zum Profil</a></div>'
+        : '<p class="eyebrow">Einladung</p><h1>' + esc(d.name) + ' möchte mit dir befreundet sein</h1><p class="lead">' + (d.status === 'known' ? 'Ihr seid bisher Bekannte. ' : '') +
+          'Als Freunde seht ihr gegenseitig eure Profile und alle Listen, die für „Alle Freunde“ freigegeben sind.</p>' +
+          '<div class="dlg-actions"><a class="btn ghost" href="./">Nicht jetzt</a><button type="button" class="btn" data-act="befriend">🤝 Freunde werden</button></div>';
+    view(ctx, '<div class="invite-card panel" data-theme="' + esc(d.theme) + '">' + avatar(d, 'xl') + body + '</div>');
+    app.onclick = async function (e) {
+      var b = e.target.closest('[data-act]'); if (!b) return;
+      if (b.dataset.act === 'invite') return inviteDialog();
+      if (b.dataset.act === 'befriend') {
+        try {
+          var id = await busy(b, function () { return Api.rpc('wl_friend_link_redeem', { p_token: r.id }); });
+          FX.toast('Ihr seid jetzt befreundet 🎉'); go('./?seite=freund&id=' + id, true);
+        } catch (err) { FX.toast(errText(err)); }
+      }
+    };
   }
 
   // Vorschau fuer Abgemeldete: nur lesen, zum Reservieren anmelden
@@ -1296,7 +1375,7 @@
     go('./?liste=' + id, true);
   }
 
-  var VIEWS = { teilen: redeemPage,  home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage };
+  var VIEWS = { teilen: redeemPage, einladung: invitePage, home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage };
 
   // ---------- Startseite fuer Abgemeldete ----------
   var DEMO = [
@@ -1329,7 +1408,7 @@
     var f = e.target, m = $('.msg', f), email = f.email.value.trim(), pw = f.password.value;
     if (!email || !pw) return say(m, 'Bitte E-Mail und Passwort eingeben.', false);
     say(m, 'Anmelden …', true);
-    try { await busy($('[type=submit]', f), function () { return Api.signIn(email, pw); }); f.reset(); say(m, '', true); history.replaceState(null, '', /liste=|seite=|teilen=/.test(location.search) ? location.search : './'); render(); }
+    try { await busy($('[type=submit]', f), function () { return Api.signIn(email, pw); }); f.reset(); say(m, '', true); history.replaceState(null, '', /liste=|seite=|teilen=|einladung=/.test(location.search) ? location.search : './'); render(); }
     catch (err) { say(m, errText(err), false); }
   });
   $('#registerForm').addEventListener('submit', async function (e) {
@@ -1345,7 +1424,7 @@
         await Api.signUp({ name: v.name, email: v.email, password: f.password.value, invite: v.invite });
         await Api.signIn(v.email, f.password.value);
       });
-      f.reset(); say(m, '', true); history.replaceState(null, '', /teilen=/.test(location.search) ? location.search : './'); FX.toast('Willkommen, ' + v.name + '! 🎉'); render();
+      f.reset(); say(m, '', true); history.replaceState(null, '', /teilen=|einladung=/.test(location.search) ? location.search : './'); FX.toast('Willkommen, ' + v.name + '! 🎉'); render();
     } catch (err) {
       if (err.code === 'invite') $('.invite', f).hidden = false;
       say(m, errText(err), false);

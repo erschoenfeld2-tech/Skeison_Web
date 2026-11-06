@@ -628,6 +628,12 @@ body[data-theme="barbie"] .deco::before { inset: 0; content: "💖        ✨   
 .share-qr { width: 190px; padding: 8px; border-radius: 14px; background: #fff; line-height: 0; } .share-qr svg { width: 100%; height: auto; }
 .share-side { display: grid; gap: 12px; } .share-side input { width: 100%; }
 .dlg-actions.start { justify-content: flex-start; flex-wrap: wrap; }
+/* Einladung zur Freundschaft (Link / QR-Code) */
+.invite-card { max-width: 560px; margin: 40px auto 24px; padding: 32px 28px; display: grid; justify-items: center; gap: 10px; text-align: center; }
+.invite-card h1 { margin: 0; font-size: clamp(1.5rem, 4vw, 2.1rem); }
+.invite-card .lead { margin: 0; }
+.invite-card .dlg-actions { justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+.handle-box .btn.wide { margin-top: 6px; }
 .fc-main em.lvl { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: .7rem; font-style: normal; background: var(--panel2); border: 1px solid var(--line); color: var(--muted); }
 #authSlot { margin: 40px 0 10px; }
 @media (max-width: 640px) { .share-box { grid-template-columns: 1fr; justify-items: center; } .share-side { width: 100%; } }
