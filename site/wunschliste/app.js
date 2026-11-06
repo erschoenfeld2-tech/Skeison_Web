@@ -24,7 +24,6 @@
     { id: 'sommer', name: 'Sommer', desc: 'Sonne, Himmelblau und sandige Wärme' },
     { id: 'barbie', name: 'Barbie-Pink', desc: 'Knallig pink, glitzernd und verspielt' }
   ];
-  var EMOJIS = '🎁 🎄 🎂 🎉 💍 🍼 🏡 🎓 🐣 ⭐ 🦊 🐻 🐼 🐸 🦄 🐙 🌻 🍀 🌈 🔥 ⚡ 🎮 🎧 📚 🎨 ⚽ 🚲 ✈️ 🍕 ☕ 👾 🧸'.split(' ');
   var CATEGORIES = ['Technik', 'Mode', 'Schuhe', 'Bücher', 'Spiele', 'Haushalt', 'Küche', 'Deko', 'Beauty', 'Sport', 'Outdoor', 'Hobby', 'Erlebnis', 'Gutschein', 'Spielzeug', 'Schmuck', 'Sonstiges'];
   var PRICE_BANDS = [['', 'Jeder Preis'], ['0-25', 'bis 25 €'], ['25-50', '25 – 50 €'], ['50-100', '50 – 100 €'], ['100-250', '100 – 250 €'], ['250-', 'über 250 €'], ['none', 'ohne Preis']];
   var SORTS = [['prio', 'Wichtigste zuerst'], ['value', 'Wichtig & wertvoll zuerst'], ['cheap', 'Preis aufsteigend'], ['pricey', 'Preis absteigend'], ['cat', 'Nach Kategorie'], ['az', 'A – Z'], ['new', 'Neueste zuerst']];
@@ -41,6 +40,7 @@
   var GLYPH_COLORS = ['#ffcb05', '#ff9f43', '#ff4d6d', '#ff5fa2', '#a55eea', '#5b85ff', '#2ec4ff', '#1abc9c', '#2ecc71', '#b8e35a', '#f5f5f5', '#8395a7'];
   var AV_CATS = [
     { id: 'top', label: '⭐ Beliebt', items: '🎁 🦊 🐻 🐼 🦄 🐙 🌻 🍀 🌈 🔥 ⚡ 🎮 🎧 📚 🎨 ⚽ 🚲 ✈️ 🍕 ☕ 👾 🧸 🐸'.split(' ') },
+    { id: 'party', label: '🎉 Anlässe', items: '🎁 🎄 🎂 🎉 🎈 🎊 💍 🍼 🏡 🎓 🐣 🎃 🎅 ⛄ 💐 🥂'.split(' ') },
     { id: 'heart', label: '❤️ Herzen', items: ['❤️', '💖', '💝', '🧁', '💌', '💞'] },
     { id: 'star', label: '⭐ Sterne', items: ['⭐', '✨', '🌙', '☀️', '🌈', '☄️', '🪐', '🔮'] },
     { id: 'shape', label: '🔴 Farben', items: ['🔴', '🟥', '🔶', '🔷', '💠', '🔰', '🏵️', '🎯'] },
@@ -116,7 +116,7 @@
     rate: 'Zu viele Versuche. Bitte in einer Stunde erneut probieren.', already_reserved: 'Das hat gerade jemand anderes reserviert.',
     no_access: 'Diese Liste ist für dich nicht (mehr) freigegeben.', own_item: 'Eigene Wünsche kannst du nicht reservieren.',
     received: 'Dieser Wunsch wurde schon erfüllt.', bad_quantity: 'Diese Anzahl ist nicht möglich.', not_authenticated: 'Bitte melde dich erneut an.',
-    not_friend: 'Vorschläge können nur Freunde machen, nicht Bekannte.', too_many: 'Du hast hier schon 10 offene Vorschläge.',
+    not_friend: 'Vorschläge können nur Freunde machen, nicht Bekannte.', too_many_sizes: 'Mehr als 12 Größen sind nicht möglich.', too_many: 'Du hast hier schon 10 offene Vorschläge.',
     no_profile: 'Dein Profil wurde nicht gefunden. Bitte melde dich ab und wieder an.',
     not_admin: 'Dafür brauchst du Admin-Rechte.', self: 'Dein eigenes Konto kannst du hier nicht löschen.', is_admin: 'Admin-Konten können hier nicht gelöscht werden.',
     over_email_send_rate_limit: 'Zu viele Versuche. Bitte später erneut probieren.', same_password: 'Das ist schon dein aktuelles Passwort.'
@@ -246,7 +246,7 @@
   // ---------- Daten ----------
   async function loadFriends() {
     var res = await Promise.all([Api.get('wl_friendships', 'select=*'), Api.get('wl_profiles', 'id=neq.' + me.id), Api.get('wl_contacts', 'select=*'), Api.get('wl_trust', 'select=person,level'),
-      Api.get('wl_profile_private', 'select=*'), Api.get('wl_profile_sizes', 'select=*&order=sort.asc,created_at.asc')]);
+      Api.get('wl_profile_private', 'id=neq.' + me.id), Api.get('wl_profile_sizes', 'profile=neq.' + me.id + '&order=sort.asc,created_at.asc')]);
     var byId = {}, cById = {}, lvl = {}, priv = {}, sizes = {}, out = { friends: [], incoming: [], outgoing: [] };
     res[4].forEach(function (x) { priv[x.id] = x; });
     res[5].forEach(function (x) { (sizes[x.profile] = sizes[x.profile] || []).push(x); });
@@ -365,7 +365,7 @@
   function richPicker(name, current, opt) {
     opt = opt || {};
     var cats = AV_CATS.filter(function (c) { return opt.glyphs !== false || !c.glyphs; });
-    return '<div class="rpick" data-glyphs="' + (opt.glyphs === false ? '0' : '1') + '"><input type="hidden" name="' + name + '" value="' + esc(current) + '">' +
+    return '<div class="rpick" data-glyphs="' + (opt.glyphs === false ? '0' : '1') + '" data-start="' + esc(opt.start || '') + '"><input type="hidden" name="' + name + '" value="' + esc(current) + '">' +
       '<div class="rhead"><span class="rcur" aria-live="polite"></span><div class="rtabs" role="tablist">' + cats.map(function (c, i) {
         return '<button type="button" role="tab" class="rtab' + (i ? '' : ' on') + '" data-cat="' + c.id + '">' + esc(c.label) + '</button>'; }).join('') + '</div></div>' +
       '<div class="rgrid"></div><div class="rvar" hidden></div></div>';
@@ -399,7 +399,12 @@
         if (t.dataset.glyph) { set(v + '|' + GLYPH_COLORS[0]); return variants(v); }
         set(v); if (!inVar) variants(v); else { $$('.rvar .ri', root).forEach(function (b) { b.classList.toggle('on', b.dataset.v === v); }); }
       });
-      var cv = input.value; if (cv.indexOf('|') > 0) { catId = 'glyph'; if (cats.filter(function (x) { return x.id === 'glyph'; }).length) base = cv.split('|')[0]; else catId = cats[0].id; }
+      // Start-Reiter: der mit dem aktuellen Symbol (bevorzugt der gewuenschte Start-Reiter), sonst der Start-Reiter
+      function has(c, v) { return !!c.items && c.items.some(function (e) { return e === v || (VARIANTS[e] && VARIANTS[e].indexOf(v) >= 0); }); }
+      var start = cats.filter(function (c) { return c.id === root.dataset.start; })[0] || cats[0];
+      var cv = input.value, glyphCat = cats.filter(function (c) { return c.glyphs; })[0];
+      if (cv.indexOf('|') > 0 && glyphCat) { catId = glyphCat.id; base = cv.split('|')[0]; }
+      else catId = (has(start, cv) ? start : cats.filter(function (c) { return has(c, cv); })[0] || start).id;
       paint(); if (base) variants(base);
     });
   }
@@ -477,15 +482,14 @@
     };
     app.oninput = function (e) {
       if (e.target.name !== 'q') return;
-      st.f.q = e.target.value; paintList(st, true);
-      var i = $('[name=q]', app); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+      st.f.q = e.target.value; paintResults(st);
     };
   }
   async function loadListData(st) {
     var res = await Promise.all([
       Api.get('wl_items', 'list_id=eq.' + st.list.id + '&order=priority.desc,created_at.asc'),
       st.owner ? Promise.resolve([]) : Api.rpc('wl_list_reservations', { p_list: st.list.id }),
-      st.owner && st.list.visibility === 'custom' ? Promise.all([
+      st.owner && st.list.visibility !== 'private' ? Promise.all([
         Api.get('wl_list_groups', 'list_id=eq.' + st.list.id + '&select=group:wl_groups(name,emoji)'),
         Api.get('wl_list_people', 'list_id=eq.' + st.list.id + '&select=person:wl_profiles(name)')]) : Promise.resolve(null),
       st.owner ? Api.get('wl_suggestions', 'list_id=eq.' + st.list.id + '&select=*,author:wl_profiles!wl_suggestions_author_fkey(name,avatar,color)&order=created_at') : Promise.resolve([]),
@@ -497,9 +501,9 @@
     res[1].forEach(function (x) { (st.res[x.item_id] = st.res[x.item_id] || []).push(x); });
     st.share = res[2] ? res[2][0].map(function (g) { return g.group.emoji + ' ' + g.group.name; }).concat(res[2][1].map(function (p) { return p.person.name; })) : null;
   }
-  function paintList(st, quiet) {
-    var l = st.list, items = st.items.slice(), d = l.event_date ? daysUntil(l.event_date) : null;
-    setTheme(l.theme);
+  // Sortierte und gefilterte Wuensche samt Summe (fuer die ganze Seite und fuer die Suche)
+  function listView(st) {
+    var items = st.items.slice();
     var pr = function (it) { return it.price == null ? -1 : it.price; };
     var cmp = {
       prio: function (a, b) { return b.priority - a.priority; },
@@ -511,7 +515,6 @@
       new: function (a, b) { return a.created_at < b.created_at ? 1 : -1; }
     }[st.sort];
     items.sort(function (a, b) { return (a.received - b.received) || cmp(a, b); });
-    var free = st.items.filter(function (it) { return isFree(it, st.res[it.id]); }).length;
     var F = st.f, qq = F.q.trim().toLowerCase();
     var filtered = !!(qq || F.cat || F.prio || F.price || F.only);
     items = items.filter(function (it) {
@@ -526,10 +529,37 @@
       return true;
     });
     var total = items.reduce(function (s, it) { return s + (it.received || it.price == null ? 0 : it.price * it.quantity); }, 0);
+    return { items: items, filtered: filtered, total: total };
+  }
+  function listCount(st, v) {
+    return (v.filtered ? v.items.length + ' von ' : '') + plural(st.items.length, 'Wunsch', 'Wünsche') + (v.total ? ' · zusammen ca. ' + esc(money(v.total, 'EUR')) : '');
+  }
+  function listResults(st, v) {
+    var l = st.list;
+    return v.items.length ? '<div class="wishes" data-stagger>' + v.items.map(function (it) { return wishCard(it, { owner: st.owner, res: st.res[it.id], emoji: l.emoji }); }).join('') + '</div>'
+      : st.items.length ? (v.filtered ? emptyBox('🔎', 'Nichts gefunden', 'Mit diesen Filtern passt gerade kein Wunsch.', '<button type="button" class="btn ghost" data-act="reset-filters">Filter zurücksetzen</button>') : emptyBox('🎉', 'Alles vergeben', 'Mit diesem Filter ist gerade nichts übrig.'))
+        : st.owner ? emptyBox('✨', 'Füge deinen ersten Wunsch hinzu', 'Produktlink einfügen genügt: Bild, Titel und Preis werden automatisch übernommen.', '<button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>')
+          : emptyBox('🕊️', 'Noch leer', esc(l.owner.name) + ' hat hier noch keine Wünsche eingetragen.');
+  }
+  // Nur Ergebnisse und Zaehler neu zeichnen; das Suchfeld bleibt stehen (Cursor und Eingabe per IME bleiben erhalten)
+  function paintResults(st) {
+    var v = listView(st), box = $('#wishRes', app);
+    if (!box) return paintList(st, true);
+    box.innerHTML = listResults(st, v).replace(/ data-stagger/g, '');
+    var c = $('.tb-count', app); if (c) c.innerHTML = listCount(st, v);
+    var r = $('.tb2 [data-act="reset-filters"]', app); if (r) r.hidden = !v.filtered;
+  }
+  function paintList(st, quiet) {
+    var l = st.list, d = l.event_date ? daysUntil(l.event_date) : null;
+    setTheme(l.theme);
+    var v = listView(st), F = st.f, filtered = v.filtered;
+    var free = st.items.filter(function (it) { return isFree(it, st.res[it.id]); }).length;
     var catCount = {}; st.items.forEach(function (it) { if (it.category) catCount[it.category] = (catCount[it.category] || 0) + 1; });
     var cats = Object.keys(catCount).sort(function (x, y) { return x.localeCompare(y, 'de'); });
 
-    var vis = l.visibility === 'custom' ? '🎯 ' + (st.share && st.share.length ? esc(st.share.join(', ')) : 'noch niemand ausgewählt') : VIS[l.visibility];
+    // Bei "Alle Freunde" zusaetzlich die einzeln Freigeschalteten (z. B. per Link) zeigen, damit nichts unsichtbar bleibt
+    var shared = st.share && st.share.length ? esc(st.share.join(', ')) : '';
+    var vis = l.visibility === 'custom' ? '🎯 ' + (shared || 'noch niemand ausgewählt') : VIS[l.visibility] + (l.visibility === 'friends' && shared ? ' + ' + shared : '');
     view(st.ctx,
       '<header class="list-head" data-theme="' + esc(l.theme) + '">' +
       '<p class="back"><a href="' + (st.owner ? './' : './?seite=freund&id=' + l.owner.id) + '"><span class="arr">←</span> ' + (st.owner ? 'Übersicht' : esc(l.owner.name)) + '</a></p>' +
@@ -544,7 +574,8 @@
       '</header>' +
       (st.owner && st.sugg && st.sugg.length ? '<section class="sugg panel"><h2>💡 Vorschläge von Freunden <small class="muted">' + st.sugg.length + '</small></h2>' +
         '<p class="muted small">🔒 Nur du siehst diese Vorschläge. Übernimm sie in deine Liste oder verwirf sie.</p><ul class="plist">' + st.sugg.map(function (s) {
-          return '<li data-sid="' + s.id + '">' + avatar(s.author, 'sm') + '<span><b>' + esc(s.title) + '</b><small>von ' + esc(s.author.name) + [s.price != null ? ' · ' + esc(money(s.price, s.currency)) : '', s.category ? ' · ' + esc(s.category) : '', s.note ? ' · ' + esc(s.note) : ''].join('') + '</small></span><span class="sp"></span>' +
+          var au = s.author || { name: 'Unbekannt', avatar: '👤', color: '#8395a7' };
+          return '<li data-sid="' + s.id + '">' + avatar(au, 'sm') + '<span><b>' + esc(s.title) + '</b><small>von ' + esc(au.name) + [s.price != null ? ' · ' + esc(money(s.price, s.currency)) : '', s.category ? ' · ' + esc(s.category) : '', s.note ? ' · ' + esc(s.note) : ''].join('') + '</small></span><span class="sp"></span>' +
             (safeUrl(s.url) ? '<a class="link-btn" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' + esc(host(s.url)) + ' ↗</a>' : '') +
             '<button type="button" class="btn small" data-act="sugg-ok">✓ Übernehmen</button><button type="button" class="btn small ghost" data-act="sugg-no">Verwerfen</button></li>';
         }).join('') + '</ul></section>' : '') +
@@ -553,14 +584,11 @@
         '<label>Wichtigkeit <select name="prio"><option value="">Alle</option>' + [3, 2, 1].map(function (p) { return '<option value="' + p + '"' + (F.prio === String(p) ? ' selected' : '') + '>' + '●●●'.slice(0, p) + ' ' + PRIO[p] + '</option>'; }).join('') + '</select></label>' +
         '<label>Preis <select name="price">' + PRICE_BANDS.map(function (o) { return '<option value="' + o[0] + '"' + (F.price === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
         '<label class="check"><input type="checkbox" name="only"' + (F.only ? ' checked' : '') + '> ' + (st.owner ? 'Erhaltene ausblenden' : 'Nur freie Wünsche') + '</label>' +
-        (filtered ? '<button type="button" class="link-btn" data-act="reset-filters">Filter zurücksetzen</button>' : '') +
-        '<span class="sp"></span><span class="muted">' + (filtered ? items.length + ' von ' : '') + plural(st.items.length, 'Wunsch', 'Wünsche') + (total ? ' · zusammen ca. ' + esc(money(total, 'EUR')) : '') + '</span></div>' +
+        '<button type="button" class="link-btn" data-act="reset-filters"' + (filtered ? '' : ' hidden') + '>Filter zurücksetzen</button>' +
+        '<span class="sp"></span><span class="muted tb-count">' + listCount(st, v) + '</span></div>' +
         (cats.length ? '<div class="catchips" role="group" aria-label="Kategorien"><button type="button" class="cc' + (F.cat ? '' : ' on') + '" data-act="cat" data-cat="">Alle</button>' +
           cats.map(function (c) { return '<button type="button" class="cc' + (F.cat === c ? ' on' : '') + '" data-act="cat" data-cat="' + esc(c) + '">' + esc(c) + ' <small>' + catCount[c] + '</small></button>'; }).join('') + '</div>' : '') : '') +
-      (items.length ? '<div class="wishes" data-stagger>' + items.map(function (it) { return wishCard(it, { owner: st.owner, res: st.res[it.id], emoji: l.emoji }); }).join('') + '</div>'
-        : st.items.length ? (filtered ? emptyBox('🔎', 'Nichts gefunden', 'Mit diesen Filtern passt gerade kein Wunsch.', '<button type="button" class="btn ghost" data-act="reset-filters">Filter zurücksetzen</button>') : emptyBox('🎉', 'Alles vergeben', 'Mit diesem Filter ist gerade nichts übrig.'))
-          : st.owner ? emptyBox('✨', 'Füge deinen ersten Wunsch hinzu', 'Produktlink einfügen genügt: Bild, Titel und Preis werden automatisch übernommen.', '<button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>')
-            : emptyBox('🕊️', 'Noch leer', esc(l.owner.name) + ' hat hier noch keine Wünsche eingetragen.')), quiet);
+      '<div id="wishRes">' + listResults(st, v) + '</div>', quiet);
   }
   function isFree(it, res) {
     if (it.received) return false;
@@ -684,7 +712,7 @@
       '<div class="row2"><label>Datum <small class="muted">für den Countdown</small><input name="event_date" type="date" value="' + esc(x.event_date || '') + '"></label>' +
       '<label class="check"><input type="checkbox" name="archived"' + (x.archived ? ' checked' : '') + '> 📦 Archiviert <small class="muted">ausgeblendet bei Freunden</small></label></div>' +
       '<label>Beschreibung <small class="muted">optional</small><textarea name="description" rows="2" maxlength="500" placeholder="Ein paar Worte an alle, die schenken wollen">' + esc(x.description) + '</textarea></label>' +
-      '<fieldset><legend>Symbol</legend>' + richPicker('emoji', x.emoji, { glyphs: false }) + '</fieldset>' +
+      '<fieldset><legend>Symbol</legend>' + richPicker('emoji', x.emoji, { glyphs: false, start: 'party' }) + '</fieldset>' +
       '<fieldset><legend>Design</legend>' + themePicker('theme', x.theme) + '</fieldset>' +
       '<fieldset class="vis"><legend>Wer darf die Liste sehen und reservieren?</legend>' +
       [['private', '🔒 Nur ich', 'Entwurf, für niemanden sichtbar'], ['friends', '👥 Alle Freunde', 'Jeder Freund (nicht nur Bekannte)'], ['custom', '🎯 Ausgewählte', 'Nur bestimmte Gruppen und Personen']].map(function (o) {
@@ -715,10 +743,10 @@
         var saved = await busy($('[type=submit]', f), async function () {
           var out = l ? await Api.update('wl_lists', 'id=eq.' + l.id, row) : await Api.insert('wl_lists', row);
           var id = out[0].id;
-          if (row.visibility === 'custom') {
-            await syncLinks('wl_list_groups', 'list_id', id, 'group_id', v.groups || []);
-            await syncLinks('wl_list_people', 'list_id', id, 'person', v.people || []);
-          }
+          // Gruppen gelten nur bei "Ausgewaehlte". Einzelne Personen bleiben sonst erhalten,
+          // damit per Link freigeschaltete Gaeste ihren Zugriff behalten (sie stehen dann im Sichtbarkeits-Hinweis).
+          await syncLinks('wl_list_groups', 'list_id', id, 'group_id', row.visibility === 'custom' ? v.groups || [] : []);
+          if (row.visibility === 'custom') await syncLinks('wl_list_people', 'list_id', id, 'person', v.people || []);
           return out[0];
         });
         dlg.close(); FX.toast(l ? 'Liste gespeichert' : 'Liste angelegt 🎉');
@@ -906,7 +934,7 @@
         try { await busy(b, function () { return Api.rpc('wl_set_level', { p_other: p.id, p_level: p.level === 'known' ? 'friend' : 'known' }); }); FX.toast(p.level === 'known' ? p.name + ' ist jetzt Freund ⭐' : p.name + ' ist jetzt Bekannt'); render(); } catch (err) { FX.toast(errText(err)); }
       }
       if (b.dataset.act === 'unfriend') {
-        if (!(await confirmDlg('Freundschaft mit ' + p.name + ' beenden? Ihr seht dann gegenseitig keine Listen mehr, Gruppen und Kennzeichnungen werden entfernt.', 'Beenden'))) return;
+        if (!(await confirmDlg('Freundschaft mit ' + p.name + ' beenden? Ihr seht dann gegenseitig keine Listen mehr, Gruppen, Kennzeichnungen und Vorschläge werden entfernt. Über deine Freigabe-Links kann ' + p.name + ' sich nicht wieder verbinden.', 'Beenden'))) return;
         try { await Api.rpc('wl_remove_friend', { p_other: p.id }); FX.toast('Freundschaft beendet'); go('./?seite=freunde', true); } catch (err) { FX.toast(errText(err)); }
       }
     };
@@ -1003,14 +1031,12 @@
       var d = draft(), m = $('.msg', f);
       if (d.name.length < 2 || d.name.indexOf('#') >= 0) return say(m, ERR.name, false);
       try {
-        var out = await busy($('[type=submit]', f), async function () {
-          var res = await Api.update('wl_profiles', 'id=eq.' + me.id, { name: d.name, avatar: d.avatar, color: d.color, theme: d.theme });
-          await Api.upsert('wl_profile_private?on_conflict=id', { id: me.id, bio: d.bio, birthday: d.birthday, likes: d.likes, dislikes: d.dislikes });
-          await Api.remove('wl_profile_sizes', 'profile=eq.' + me.id);
-          if (d.sizesList.length) await Api.insert('wl_profile_sizes', d.sizesList);
-          return res;
+        // Ein Aufruf, eine Transaktion: Profil, Persoenliches und Groessen werden gemeinsam gespeichert oder gar nicht
+        var out = await busy($('[type=submit]', f), function () {
+          return Api.rpc('wl_save_profile', { p_name: d.name, p_avatar: d.avatar, p_color: d.color, p_theme: d.theme, p_bio: d.bio, p_birthday: d.birthday,
+            p_likes: d.likes, p_dislikes: d.dislikes, p_sizes: d.sizesList.map(function (s) { return { label: s.label, value: s.value }; }) });
         });
-        me = Object.assign(me, out[0], { bio: d.bio, birthday: d.birthday, likes: d.likes, dislikes: d.dislikes, sizesList: d.sizesList }); $('#meLink').innerHTML = avatar(me, 'xs') + '<span>' + esc(me.name) + '</span>';
+        me = Object.assign(me, out, { bio: d.bio, birthday: d.birthday, likes: d.likes, dislikes: d.dislikes, sizesList: d.sizesList }); $('#meLink').innerHTML = avatar(me, 'xs') + '<span>' + esc(me.name) + '</span>';
         say(m, 'Gespeichert ✓', true); FX.toast('Profil gespeichert');
       } catch (err) { say(m, errText(err), false); }
     };
@@ -1151,10 +1177,16 @@
           '<button type="button" class="link-btn danger-text" data-act="off">Link deaktivieren</button></div></div>'
           : '<div class="dlg-actions start"><button type="button" class="btn" data-act="on">🔗 Link erstellen</button></div>') +
         '<div class="dlg-actions"><button type="button" class="btn ghost" data-close>Fertig</button></div>', 'wide');
+      // Die Sicherheitsabfrage nutzt denselben Dialog und schliesst ihn; danach den Handler wieder anhaengen
+      dlg.onclick = onClick;
+      dlg.removeEventListener('close', onClose); dlg.addEventListener('close', onClose);
     }
-    paint();
-    dlg.onclick = async function (e) {
-      if (e.target === dlg || e.target.closest('[data-close]')) return dlg.close();
+    // "close" kommt asynchron: ist der Dialog bis dahin schon wieder offen (nach der Abfrage), nichts abbauen
+    function onClose() {
+      if (dlg.open) return;
+      dlg.removeEventListener('close', onClose); if (dlg.onclick === onClick) dlg.onclick = null;
+    }
+    async function onClick(e) {
       var b = e.target.closest('[data-act]'); if (!b) return;
       var act = b.dataset.act;
       try {
@@ -1170,12 +1202,12 @@
         else if (act === 'native') navigator.share({ title: l.title, text: 'Meine Wunschliste: ' + l.title, url: shareUrl(token) }).catch(function () {});
         else if (act === 'qr-save') {
           var svg = $('.share-qr svg', dlg), a = document.createElement('a');
-          a.href = URL.createObjectURL(new Blob([svg.outerHTML.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')], { type: 'image/svg+xml' }));
+          a.href = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
           a.download = 'wunschliste-qr.svg'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
         }
       } catch (err) { FX.toast(errText(err)); }
-    };
-    dlg.addEventListener('close', function once() { dlg.removeEventListener('close', once); dlg.onclick = null; });
+    }
+    paint();
   }
 
   // Vorschau fuer Abgemeldete: nur lesen, zum Reservieren anmelden
