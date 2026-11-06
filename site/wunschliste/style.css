@@ -26,6 +26,8 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: .92em; padding
 
 /* Angemeldet / abgemeldet */
 body:not(.is-in) .in-only, body.is-in .out-only { display: none !important; }
+body.is-preview:not(.is-in) #app.in-only { display: block !important; }
+body.is-preview #landing { display: none !important; }
 .links > span { display: contents; }
 .links .nav-cta, .links .nav-cta:hover, .brand-mark { color: var(--on-accent); }
 .links a.active { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
@@ -596,6 +598,15 @@ body[data-theme="barbie"] .deco::before { inset: 0; content: "💖        ✨   
 [data-theme="barbie"] .btn { border-radius: 999px; }
 [data-theme="barbie"] .btn:not(.ghost) { background: linear-gradient(135deg, #e0218a, #ff6ec7); box-shadow: 0 8px 20px -8px var(--shadow); }
 .tshow[data-theme="barbie"] .ts-stage { background: linear-gradient(135deg, #ff9ccf, #ffe0f0 60%, #ff6ec7); }
+
+/* Teilen & Stufen */
+.share-box { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: start; margin: 14px 0; }
+.share-qr { width: 190px; padding: 8px; border-radius: 14px; background: #fff; line-height: 0; } .share-qr svg { width: 100%; height: auto; }
+.share-side { display: grid; gap: 12px; } .share-side input { width: 100%; }
+.dlg-actions.start { justify-content: flex-start; flex-wrap: wrap; }
+.fc-main em.lvl { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: .7rem; font-style: normal; background: var(--panel2); border: 1px solid var(--line); color: var(--muted); }
+#authSlot { margin: 40px 0 10px; }
+@media (max-width: 640px) { .share-box { grid-template-columns: 1fr; justify-items: center; } .share-side { width: 100%; } }
 
 /* Responsive */
 @media (max-width: 980px) {

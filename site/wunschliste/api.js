@@ -75,6 +75,10 @@
     upsert: function (table, rows) { return rest(table, { method: 'POST', body: rows, prefer: 'return=representation,resolution=merge-duplicates' }); },
     remove: function (table, filter) { return rest(table + '?' + filter, { method: 'DELETE', prefer: 'return=minimal' }); },
     rpc: function (fn, args) { return rest('rpc/' + fn, { method: 'POST', body: args || {} }); },
+    // Funktionen, die auch ohne Anmeldung erlaubt sind (z. B. Vorschau einer geteilten Liste)
+    pub: function (fn, args) {
+      return call('/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}) });
+    },
     fn: async function (name, body) {
       var t = await token();
       return call('/functions/v1/' + name, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

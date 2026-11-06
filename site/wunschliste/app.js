@@ -7,6 +7,7 @@
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var app = $('#app'), dlg = $('#dlg');
   var me = null, isAdmin = false, seq = 0;
+  var authEl = $('#auth'), authHome = authEl.parentNode;
   var DISCORD = 'https://discord.gg/tjVKFGMRw7';
 
   var THEMES = [
@@ -134,6 +135,7 @@
   // ---------- Navigation ----------
   function route() {
     var q = new URLSearchParams(location.search);
+    if (q.get('teilen')) return { page: 'teilen', id: q.get('teilen') };
     if (q.get('liste')) return { page: 'liste', id: q.get('liste') };
     return { page: q.get('seite') || 'home', id: q.get('id') };
   }
@@ -168,8 +170,11 @@
     var signedIn = !!Api.user;
     document.body.classList.toggle('is-in', signedIn);
     if (!signedIn) document.body.classList.remove('is-locked');
+    var r = route(), preview = !signedIn && r.page === 'teilen';
+    document.body.classList.toggle('is-preview', preview);
+    if (authEl.parentNode !== authHome) authHome.appendChild(authEl);
+    if (preview) { app.onclick = app.onchange = app.oninput = app.onsubmit = null; app.setAttribute('data-page', 'teilen'); return previewPage(ctx, r.id); }
     if (!signedIn) { setTheme(null); landing(); return; }
-    var r = route();
     $$('[data-nav]').forEach(function (a) {
       var on = a.getAttribute('data-nav') === r.page || (r.page === 'freund' && a.getAttribute('data-nav') === 'freunde');
       a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -205,14 +210,16 @@
 
   // ---------- Daten ----------
   async function loadFriends() {
-    var res = await Promise.all([Api.get('wl_friendships', 'select=*'), Api.get('wl_profiles', 'id=neq.' + me.id), Api.get('wl_contacts', 'select=*')]);
-    var byId = {}, cById = {}, out = { friends: [], incoming: [], outgoing: [] };
+    var res = await Promise.all([Api.get('wl_friendships', 'select=*'), Api.get('wl_profiles', 'id=neq.' + me.id), Api.get('wl_contacts', 'select=*'), Api.get('wl_trust', 'select=person,level')]);
+    var byId = {}, cById = {}, lvl = {}, out = { friends: [], incoming: [], outgoing: [] };
+    res[3].forEach(function (t) { lvl[t.person] = t.level; });
     res[1].forEach(function (p) { byId[p.id] = p; });
     res[2].forEach(function (c) { cById[c.friend] = c; });
     res[0].forEach(function (f) {
       var other = f.requester === me.id ? f.addressee : f.requester, p = byId[other];
       if (!p) return;
       p.contact = cById[other] || { relation: '', tags: [], note: '' };
+      p.level = lvl[other] || 'friend';
       if (f.status === 'accepted') out.friends.push(p); else if (f.addressee === me.id) out.incoming.push(p); else out.outgoing.push(p);
     });
     out.friends.sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
@@ -262,6 +269,7 @@
     var title = url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(it.title) + '</a>' : esc(it.title);
     var act = '';
     if (o.demo) act = '<button type="button" class="btn small" tabindex="-1">Reservieren</button>';
+    else if (o.preview) act = it.received ? '<span class="state done">🎉 Schon erfüllt</span>' : '<button type="button" class="btn small" data-act="login">🔒 Anmelden zum ' + (it.group_gift ? 'Mitmachen' : 'Reservieren') + '</button>';
     else if (o.owner) {
       act = '<button type="button" class="btn small ghost" data-act="edit-item">Bearbeiten</button>' +
         '<button type="button" class="btn small ghost" data-act="toggle-received" title="Als erhalten markieren">' + (it.received ? '↩︎ Doch nicht' : '✓ Erhalten') + '</button>' +
@@ -409,7 +417,7 @@
       '<h1>' + esc(l.title) + '</h1>' + (l.description ? '<p class="lead">' + esc(l.description) + '</p>' : '') + '</div>' +
       (d !== null && d >= 0 ? '<div class="lh-cd"><b>' + d + '</b><span>' + (d === 1 ? 'Tag' : 'Tage') + (l.occasion ? ' bis ' + esc(l.occasion) : '') + '</span></div>' : '') + '</div>' +
       '<div class="lh-bar">' + (st.owner
-        ? '<span class="pill" title="Wer diese Liste sehen kann">' + vis + '</span><span class="sp"></span><button type="button" class="btn ghost" data-act="edit-list">⚙ Liste bearbeiten</button><button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>'
+        ? '<span class="pill" title="Wer diese Liste sehen kann">' + vis + '</span><span class="sp"></span><button type="button" class="btn ghost" data-act="share">🔗 Teilen</button><button type="button" class="btn ghost" data-act="edit-list">⚙ Liste bearbeiten</button><button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>'
         : '<a class="owner-chip" href="./?seite=freund&id=' + l.owner.id + '">' + avatar(l.owner, 'sm') + '<span>Liste von <b>' + esc(l.owner.name) + '</b></span></a><span class="sp"></span><span class="pill">' + free + ' von ' + st.items.length + ' Wünschen noch frei</span>') + '</div>' +
       (st.owner ? '<p class="surprise">🙈 <b>Überraschungsschutz:</b> Was reserviert wurde, siehst du auf deinen eigenen Listen nicht.</p>' : '') +
       '</header>' +
@@ -435,6 +443,7 @@
     if (act === 'add-item') return itemDialog(st, null);
     if (act === 'edit-item') return itemDialog(st, it);
     if (act === 'edit-list') return listDialog(st.list);
+    if (act === 'share') return shareDialog(st);
     try {
       if (act === 'del-item') {
         if (!(await confirmDlg('„' + it.title + '“ wirklich löschen?', 'Löschen'))) return;
@@ -531,7 +540,7 @@
       '<fieldset><legend>Symbol</legend>' + emojiPicker('emoji', EMOJIS, x.emoji) + '</fieldset>' +
       '<fieldset><legend>Design</legend>' + themePicker('theme', x.theme) + '</fieldset>' +
       '<fieldset class="vis"><legend>Wer darf die Liste sehen und reservieren?</legend>' +
-      [['private', '🔒 Nur ich', 'Entwurf, für niemanden sichtbar'], ['friends', '👥 Alle Freunde', 'Jeder bestätigte Freund'], ['custom', '🎯 Ausgewählte', 'Nur bestimmte Gruppen und Personen']].map(function (o) {
+      [['private', '🔒 Nur ich', 'Entwurf, für niemanden sichtbar'], ['friends', '👥 Alle Freunde', 'Jeder Freund (nicht nur Bekannte)'], ['custom', '🎯 Ausgewählte', 'Nur bestimmte Gruppen und Personen']].map(function (o) {
         return '<label class="vopt"><input type="radio" name="visibility" value="' + o[0] + '"' + (x.visibility === o[0] ? ' checked' : '') + '><span><b>' + o[1] + '</b><small>' + o[2] + '</small></span></label>';
       }).join('') +
       '<div class="pick-who"' + (x.visibility === 'custom' ? '' : ' hidden') + '>' +
@@ -558,8 +567,10 @@
         var saved = await busy($('[type=submit]', f), async function () {
           var out = l ? await Api.update('wl_lists', 'id=eq.' + l.id, row) : await Api.insert('wl_lists', row);
           var id = out[0].id;
-          await syncLinks('wl_list_groups', 'list_id', id, 'group_id', row.visibility === 'custom' ? v.groups || [] : []);
-          await syncLinks('wl_list_people', 'list_id', id, 'person', row.visibility === 'custom' ? v.people || [] : []);
+          if (row.visibility === 'custom') {
+            await syncLinks('wl_list_groups', 'list_id', id, 'group_id', v.groups || []);
+            await syncLinks('wl_list_people', 'list_id', id, 'person', v.people || []);
+          }
           return out[0];
         });
         dlg.close(); FX.toast(l ? 'Liste gespeichert' : 'Liste angelegt 🎉');
@@ -582,7 +593,7 @@
       var b = p.birthday ? nextBirthday(p.birthday) : null;
       return '<article class="fcard" data-id="' + p.id + '">' +
         '<a class="fc-main" href="./?seite=freund&id=' + p.id + '">' + avatar(p, 'lg') + '<span><b>' + handle(p) + '</b>' +
-        (p.contact.relation ? '<em>' + esc(p.contact.relation) + '</em>' : '') +
+        (p.contact.relation ? '<em>' + esc(p.contact.relation) + '</em>' : '') + (p.level === 'known' ? '<em class="lvl">Bekannt</em>' : '') +
         (b && b.days <= 30 ? '<small>🎂 ' + (b.days === 0 ? 'Heute Geburtstag!' : 'Geburtstag ' + inDays(b.days)) + '</small>' : p.bio ? '<small>' + esc(p.bio) + '</small>' : '') + '</span></a>' +
         ((p.contact.tags || []).length ? '<div class="tags">' + p.contact.tags.map(function (t) { return '<span class="tagchip">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
         '<button type="button" class="link-btn" data-act="label">🏷 Kennzeichnen</button></article>';
@@ -720,6 +731,10 @@
       '<p>' + (p.contact.relation ? '<b>' + esc(p.contact.relation) + '</b> ' : '<span class="muted">Keine Rolle</span> ') + (p.contact.tags || []).map(function (t) { return '<span class="tagchip">' + esc(t) + '</span>'; }).join('') + '</p>' +
       (p.contact.note ? '<p class="note">📝 ' + esc(p.contact.note) + '</p>' : '') +
       '<button type="button" class="btn small ghost" data-act="label">🏷 Bearbeiten</button>' +
+      '<h3>Stufe</h3><p class="muted small">' + (p.level === 'known'
+        ? esc(p.name) + ' ist für dich <b>Bekannt</b> und sieht nur Listen, die du gezielt freigibst (z. B. per Link), nicht „Alle Freunde“.'
+        : esc(p.name) + ' ist für dich <b>Freund</b> und sieht alle Listen, die du für „Alle Freunde“ freigibst.') + '</p>' +
+      '<button type="button" class="btn small ghost" data-act="level">' + (p.level === 'known' ? '⭐ Zum Freund machen' : '↓ Zu Bekanntem machen') + '</button>' +
       (groups.length ? '<h3>In deinen Gruppen</h3><div class="checks">' + groups.map(function (g) {
         var on = g.wl_group_members.some(function (m) { return m.member === p.id; });
         return '<label class="cchip"><input type="checkbox" data-group="' + g.id + '"' + (on ? ' checked' : '') + '><span style="--c:' + esc(g.color) + '">' + esc(g.emoji) + ' ' + esc(g.name) + '</span></label>';
@@ -739,6 +754,9 @@
     app.onclick = async function (e) {
       var b = e.target.closest('[data-act]'); if (!b) return;
       if (b.dataset.act === 'label') labelDialog(p, render);
+      if (b.dataset.act === 'level') {
+        try { await busy(b, function () { return Api.rpc('wl_set_level', { p_other: p.id, p_level: p.level === 'known' ? 'friend' : 'known' }); }); FX.toast(p.level === 'known' ? p.name + ' ist jetzt Freund ⭐' : p.name + ' ist jetzt Bekannt'); render(); } catch (err) { FX.toast(errText(err)); }
+      }
       if (b.dataset.act === 'unfriend') {
         if (!(await confirmDlg('Freundschaft mit ' + p.name + ' beenden? Ihr seht dann gegenseitig keine Listen mehr, Gruppen und Kennzeichnungen werden entfernt.', 'Beenden'))) return;
         try { await Api.rpc('wl_remove_friend', { p_other: p.id }); FX.toast('Freundschaft beendet'); go('./?seite=freunde', true); } catch (err) { FX.toast(errText(err)); }
@@ -938,7 +956,94 @@
     });
   }
 
-  var VIEWS = { home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage };
+
+  // ---------- Teilen per Link / QR-Code ----------
+  function shareUrl(token) { return location.origin + location.pathname + '?teilen=' + token; }
+  async function shareDialog(st) {
+    var l = st.list, token = null;
+    try { var rows = await Api.get('wl_share_links', 'list_id=eq.' + l.id + '&select=token'); token = rows[0] && rows[0].token; }
+    catch (e) { return FX.toast(errText(e)); }
+    function paint() {
+      var url = token && shareUrl(token), qr = '';
+      if (url) { var q = qrcode(0, 'M'); q.addData(url); q.make(); qr = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); }
+      openDlg(dlgHead('Liste teilen') +
+        '<p class="muted">Schick den Link oder zeige den QR-Code. Wer ihn öffnet, sieht <b>ohne Anmeldung nur eine Vorschau</b>. Zum Reservieren meldet man sich an und ist danach bei dir <b>Bekannt</b>: sieht nur diese Liste, nicht deine anderen.</p>' +
+        (url ? '<div class="share-box"><div class="share-qr" aria-label="QR-Code zum Scannen">' + qr + '</div><div class="share-side">' +
+          '<label>Dein Freigabe-Link<input readonly value="' + esc(url) + '" data-sel></label>' +
+          '<div class="dlg-actions start"><button type="button" class="btn" data-act="copy">Link kopieren</button>' +
+          (navigator.share ? '<button type="button" class="btn ghost" data-act="native">Teilen …</button>' : '') +
+          '<button type="button" class="btn ghost" data-act="qr-save">QR speichern</button></div>' +
+          (l.visibility === 'private' ? '<p class="msg err">Die Liste ist noch auf „Nur ich“. Bitte stelle sie unter „Liste bearbeiten“ auf „Alle Freunde“ oder „Ausgewählte“, sonst sehen Gäste nichts.</p>' : '') +
+          '<button type="button" class="link-btn danger-text" data-act="off">Link deaktivieren</button></div></div>'
+          : '<div class="dlg-actions start"><button type="button" class="btn" data-act="on">🔗 Link erstellen</button></div>') +
+        '<div class="dlg-actions"><button type="button" class="btn ghost" data-close>Fertig</button></div>', 'wide');
+    }
+    paint();
+    dlg.onclick = async function (e) {
+      if (e.target === dlg || e.target.closest('[data-close]')) return dlg.close();
+      var b = e.target.closest('[data-act]'); if (!b) return;
+      var act = b.dataset.act;
+      try {
+        if (act === 'on') {
+          token = await busy(b, function () { return Api.rpc('wl_share_enable', { p_list: l.id }); });
+          if (l.visibility === 'private') l.visibility = 'custom';
+          paint(); render();
+        } else if (act === 'off') {
+          if (!(await confirmDlg('Der Link und der QR-Code funktionieren danach nicht mehr. Wer die Liste schon freigeschaltet bekam, behält den Zugriff.', 'Deaktivieren'))) return;
+          await Api.rpc('wl_share_disable', { p_list: l.id }); token = null; FX.toast('Link deaktiviert');
+          paint();
+        } else if (act === 'copy') copy(shareUrl(token), 'Link kopiert');
+        else if (act === 'native') navigator.share({ title: l.title, text: 'Meine Wunschliste: ' + l.title, url: shareUrl(token) }).catch(function () {});
+        else if (act === 'qr-save') {
+          var svg = $('.share-qr svg', dlg), a = document.createElement('a');
+          a.href = URL.createObjectURL(new Blob([svg.outerHTML.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')], { type: 'image/svg+xml' }));
+          a.download = 'wunschliste-qr.svg'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+        }
+      } catch (err) { FX.toast(errText(err)); }
+    };
+    dlg.addEventListener('close', function once() { dlg.removeEventListener('close', once); dlg.onclick = null; });
+  }
+
+  // Vorschau fuer Abgemeldete: nur lesen, zum Reservieren anmelden
+  async function previewPage(ctx, token) {
+    app.innerHTML = loading();
+    var d = null;
+    try { d = /^[0-9a-f]{32}$/.test(token) ? await Api.pub('wl_preview', { p_token: token }) : null; } catch (e) { d = null; }
+    if (ctx.stale()) return;
+    if (!d) {
+      setTheme(null);
+      app.innerHTML = '<div class="empty big"><span class="e-ico">🔗</span><h2>Dieser Link ist nicht mehr gültig</h2><p>Die Liste wurde nicht gefunden oder der Link wurde deaktiviert. Frag die Person nach einem neuen Link.</p><a class="btn" href="./">Zur Wunschliste</a></div>';
+      return;
+    }
+    var l = d.list, o = d.owner, items = d.items;
+    setTheme(l.theme);
+    var dd = l.event_date ? daysUntil(l.event_date) : null;
+    app.innerHTML =
+      '<header class="list-head" data-theme="' + esc(l.theme) + '"><div class="lh-main"><span class="lh-emoji">' + esc(l.emoji) + '</span><div>' +
+      '<p class="eyebrow">' + [l.occasion && esc(l.occasion), l.event_date && fmtDate(l.event_date, true)].filter(Boolean).join(' · ') + '</p>' +
+      '<h1>' + esc(l.title) + '</h1>' + (l.description ? '<p class="lead">' + esc(l.description) + '</p>' : '') + '</div>' +
+      (dd !== null && dd >= 0 ? '<div class="lh-cd"><b>' + dd + '</b><span>' + (dd === 1 ? 'Tag' : 'Tage') + '</span></div>' : '') + '</div>' +
+      '<div class="lh-bar"><span class="owner-chip">' + avatar(o, 'sm') + '<span>Liste von <b>' + esc(o.name) + '</b></span></span><span class="sp"></span><span class="pill">👀 Vorschau</span></div>' +
+      '<p class="surprise">🔒 Das ist nur eine Vorschau. <b>Melde dich an oder erstelle ein Konto</b>, um Wünsche zu reservieren. ' + esc(o.name) + ' wird dann für dich als Bekannte/r hinterlegt.</p></header>' +
+      (items.length ? '<div class="wishes">' + items.map(function (it) { return wishCard(it, { preview: true, emoji: l.emoji }); }).join('') + '</div>'
+        : emptyBox('🕊️', 'Noch leer', esc(o.name) + ' hat hier noch keine Wünsche eingetragen.')) +
+      '<div id="authSlot"></div>';
+    $('#authSlot', app).appendChild(authEl);
+    setTab('login');
+    app.onclick = function (e) {
+      if (e.target.closest('[data-act="login"]')) authEl.scrollIntoView({ behavior: FX.reduced ? 'auto' : 'smooth', block: 'center' });
+    };
+  }
+
+  // Link einloesen (angemeldet): Bekanntschaft herstellen und zur Liste gehen
+  async function redeemPage(ctx, r) {
+    var id = await Api.rpc('wl_redeem', { p_token: r.id });
+    if (ctx.stale()) return;
+    FX.toast('Liste freigeschaltet 🎉');
+    go('./?liste=' + id, true);
+  }
+
+  var VIEWS = { teilen: redeemPage,  home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage };
 
   // ---------- Startseite fuer Abgemeldete ----------
   var DEMO = [
@@ -949,7 +1054,7 @@
     { title: 'Bildband Architektur', note: 'Fürs Wohnzimmer-Regal', price: 59, priority: 2, emoji: '🏛️' }
   ];
   $('#themeShow').innerHTML = THEMES.map(function (t, i) {
-    var d = DEMO[i];
+    var d = DEMO[i % DEMO.length];
     return '<figure class="tshow" data-theme="' + t.id + '"><div class="ts-stage">' + wishCard({ id: 'demo' + i, title: d.title, note: d.note, price: d.price, currency: 'EUR', priority: d.priority, quantity: 1 }, { demo: true, emoji: d.emoji }) + '</div>' +
       '<figcaption><b>' + t.name + '</b><span>' + t.desc + '</span></figcaption></figure>';
   }).join('');
@@ -971,7 +1076,7 @@
     var f = e.target, m = $('.msg', f), email = f.email.value.trim(), pw = f.password.value;
     if (!email || !pw) return say(m, 'Bitte E-Mail und Passwort eingeben.', false);
     say(m, 'Anmelden …', true);
-    try { await busy($('[type=submit]', f), function () { return Api.signIn(email, pw); }); f.reset(); say(m, '', true); history.replaceState(null, '', location.search.indexOf('liste=') >= 0 || location.search.indexOf('seite=') >= 0 ? location.search : './'); render(); }
+    try { await busy($('[type=submit]', f), function () { return Api.signIn(email, pw); }); f.reset(); say(m, '', true); history.replaceState(null, '', /liste=|seite=|teilen=/.test(location.search) ? location.search : './'); render(); }
     catch (err) { say(m, errText(err), false); }
   });
   $('#registerForm').addEventListener('submit', async function (e) {
@@ -987,7 +1092,7 @@
         await Api.signUp({ name: v.name, email: v.email, password: f.password.value, invite: v.invite });
         await Api.signIn(v.email, f.password.value);
       });
-      f.reset(); say(m, '', true); history.replaceState(null, '', './'); FX.toast('Willkommen, ' + v.name + '! 🎉'); render();
+      f.reset(); say(m, '', true); history.replaceState(null, '', /teilen=/.test(location.search) ? location.search : './'); FX.toast('Willkommen, ' + v.name + '! 🎉'); render();
     } catch (err) {
       if (err.code === 'invite') $('.invite', f).hidden = false;
       say(m, errText(err), false);
