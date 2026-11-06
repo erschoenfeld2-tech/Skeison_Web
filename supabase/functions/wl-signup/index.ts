@@ -8,13 +8,17 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
-// Grobe Bremse gegen Massen-Registrierungen (pro Instanz und IP)
+// Grobe Bremse gegen Massen-Registrierungen (pro Instanz und IP). Die IP stammt aus einem Header, den ein
+// Angreifer beeinflussen kann; deshalb gibt es zusaetzlich eine feste Obergrenze pro Stunde in der Datenbank (siehe unten).
 const hits = new Map<string, number[]>();
 function limited(ip: string) {
   const now = Date.now(), recent = (hits.get(ip) ?? []).filter((t) => now - t < 3600_000);
   recent.push(now); hits.set(ip, recent);
+  // Alte Eintraege aufraeumen, damit die Liste nicht endlos waechst
+  if (hits.size > 2000) for (const [k, v] of hits) if (!v.length || now - v[v.length - 1] > 3600_000) hits.delete(k);
   return recent.length > 5;
 }
+const CAP = Number(Deno.env.get('WL_SIGNUP_CAP') ?? 20); // Konten pro Stunde insgesamt
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -30,6 +34,11 @@ Deno.serve(async (req: Request) => {
   if (limited(req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '?')) return json({ error: 'rate' }, 429);
 
   const url = Deno.env.get('SUPABASE_URL')!, key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  // Feste Obergrenze (nicht ueber Header zu umgehen); faellt die Abfrage aus, entscheidet nur die IP-Bremse
+  const recent = await fetch(`${url}/rest/v1/rpc/wl_recent_signups`, {
+    method: 'POST', headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: '{}',
+  }).then((r) => (r.ok ? r.json() : 0)).catch(() => 0);
+  if (typeof recent === 'number' && recent >= CAP) return json({ error: 'rate' }, 429);
   const r = await fetch(`${url}/auth/v1/admin/users`, {
     method: 'POST',
     headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },

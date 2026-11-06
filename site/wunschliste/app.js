@@ -24,7 +24,6 @@
     { id: 'sommer', name: 'Sommer', desc: 'Sonne, Himmelblau und sandige Wärme' },
     { id: 'barbie', name: 'Barbie-Pink', desc: 'Knallig pink, glitzernd und verspielt' }
   ];
-  var EMOJIS = '🎁 🎄 🎂 🎉 💍 🍼 🏡 🎓 🐣 ⭐ 🦊 🐻 🐼 🐸 🦄 🐙 🌻 🍀 🌈 🔥 ⚡ 🎮 🎧 📚 🎨 ⚽ 🚲 ✈️ 🍕 ☕ 👾 🧸'.split(' ');
   var CATEGORIES = ['Technik', 'Mode', 'Schuhe', 'Bücher', 'Spiele', 'Haushalt', 'Küche', 'Deko', 'Beauty', 'Sport', 'Outdoor', 'Hobby', 'Erlebnis', 'Gutschein', 'Spielzeug', 'Schmuck', 'Sonstiges'];
   var PRICE_BANDS = [['', 'Jeder Preis'], ['0-25', 'bis 25 €'], ['25-50', '25 – 50 €'], ['50-100', '50 – 100 €'], ['100-250', '100 – 250 €'], ['250-', 'über 250 €'], ['none', 'ohne Preis']];
   var SORTS = [['prio', 'Wichtigste zuerst'], ['value', 'Wichtig & wertvoll zuerst'], ['cheap', 'Preis aufsteigend'], ['pricey', 'Preis absteigend'], ['cat', 'Nach Kategorie'], ['az', 'A – Z'], ['new', 'Neueste zuerst']];
@@ -41,6 +40,7 @@
   var GLYPH_COLORS = ['#ffcb05', '#ff9f43', '#ff4d6d', '#ff5fa2', '#a55eea', '#5b85ff', '#2ec4ff', '#1abc9c', '#2ecc71', '#b8e35a', '#f5f5f5', '#8395a7'];
   var AV_CATS = [
     { id: 'top', label: '⭐ Beliebt', items: '🎁 🦊 🐻 🐼 🦄 🐙 🌻 🍀 🌈 🔥 ⚡ 🎮 🎧 📚 🎨 ⚽ 🚲 ✈️ 🍕 ☕ 👾 🧸 🐸'.split(' ') },
+    { id: 'party', label: '🎉 Anlässe', items: '🎁 🎄 🎂 🎉 🎈 🎊 💍 🍼 🏡 🎓 🐣 🎃 🎅 ⛄ 💐 🥂'.split(' ') },
     { id: 'heart', label: '❤️ Herzen', items: ['❤️', '💖', '💝', '🧁', '💌', '💞'] },
     { id: 'star', label: '⭐ Sterne', items: ['⭐', '✨', '🌙', '☀️', '🌈', '☄️', '🪐', '🔮'] },
     { id: 'shape', label: '🔴 Farben', items: ['🔴', '🟥', '🔶', '🔷', '💠', '🔰', '🏵️', '🎯'] },
@@ -59,6 +59,8 @@
   var OCCASIONS = ['Geburtstag', 'Weihnachten', 'Hochzeit', 'Ostern', 'Einzug', 'Baby', 'Jubiläum', 'Abschluss', 'Einfach so'];
   var PRIO = { 1: 'Wäre nett', 2: 'Wünsche ich mir', 3: 'Herzenswunsch' };
   var VIS = { private: '🔒 Nur du', friends: '👥 Alle Freunde', custom: '🎯 Ausgewählte' };
+  // Profilspalten, die andere sehen duerfen (der Freundescode gehoert nicht dazu; den eigenen liefert wl_my_code)
+  var PCOLS = 'id,name,avatar,color,theme,discoverable';
 
   // ---------- Helfer ----------
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -70,13 +72,22 @@
     try { return new Intl.NumberFormat('de-DE', { style: 'currency', currency: cur || 'EUR', minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(v); }
     catch (e) { return v + ' ' + cur; }
   }
+  // Betraege je Waehrung addieren und als "120 € + 40 $" anzeigen (nie verschiedene Waehrungen zusammenwerfen)
+  function sumCur(rows, val) { var o = {}; rows.forEach(function (r) { var v = val(r), c = r.currency || 'EUR'; if (v) o[c] = (o[c] || 0) + v; }); return o; }
+  function fmtSums(o) {
+    return Object.keys(o).sort(function (a, b) { return a === 'EUR' ? -1 : b === 'EUR' ? 1 : a < b ? -1 : 1; })
+      .map(function (c) { return money(Math.round(o[c] * 100) / 100, c); }).join(' + ');
+  }
   function host(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
   function today() { var t = new Date(); t.setHours(0, 0, 0, 0); return t; }
   function asDate(s) { return new Date(s + 'T00:00:00'); }
   function daysUntil(s) { return Math.round((asDate(s) - today()) / 86400000); }
   function nextBirthday(s) {
-    var b = asDate(s), t = today(), n = new Date(t.getFullYear(), b.getMonth(), b.getDate());
-    if (n < t) n.setFullYear(t.getFullYear() + 1);
+    var b = asDate(s), t = today();
+    // 29.02. wird in Nicht-Schaltjahren am 28.02. gefeiert (statt automatisch am 1. Maerz)
+    function on(y) { var leap = new Date(y, 1, 29).getMonth() === 1; return new Date(y, b.getMonth(), b.getMonth() === 1 && b.getDate() === 29 && !leap ? 28 : b.getDate()); }
+    var n = on(t.getFullYear());
+    if (n < t) n = on(t.getFullYear() + 1);
     return { date: n, days: Math.round((n - t) / 86400000), age: n.getFullYear() - b.getFullYear() };
   }
   function fmtDate(d, year) { return (typeof d === 'string' ? asDate(d) : d).toLocaleDateString('de-DE', year ? { day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'long' }); }
@@ -89,13 +100,17 @@
     return esc(v);
   }
   function avatar(p, cls) { return '<span class="av ' + (cls || '') + '" style="--c:' + esc(p.color) + '" aria-hidden="true">' + glyph(p.avatar) + '</span>'; }
-  function handle(p) { return esc(p.name) + '<span class="code">#' + esc(p.code) + '</span>'; }
+  // Codes nur fuer das eigene Profil und die Admin-Uebersicht zeigen (withCode); bei Freunden bleiben sie verborgen,
+  // damit niemand sie weitergeben kann
+  function handle(p, withCode) { return esc(p.name) + (withCode && p.code ? '<span class="code">#' + esc(p.code) + '</span>' : ''); }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
   function parsePrice(s) {
     s = String(s || '').replace(/[^\d.,]/g, '');
     if (!s) return null;
-    if (/,\d{1,2}$/.test(s)) s = s.replace(/\./g, '').replace(',', '.'); else s = s.replace(/,/g, '');
-    var n = parseFloat(s); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+    // "1.500" und "1.234.567" sind deutsche Tausenderpunkte, "49,99" ein deutsches Komma, "1,299.00" englisch
+    if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    else if (/,\d{1,2}$/.test(s)) s = s.replace(/\./g, '').replace(',', '.'); else s = s.replace(/,/g, '');
+    var n = parseFloat(s); return isFinite(n) && n >= 0 && n < 1e8 ? Math.round(n * 100) / 100 : null;
   }
   function vals(form) {
     var o = {};
@@ -116,9 +131,9 @@
     rate: 'Zu viele Versuche. Bitte in einer Stunde erneut probieren.', already_reserved: 'Das hat gerade jemand anderes reserviert.',
     no_access: 'Diese Liste ist für dich nicht (mehr) freigegeben.', own_item: 'Eigene Wünsche kannst du nicht reservieren.',
     received: 'Dieser Wunsch wurde schon erfüllt.', bad_quantity: 'Diese Anzahl ist nicht möglich.', not_authenticated: 'Bitte melde dich erneut an.',
-    not_friend: 'Vorschläge können nur Freunde machen, nicht Bekannte.', too_many: 'Du hast hier schon 10 offene Vorschläge.',
+    not_friend: 'Vorschläge können nur Freunde machen, nicht Bekannte.', too_many_sizes: 'Mehr als 12 Größen sind nicht möglich.', too_many: 'Du hast hier schon 10 offene Vorschläge.',
     no_profile: 'Dein Profil wurde nicht gefunden. Bitte melde dich ab und wieder an.',
-    not_admin: 'Dafür brauchst du Admin-Rechte.', self: 'Dein eigenes Konto kannst du hier nicht löschen.', is_admin: 'Admin-Konten können hier nicht gelöscht werden.',
+    not_admin: 'Dafür brauchst du Admin-Rechte.', self: 'Dein eigenes Konto kannst du hier nicht löschen.', is_admin: 'Admin-Konten können hier nicht gelöscht oder zurückgesetzt werden.',
     over_email_send_rate_limit: 'Zu viele Versuche. Bitte später erneut probieren.', same_password: 'Das ist schon dein aktuelles Passwort.'
   };
   function errText(e) {
@@ -170,6 +185,7 @@
   function route() {
     var q = new URLSearchParams(location.search);
     if (q.get('teilen')) return { page: 'teilen', id: q.get('teilen') };
+    if (q.get('einladung')) return { page: 'einladung', id: q.get('einladung') };
     if (q.get('liste')) return { page: 'liste', id: q.get('liste') };
     return { page: q.get('seite') || 'home', id: q.get('id') };
   }
@@ -204,10 +220,10 @@
     var signedIn = !!Api.user;
     document.body.classList.toggle('is-in', signedIn);
     if (!signedIn) document.body.classList.remove('is-locked');
-    var r = route(), preview = !signedIn && r.page === 'teilen';
+    var r = route(), preview = !signedIn && (r.page === 'teilen' || r.page === 'einladung');
     document.body.classList.toggle('is-preview', preview);
     if (authEl.parentNode !== authHome) authHome.appendChild(authEl);
-    if (preview) { app.onclick = app.onchange = app.oninput = app.onsubmit = null; app.setAttribute('data-page', 'teilen'); return previewPage(ctx, r.id); }
+    if (preview) { app.onclick = app.onchange = app.oninput = app.onsubmit = null; app.setAttribute('data-page', r.page); return r.page === 'teilen' ? previewPage(ctx, r.id) : invitePreview(ctx, r.id); }
     if (!signedIn) { setTheme(null); landing(); return; }
     $$('[data-nav]').forEach(function (a) {
       var on = a.getAttribute('data-nav') === r.page || (r.page === 'freund' && a.getAttribute('data-nav') === 'freunde');
@@ -218,11 +234,12 @@
     app.setAttribute('data-page', r.page);
     try {
       if (!me) {
-        var rows = await Api.get('wl_profiles', 'id=eq.' + Api.user.id);
-        if (!rows.length) throw Object.assign(new Error('no_profile'), { code: 'no_profile' });
-        me = rows[0];
+        var uid = Api.user.id;
+        var got = await Promise.all([Api.get('wl_profiles', 'id=eq.' + uid + '&select=' + PCOLS + ',must_change_password'), Api.rpc('wl_my_code'),
+          Api.get('wl_admins', 'select=user_id&user_id=eq.' + uid)]);
+        if (!got[0].length) throw Object.assign(new Error('no_profile'), { code: 'no_profile' });
+        me = got[0][0]; me.code = got[1] || ''; isAdmin = got[2].length > 0;
         await loadMyExtras();
-        isAdmin = (await Api.get('wl_admins', 'select=user_id&user_id=eq.' + me.id)).length > 0;
       }
       if (ctx.stale()) return;
       $('#adminLink').hidden = !isAdmin;
@@ -245,8 +262,8 @@
 
   // ---------- Daten ----------
   async function loadFriends() {
-    var res = await Promise.all([Api.get('wl_friendships', 'select=*'), Api.get('wl_profiles', 'id=neq.' + me.id), Api.get('wl_contacts', 'select=*'), Api.get('wl_trust', 'select=person,level'),
-      Api.get('wl_profile_private', 'select=*'), Api.get('wl_profile_sizes', 'select=*&order=sort.asc,created_at.asc')]);
+    var res = await Promise.all([Api.get('wl_friendships', 'select=*'), Api.get('wl_profiles', 'id=neq.' + me.id + '&select=' + PCOLS), Api.get('wl_contacts', 'select=*'), Api.get('wl_trust', 'select=person,level'),
+      Api.get('wl_profile_private', 'id=neq.' + me.id), Api.get('wl_profile_sizes', 'profile=neq.' + me.id + '&order=sort.asc,created_at.asc')]);
     var byId = {}, cById = {}, lvl = {}, priv = {}, sizes = {}, out = { friends: [], incoming: [], outgoing: [] };
     res[4].forEach(function (x) { priv[x.id] = x; });
     res[5].forEach(function (x) { (sizes[x.profile] = sizes[x.profile] || []).push(x); });
@@ -273,10 +290,6 @@
     me.bio = pr.bio || ''; me.birthday = pr.birthday || null; me.likes = pr.likes || ''; me.dislikes = pr.dislikes || ''; me.sizesList = r[1];
   }
   function loadGroups() { return Api.get('wl_groups', 'select=*,wl_group_members(member)&order=created_at'); }
-  async function syncLinks(table, key, id, col, values) {
-    await Api.remove(table, key + '=eq.' + id);
-    if (values.length) await Api.insert(table, values.map(function (v) { var o = {}; o[key] = id; o[col] = v; return o; }));
-  }
 
   // ---------- Bausteine ----------
   function profileCard(p, opt) {
@@ -292,7 +305,7 @@
     return '<article class="pcard2 ' + (opt.big ? 'big' : '') + '" data-theme="' + esc(p.theme) + '">' +
       '<div class="pc-banner"><i></i><i></i></div>' +
       '<div class="pc-main">' + avatar(p, 'xl') +
-      '<div class="pc-name"><h3>' + handle(p) + '</h3>' + (opt.copy ? '<button type="button" class="link-btn" data-act="copy-handle">Code kopieren</button>' : '') + '</div>' +
+      '<div class="pc-name"><h3>' + handle(p, opt.self) + '</h3>' + (opt.copy ? '<button type="button" class="link-btn" data-act="copy-handle">Code kopieren</button>' : '') + '</div>' +
       (p.bio ? '<p class="pc-bio">' + esc(p.bio) + '</p>' : opt.self ? '<p class="pc-bio muted">Noch keine Beschreibung. <a href="./?seite=profil">Profil ausfüllen</a></p>' : '') +
       label + (chips.length ? '<ul class="pc-facts">' + chips.join('') + '</ul>' : '') + '</div></article>';
   }
@@ -365,7 +378,7 @@
   function richPicker(name, current, opt) {
     opt = opt || {};
     var cats = AV_CATS.filter(function (c) { return opt.glyphs !== false || !c.glyphs; });
-    return '<div class="rpick" data-glyphs="' + (opt.glyphs === false ? '0' : '1') + '"><input type="hidden" name="' + name + '" value="' + esc(current) + '">' +
+    return '<div class="rpick" data-glyphs="' + (opt.glyphs === false ? '0' : '1') + '" data-start="' + esc(opt.start || '') + '"><input type="hidden" name="' + name + '" value="' + esc(current) + '">' +
       '<div class="rhead"><span class="rcur" aria-live="polite"></span><div class="rtabs" role="tablist">' + cats.map(function (c, i) {
         return '<button type="button" role="tab" class="rtab' + (i ? '' : ' on') + '" data-cat="' + c.id + '">' + esc(c.label) + '</button>'; }).join('') + '</div></div>' +
       '<div class="rgrid"></div><div class="rvar" hidden></div></div>';
@@ -399,7 +412,12 @@
         if (t.dataset.glyph) { set(v + '|' + GLYPH_COLORS[0]); return variants(v); }
         set(v); if (!inVar) variants(v); else { $$('.rvar .ri', root).forEach(function (b) { b.classList.toggle('on', b.dataset.v === v); }); }
       });
-      var cv = input.value; if (cv.indexOf('|') > 0) { catId = 'glyph'; if (cats.filter(function (x) { return x.id === 'glyph'; }).length) base = cv.split('|')[0]; else catId = cats[0].id; }
+      // Start-Reiter: der mit dem aktuellen Symbol (bevorzugt der gewuenschte Start-Reiter), sonst der Start-Reiter
+      function has(c, v) { return !!c.items && c.items.some(function (e) { return e === v || (VARIANTS[e] && VARIANTS[e].indexOf(v) >= 0); }); }
+      var start = cats.filter(function (c) { return c.id === root.dataset.start; })[0] || cats[0];
+      var cv = input.value, glyphCat = cats.filter(function (c) { return c.glyphs; })[0];
+      if (cv.indexOf('|') > 0 && glyphCat) { catId = glyphCat.id; base = cv.split('|')[0]; }
+      else catId = (has(start, cv) ? start : cats.filter(function (c) { return has(c, cv); })[0] || start).id;
       paint(); if (base) variants(base);
     });
   }
@@ -412,7 +430,7 @@
   async function home(ctx) {
     var res = await Promise.all([
       Api.get('wl_lists', 'owner=eq.' + me.id + '&select=*,wl_items(count)&order=archived.asc,created_at.desc'),
-      Api.get('wl_lists', 'owner=neq.' + me.id + '&archived=is.false&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,code,avatar,color),wl_items(count)&order=event_date.asc.nullslast,created_at.desc'),
+      Api.get('wl_lists', 'owner=neq.' + me.id + '&archived=is.false&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,avatar,color),wl_items(count)&order=event_date.asc.nullslast,created_at.desc'),
       loadFriends(), Api.rpc('wl_my_reservations')
     ]);
     var mine = res[0], others = res[1], fr = res[2], gifts = res[3];
@@ -460,7 +478,7 @@
   // ---------- Liste ----------
   async function listPage(ctx, r) {
     if (!isId(r.id)) throw Object.assign(new Error('no_access'), { code: 'no_access' });
-    var rows = await Api.get('wl_lists', 'id=eq.' + r.id + '&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,code,avatar,color,theme)');
+    var rows = await Api.get('wl_lists', 'id=eq.' + r.id + '&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,avatar,color,theme)');
     if (!rows.length) throw Object.assign(new Error('no_access'), { code: 'no_access' });
     var st = { list: rows[0], sort: 'prio', f: { q: '', cat: '', prio: '', price: '', only: false }, ctx: ctx };
     st.owner = st.list.owner.id === me.id;
@@ -477,15 +495,14 @@
     };
     app.oninput = function (e) {
       if (e.target.name !== 'q') return;
-      st.f.q = e.target.value; paintList(st, true);
-      var i = $('[name=q]', app); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+      st.f.q = e.target.value; paintResults(st);
     };
   }
   async function loadListData(st) {
     var res = await Promise.all([
       Api.get('wl_items', 'list_id=eq.' + st.list.id + '&order=priority.desc,created_at.asc'),
       st.owner ? Promise.resolve([]) : Api.rpc('wl_list_reservations', { p_list: st.list.id }),
-      st.owner && st.list.visibility === 'custom' ? Promise.all([
+      st.owner && st.list.visibility !== 'private' ? Promise.all([
         Api.get('wl_list_groups', 'list_id=eq.' + st.list.id + '&select=group:wl_groups(name,emoji)'),
         Api.get('wl_list_people', 'list_id=eq.' + st.list.id + '&select=person:wl_profiles(name)')]) : Promise.resolve(null),
       st.owner ? Api.get('wl_suggestions', 'list_id=eq.' + st.list.id + '&select=*,author:wl_profiles!wl_suggestions_author_fkey(name,avatar,color)&order=created_at') : Promise.resolve([]),
@@ -497,9 +514,9 @@
     res[1].forEach(function (x) { (st.res[x.item_id] = st.res[x.item_id] || []).push(x); });
     st.share = res[2] ? res[2][0].map(function (g) { return g.group.emoji + ' ' + g.group.name; }).concat(res[2][1].map(function (p) { return p.person.name; })) : null;
   }
-  function paintList(st, quiet) {
-    var l = st.list, items = st.items.slice(), d = l.event_date ? daysUntil(l.event_date) : null;
-    setTheme(l.theme);
+  // Sortierte und gefilterte Wuensche samt Summe (fuer die ganze Seite und fuer die Suche)
+  function listView(st) {
+    var items = st.items.slice();
     var pr = function (it) { return it.price == null ? -1 : it.price; };
     var cmp = {
       prio: function (a, b) { return b.priority - a.priority; },
@@ -511,7 +528,6 @@
       new: function (a, b) { return a.created_at < b.created_at ? 1 : -1; }
     }[st.sort];
     items.sort(function (a, b) { return (a.received - b.received) || cmp(a, b); });
-    var free = st.items.filter(function (it) { return isFree(it, st.res[it.id]); }).length;
     var F = st.f, qq = F.q.trim().toLowerCase();
     var filtered = !!(qq || F.cat || F.prio || F.price || F.only);
     items = items.filter(function (it) {
@@ -525,11 +541,38 @@
       if (F.only && (st.owner ? it.received : !isFree(it, st.res[it.id]))) return false;
       return true;
     });
-    var total = items.reduce(function (s, it) { return s + (it.received || it.price == null ? 0 : it.price * it.quantity); }, 0);
+    var total = fmtSums(sumCur(items, function (it) { return it.received || it.price == null ? 0 : it.price * it.quantity; }));
+    return { items: items, filtered: filtered, total: total };
+  }
+  function listCount(st, v) {
+    return (v.filtered ? v.items.length + ' von ' : '') + plural(st.items.length, 'Wunsch', 'Wünsche') + (v.total ? ' · zusammen ca. ' + esc(v.total) : '');
+  }
+  function listResults(st, v) {
+    var l = st.list;
+    return v.items.length ? '<div class="wishes" data-stagger>' + v.items.map(function (it) { return wishCard(it, { owner: st.owner, res: st.res[it.id], emoji: l.emoji }); }).join('') + '</div>'
+      : st.items.length ? (v.filtered ? emptyBox('🔎', 'Nichts gefunden', 'Mit diesen Filtern passt gerade kein Wunsch.', '<button type="button" class="btn ghost" data-act="reset-filters">Filter zurücksetzen</button>') : emptyBox('🎉', 'Alles vergeben', 'Mit diesem Filter ist gerade nichts übrig.'))
+        : st.owner ? emptyBox('✨', 'Füge deinen ersten Wunsch hinzu', 'Produktlink einfügen genügt: Bild, Titel und Preis werden automatisch übernommen.', '<button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>')
+          : emptyBox('🕊️', 'Noch leer', esc(l.owner.name) + ' hat hier noch keine Wünsche eingetragen.');
+  }
+  // Nur Ergebnisse und Zaehler neu zeichnen; das Suchfeld bleibt stehen (Cursor und Eingabe per IME bleiben erhalten)
+  function paintResults(st) {
+    var v = listView(st), box = $('#wishRes', app);
+    if (!box) return paintList(st, true);
+    box.innerHTML = listResults(st, v).replace(/ data-stagger/g, '');
+    var c = $('.tb-count', app); if (c) c.innerHTML = listCount(st, v);
+    var r = $('.tb2 [data-act="reset-filters"]', app); if (r) r.hidden = !v.filtered;
+  }
+  function paintList(st, quiet) {
+    var l = st.list, d = l.event_date ? daysUntil(l.event_date) : null;
+    setTheme(l.theme);
+    var v = listView(st), F = st.f, filtered = v.filtered;
+    var free = st.items.filter(function (it) { return isFree(it, st.res[it.id]); }).length;
     var catCount = {}; st.items.forEach(function (it) { if (it.category) catCount[it.category] = (catCount[it.category] || 0) + 1; });
     var cats = Object.keys(catCount).sort(function (x, y) { return x.localeCompare(y, 'de'); });
 
-    var vis = l.visibility === 'custom' ? '🎯 ' + (st.share && st.share.length ? esc(st.share.join(', ')) : 'noch niemand ausgewählt') : VIS[l.visibility];
+    // Bei "Alle Freunde" zusaetzlich die einzeln Freigeschalteten (z. B. per Link) zeigen, damit nichts unsichtbar bleibt
+    var shared = st.share && st.share.length ? esc(st.share.join(', ')) : '';
+    var vis = l.visibility === 'custom' ? '🎯 ' + (shared || 'noch niemand ausgewählt') : VIS[l.visibility] + (l.visibility === 'friends' && shared ? ' + ' + shared : '');
     view(st.ctx,
       '<header class="list-head" data-theme="' + esc(l.theme) + '">' +
       '<p class="back"><a href="' + (st.owner ? './' : './?seite=freund&id=' + l.owner.id) + '"><span class="arr">←</span> ' + (st.owner ? 'Übersicht' : esc(l.owner.name)) + '</a></p>' +
@@ -544,7 +587,8 @@
       '</header>' +
       (st.owner && st.sugg && st.sugg.length ? '<section class="sugg panel"><h2>💡 Vorschläge von Freunden <small class="muted">' + st.sugg.length + '</small></h2>' +
         '<p class="muted small">🔒 Nur du siehst diese Vorschläge. Übernimm sie in deine Liste oder verwirf sie.</p><ul class="plist">' + st.sugg.map(function (s) {
-          return '<li data-sid="' + s.id + '">' + avatar(s.author, 'sm') + '<span><b>' + esc(s.title) + '</b><small>von ' + esc(s.author.name) + [s.price != null ? ' · ' + esc(money(s.price, s.currency)) : '', s.category ? ' · ' + esc(s.category) : '', s.note ? ' · ' + esc(s.note) : ''].join('') + '</small></span><span class="sp"></span>' +
+          var au = s.author || { name: 'Unbekannt', avatar: '👤', color: '#8395a7' };
+          return '<li data-sid="' + s.id + '">' + avatar(au, 'sm') + '<span><b>' + esc(s.title) + '</b><small>von ' + esc(au.name) + [s.price != null ? ' · ' + esc(money(s.price, s.currency)) : '', s.category ? ' · ' + esc(s.category) : '', s.note ? ' · ' + esc(s.note) : ''].join('') + '</small></span><span class="sp"></span>' +
             (safeUrl(s.url) ? '<a class="link-btn" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' + esc(host(s.url)) + ' ↗</a>' : '') +
             '<button type="button" class="btn small" data-act="sugg-ok">✓ Übernehmen</button><button type="button" class="btn small ghost" data-act="sugg-no">Verwerfen</button></li>';
         }).join('') + '</ul></section>' : '') +
@@ -553,14 +597,11 @@
         '<label>Wichtigkeit <select name="prio"><option value="">Alle</option>' + [3, 2, 1].map(function (p) { return '<option value="' + p + '"' + (F.prio === String(p) ? ' selected' : '') + '>' + '●●●'.slice(0, p) + ' ' + PRIO[p] + '</option>'; }).join('') + '</select></label>' +
         '<label>Preis <select name="price">' + PRICE_BANDS.map(function (o) { return '<option value="' + o[0] + '"' + (F.price === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
         '<label class="check"><input type="checkbox" name="only"' + (F.only ? ' checked' : '') + '> ' + (st.owner ? 'Erhaltene ausblenden' : 'Nur freie Wünsche') + '</label>' +
-        (filtered ? '<button type="button" class="link-btn" data-act="reset-filters">Filter zurücksetzen</button>' : '') +
-        '<span class="sp"></span><span class="muted">' + (filtered ? items.length + ' von ' : '') + plural(st.items.length, 'Wunsch', 'Wünsche') + (total ? ' · zusammen ca. ' + esc(money(total, 'EUR')) : '') + '</span></div>' +
+        '<button type="button" class="link-btn" data-act="reset-filters"' + (filtered ? '' : ' hidden') + '>Filter zurücksetzen</button>' +
+        '<span class="sp"></span><span class="muted tb-count">' + listCount(st, v) + '</span></div>' +
         (cats.length ? '<div class="catchips" role="group" aria-label="Kategorien"><button type="button" class="cc' + (F.cat ? '' : ' on') + '" data-act="cat" data-cat="">Alle</button>' +
           cats.map(function (c) { return '<button type="button" class="cc' + (F.cat === c ? ' on' : '') + '" data-act="cat" data-cat="' + esc(c) + '">' + esc(c) + ' <small>' + catCount[c] + '</small></button>'; }).join('') + '</div>' : '') : '') +
-      (items.length ? '<div class="wishes" data-stagger>' + items.map(function (it) { return wishCard(it, { owner: st.owner, res: st.res[it.id], emoji: l.emoji }); }).join('') + '</div>'
-        : st.items.length ? (filtered ? emptyBox('🔎', 'Nichts gefunden', 'Mit diesen Filtern passt gerade kein Wunsch.', '<button type="button" class="btn ghost" data-act="reset-filters">Filter zurücksetzen</button>') : emptyBox('🎉', 'Alles vergeben', 'Mit diesem Filter ist gerade nichts übrig.'))
-          : st.owner ? emptyBox('✨', 'Füge deinen ersten Wunsch hinzu', 'Produktlink einfügen genügt: Bild, Titel und Preis werden automatisch übernommen.', '<button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>')
-            : emptyBox('🕊️', 'Noch leer', esc(l.owner.name) + ' hat hier noch keine Wünsche eingetragen.')), quiet);
+      '<div id="wishRes">' + listResults(st, v) + '</div>', quiet);
   }
   function isFree(it, res) {
     if (it.received) return false;
@@ -581,7 +622,7 @@
     if (act === 'reset-filters') { st.f = { q: '', cat: '', prio: '', price: '', only: false }; return paintList(st, true); }
     try {
       if (act === 'del-item') {
-        if (!(await confirmDlg('„' + it.title + '“ wirklich löschen?', 'Löschen'))) return;
+        if (!(await confirmDlg('„' + it.title + '“ wirklich löschen? Schon bekommen? Dann markiere ihn lieber als „Erhalten“, so wissen alle Schenkenden Bescheid.', 'Löschen'))) return;
         await Api.remove('wl_items', 'id=eq.' + it.id); FX.toast('Wunsch gelöscht');
       } else if (act === 'toggle-received') {
         await busy(b, function () { return Api.update('wl_items', 'id=eq.' + it.id, { received: !it.received }); });
@@ -684,7 +725,7 @@
       '<div class="row2"><label>Datum <small class="muted">für den Countdown</small><input name="event_date" type="date" value="' + esc(x.event_date || '') + '"></label>' +
       '<label class="check"><input type="checkbox" name="archived"' + (x.archived ? ' checked' : '') + '> 📦 Archiviert <small class="muted">ausgeblendet bei Freunden</small></label></div>' +
       '<label>Beschreibung <small class="muted">optional</small><textarea name="description" rows="2" maxlength="500" placeholder="Ein paar Worte an alle, die schenken wollen">' + esc(x.description) + '</textarea></label>' +
-      '<fieldset><legend>Symbol</legend>' + richPicker('emoji', x.emoji, { glyphs: false }) + '</fieldset>' +
+      '<fieldset><legend>Symbol</legend>' + richPicker('emoji', x.emoji, { glyphs: false, start: 'party' }) + '</fieldset>' +
       '<fieldset><legend>Design</legend>' + themePicker('theme', x.theme) + '</fieldset>' +
       '<fieldset class="vis"><legend>Wer darf die Liste sehen und reservieren?</legend>' +
       [['private', '🔒 Nur ich', 'Entwurf, für niemanden sichtbar'], ['friends', '👥 Alle Freunde', 'Jeder Freund (nicht nur Bekannte)'], ['custom', '🎯 Ausgewählte', 'Nur bestimmte Gruppen und Personen']].map(function (o) {
@@ -715,10 +756,10 @@
         var saved = await busy($('[type=submit]', f), async function () {
           var out = l ? await Api.update('wl_lists', 'id=eq.' + l.id, row) : await Api.insert('wl_lists', row);
           var id = out[0].id;
-          if (row.visibility === 'custom') {
-            await syncLinks('wl_list_groups', 'list_id', id, 'group_id', v.groups || []);
-            await syncLinks('wl_list_people', 'list_id', id, 'person', v.people || []);
-          }
+          // In einem Schritt: Gruppen gelten nur bei "Ausgewaehlte". Einzelne Personen bleiben sonst erhalten (null),
+          // damit per Link freigeschaltete Gaeste ihren Zugriff behalten (sie stehen dann im Sichtbarkeits-Hinweis).
+          var custom = row.visibility === 'custom';
+          await Api.rpc('wl_set_list_shares', { p_list: id, p_groups: custom ? v.groups || [] : [], p_people: custom ? v.people || [] : null });
           return out[0];
         });
         dlg.close(); FX.toast(l ? 'Liste gespeichert' : 'Liste angelegt 🎉');
@@ -748,7 +789,7 @@
     }
     function paintGrid() {
       var list = fr.friends.filter(function (p) {
-        var hay = (p.name + ' ' + p.code + ' ' + p.contact.relation + ' ' + (p.contact.tags || []).join(' ')).toLowerCase();
+        var hay = (p.name + ' ' + p.contact.relation + ' ' + (p.contact.tags || []).join(' ')).toLowerCase();
         return (!q || hay.indexOf(q) >= 0) && (!filter || p.contact.relation === filter || (p.contact.tags || []).indexOf(filter) >= 0);
       });
       $('#fgrid').innerHTML = list.length ? list.map(friendCard).join('') : '<p class="muted">Keine Treffer.</p>';
@@ -758,8 +799,9 @@
     view(ctx,
       '<header class="page-head"><p class="eyebrow">Nur Freunde sehen sich gegenseitig</p><h1>Freunde &amp; Gruppen</h1></header>' +
       '<div class="friends-top" data-stagger>' +
-      '<div class="panel handle-box"><p class="eyebrow">Dein Freundescode</p><button type="button" class="handle-big" data-act="copy-handle">' + handle(me) + ' <small>kopieren</small></button>' +
-      '<p class="muted small">Schick ihn Freunden und Familie. Sie geben ihn bei sich ein, du bestätigst die Anfrage, fertig.</p></div>' +
+      '<div class="panel handle-box"><p class="eyebrow">Dein Freundescode</p><button type="button" class="handle-big" data-act="copy-handle">' + handle(me, true) + ' <small>kopieren</small></button>' +
+      '<p class="muted small">Schick ihn Freunden und Familie. Sie geben ihn bei sich ein, du bestätigst die Anfrage, fertig. Die Codes deiner Freunde siehst du nicht, damit niemand sie weitergeben kann.</p>' +
+      '<button type="button" class="btn ghost wide" data-act="invite">🔗 Einladungslink &amp; QR-Code</button></div>' +
       '<form class="panel add-friend" novalidate><label>Freund hinzufügen<span class="url-row"><input name="handle" placeholder="Name#CODE" autocomplete="off" maxlength="40" required><button type="submit" class="btn">Anfrage senden</button></span></label><p class="msg"></p></form>' +
       '</div>' +
       (fr.incoming.length || fr.outgoing.length ? '<section class="requests"><h2>Anfragen</h2><ul class="plist">' +
@@ -800,6 +842,7 @@
       var b = e.target.closest('[data-act]'); if (!b) return;
       var holder = b.closest('[data-id]'), act = b.dataset.act, id = holder && holder.getAttribute('data-id');
       if (act === 'copy-handle') return copy(me.name + '#' + me.code, 'Code kopiert');
+      if (act === 'invite') return inviteDialog();
       if (act === 'label') return labelDialog(byId[id], render);
       if (act === 'new-group') return groupDialog(null, fr.friends);
       if (act === 'edit-group') return groupDialog(groups.filter(function (g) { return g.id === id; })[0], fr.friends);
@@ -857,7 +900,7 @@
         await busy($('[type=submit]', f), async function () {
           var row = { name: v.name, emoji: v.emoji || '👪', color: v.color || '#5b85ff' };
           var out = g ? await Api.update('wl_groups', 'id=eq.' + g.id, row) : await Api.insert('wl_groups', row);
-          await syncLinks('wl_group_members', 'group_id', out[0].id, 'member', v.members || []);
+          await Api.rpc('wl_set_group_members', { p_group: out[0].id, p_members: v.members || [] });
         });
         dlg.close(); FX.toast('Gruppe gespeichert'); render();
       } catch (err) { say(m, errText(err), false); }
@@ -867,10 +910,19 @@
   async function friendPage(ctx, r) {
     if (!isId(r.id)) throw Object.assign(new Error('no_access'), { code: 'no_access' });
     if (r.id === me.id) return go('./?seite=profil', true);
-    var res = await Promise.all([loadFriends(), Api.get('wl_lists', 'owner=eq.' + r.id + '&archived=is.false&select=*,wl_items(count)&order=event_date.asc.nullslast'), loadGroups()]);
+    var res = await Promise.all([loadFriends(), Api.get('wl_lists', 'owner=eq.' + r.id + '&archived=is.false&select=*,wl_items(count)&order=event_date.asc.nullslast'), loadGroups(),
+      // Freunde dieses Freundes (nur wenn er mich als Freund fuehrt und nur, wer das erlaubt); sonst kein Abschnitt
+      Api.rpc('wl_friends_of', { p_via: r.id }).catch(function () { return null; })]);
     var fr = res[0], p = fr.friends.filter(function (x) { return x.id === r.id; })[0];
     if (!p) throw Object.assign(new Error('no_access'), { code: 'no_access' });
-    var groups = res[2];
+    var groups = res[2], fof = res[3] || [];
+    function fofRow(x) {
+      var act = x.status === 'friends' ? '<a class="btn small ghost" href="./?seite=freund&id=' + esc(x.id) + '">Befreundet</a>'
+        : x.status === 'requested' ? '<span class="muted small">Angefragt</span>'
+        : x.status === 'incoming' ? '<button type="button" class="btn small" data-act="fof-accept" data-pid="' + esc(x.id) + '">Anfrage annehmen</button>'
+        : '<button type="button" class="btn small" data-act="fof-req" data-pid="' + esc(x.id) + '">Anfrage senden</button>';
+      return '<li>' + avatar(x, 'sm') + '<span><b>' + esc(x.name) + '</b></span><span class="sp"></span>' + act + '</li>';
+    }
     setTheme(p.theme);
     view(ctx,
       '<p class="back"><a href="./?seite=freunde"><span class="arr">←</span> Freunde</a></p>' +
@@ -890,7 +942,10 @@
       '<button type="button" class="link-btn danger-text" data-act="unfriend">Freundschaft beenden</button></div></div>' +
       '<section><div class="sec-head"><h2>Listen von ' + esc(p.name) + '</h2></div>' +
       (res[1].length ? '<div class="lgrid" data-stagger>' + res[1].map(function (l) { return listCard(l); }).join('') + '</div>'
-        : emptyBox('🎈', 'Keine Listen für dich', esc(p.name) + ' hat (noch) keine Liste für dich freigegeben.')) + '</section>');
+        : emptyBox('🎈', 'Keine Listen für dich', esc(p.name) + ' hat (noch) keine Liste für dich freigegeben.')) + '</section>' +
+      (fof.length ? '<section><div class="sec-head"><h2>Freunde von ' + esc(p.name) + ' <small class="muted">' + fof.length + '</small></h2></div>' +
+        '<p class="muted small">Hier stehen nur Freunde von ' + esc(p.name) + ', die das in ihrem Profil erlauben. Codes bleiben verborgen. Ob du hier bei anderen auftauchst, stellst du in deinem <a href="./?seite=profil">Profil</a> ein.</p>' +
+        '<ul class="plist">' + fof.map(fofRow).join('') + '</ul></section>' : ''));
     app.onchange = async function (e) {
       var gid = e.target.getAttribute('data-group'); if (!gid) return;
       try {
@@ -902,11 +957,20 @@
     app.onclick = async function (e) {
       var b = e.target.closest('[data-act]'); if (!b) return;
       if (b.dataset.act === 'label') labelDialog(p, render);
+      if (b.dataset.act === 'fof-req' || b.dataset.act === 'fof-accept') {
+        try {
+          var out = await busy(b, function () {
+            return b.dataset.act === 'fof-req' ? Api.rpc('wl_request_via', { p_via: p.id, p_other: b.dataset.pid }) : Api.rpc('wl_accept_friend', { p_other: b.dataset.pid }).then(function () { return 'accepted'; });
+          });
+          FX.toast(out === 'accepted' || out === 'already_friends' ? 'Ihr seid jetzt befreundet 🎉' : 'Anfrage gesendet');
+          render();
+        } catch (err) { FX.toast(errText(err)); }
+      }
       if (b.dataset.act === 'level') {
         try { await busy(b, function () { return Api.rpc('wl_set_level', { p_other: p.id, p_level: p.level === 'known' ? 'friend' : 'known' }); }); FX.toast(p.level === 'known' ? p.name + ' ist jetzt Freund ⭐' : p.name + ' ist jetzt Bekannt'); render(); } catch (err) { FX.toast(errText(err)); }
       }
       if (b.dataset.act === 'unfriend') {
-        if (!(await confirmDlg('Freundschaft mit ' + p.name + ' beenden? Ihr seht dann gegenseitig keine Listen mehr, Gruppen und Kennzeichnungen werden entfernt.', 'Beenden'))) return;
+        if (!(await confirmDlg('Freundschaft mit ' + p.name + ' beenden? Ihr seht dann gegenseitig keine Listen mehr, Gruppen, Kennzeichnungen und Vorschläge werden entfernt. Über deine Freigabe-Links kann ' + p.name + ' sich nicht wieder verbinden.', 'Beenden'))) return;
         try { await Api.rpc('wl_remove_friend', { p_other: p.id }); FX.toast('Freundschaft beendet'); go('./?seite=freunde', true); } catch (err) { FX.toast(errText(err)); }
       }
     };
@@ -914,21 +978,30 @@
 
   // ---------- Meine Geschenke ----------
   async function giftsPage(ctx, r, quiet) {
-    var rows = await Api.rpc('wl_my_reservations');
+    var res = await Promise.all([Api.rpc('wl_my_reservations'), Api.get('wl_orphan_gifts', 'order=deleted_at.desc').catch(function () { return []; })]);
+    var rows = res[0], orphans = res[1];
     setTheme(me.theme);
-    var budget = 0, spent = 0, done = 0, groups = {}, order = [];
+    var done = 0, groups = {}, order = [];
+    function cost(g) { return g.price == null || g.group_gift ? 0 : g.price * g.quantity; }
+    var budget = fmtSums(sumCur(rows, cost)) || money(0, 'EUR'), open = fmtSums(sumCur(rows, function (g) { return g.purchased ? 0 : cost(g); })) || money(0, 'EUR');
     rows.forEach(function (g) {
-      var cost = g.price == null || g.group_gift ? 0 : g.price * g.quantity;
-      budget += cost; if (g.purchased) { spent += cost; done++; }
+      if (g.purchased) done++;
       if (!groups[g.list_id]) { groups[g.list_id] = []; order.push(g.list_id); }
       groups[g.list_id].push(g);
     });
+    // Geschenke, die schon gekauft waren, deren Wunsch aber geloescht wurde
+    var orphanBox = orphans.length ? '<section class="gift-group orphans"><div class="gg-head"><span>🗑</span><span><b>Gelöschte Wünsche, die du schon gekauft hast</b> <small>Der Wunsch wurde von der Liste entfernt. Vielleicht kurz nachfragen, ob das Geschenk noch passt.</small></span></div>' +
+      '<ul class="gift-rows">' + orphans.map(function (o) {
+        return '<li data-oid="' + esc(o.id) + '"><span class="thumb">' + placeholder('🎁', o.title) + '</span><span class="gr-main"><b>' + esc(o.title) + '</b><small>' +
+          [o.owner_name ? 'für ' + esc(o.owner_name) : '', o.list_title ? esc(o.list_title) : '', o.quantity > 1 ? o.quantity + '×' : '', 'gelöscht am ' + fmtDate(new Date(o.deleted_at), true)].filter(Boolean).join(' · ') + '</small></span>' +
+          '<span class="gr-price">' + esc(money(o.price, o.currency)) + '</span><button type="button" class="icon-btn" data-act="orphan-ok" aria-label="Hinweis entfernen" title="Erledigt">✓</button></li>';
+      }).join('') + '</ul></section>' : '';
     var pct = rows.length ? Math.round(done / rows.length * 100) : 0;
     view(ctx,
       '<header class="page-head"><p class="eyebrow">Deine Einkaufsliste</p><h1>Meine Geschenke</h1><p class="lead">Alles, was du für andere reserviert hast. Hak ab, was du schon besorgt hast.</p></header>' +
       (rows.length ? '<div class="gift-stats" data-stagger><div class="tile"><b>' + rows.length + '</b><span>reserviert</span></div><div class="tile"><b>' + done + '</b><span>schon gekauft</span></div>' +
-        '<div class="tile"><b>' + esc(money(budget, 'EUR')) + '</b><span>Budget (ohne Gruppengeschenke)</span></div>' +
-        '<div class="tile prog"><span>Fortschritt ' + pct + ' %</span><div class="bar"><i style="width:' + pct + '%"></i></div><small class="muted">' + esc(money(budget - spent, 'EUR')) + ' noch offen</small></div></div>' +
+        '<div class="tile"><b>' + esc(budget) + '</b><span>Budget (ohne Gruppengeschenke)</span></div>' +
+        '<div class="tile prog"><span>Fortschritt ' + pct + ' %</span><div class="bar"><i style="width:' + pct + '%"></i></div><small class="muted">' + esc(open) + ' noch offen</small></div></div>' + orphanBox +
         order.map(function (id) {
           var gs = groups[id], g0 = gs[0], d = g0.event_date ? daysUntil(g0.event_date) : null;
           return '<section class="gift-group"><a class="gg-head" href="./?liste=' + id + '">' + avatar({ avatar: g0.owner_avatar, color: g0.owner_color }, 'sm') +
@@ -943,13 +1016,15 @@
                 '<button type="button" class="icon-btn" data-act="unreserve" aria-label="Reservierung freigeben" title="Freigeben">✕</button></li>';
             }).join('') + '</ul></section>';
         }).join('')
-        : emptyBox('🛍️', 'Noch nichts reserviert', 'Öffne eine Liste deiner Freunde und reserviere einen Wunsch. Dann erscheint er hier.', '<a class="btn" href="./">Zur Übersicht</a>')), quiet);
+        : orphanBox + emptyBox('🛍️', 'Noch nichts reserviert', 'Öffne eine Liste deiner Freunde und reserviere einen Wunsch. Dann erscheint er hier.', '<a class="btn" href="./">Zur Übersicht</a>')), quiet);
     app.onchange = async function (e) {
       if (e.target.getAttribute('data-act') !== 'bought') return;
       var id = e.target.closest('[data-id]').getAttribute('data-id');
       try { await Api.rpc('wl_set_purchased', { p_item: id, p_purchased: e.target.checked }); giftsPage(ctx, r, true); } catch (err) { FX.toast(errText(err)); }
     };
     app.onclick = async function (e) {
+      var ok = e.target.closest('[data-act="orphan-ok"]');
+      if (ok) { try { await Api.remove('wl_orphan_gifts', 'id=eq.' + ok.closest('[data-oid]').getAttribute('data-oid')); giftsPage(ctx, r, true); } catch (err) { FX.toast(errText(err)); } return; }
       var b = e.target.closest('[data-act="unreserve"]'); if (!b) return;
       if (!(await confirmDlg('Reservierung freigeben? Dann können andere diesen Wunsch wieder reservieren.', 'Freigeben'))) return;
       try { await Api.rpc('wl_unreserve', { p_item: b.closest('[data-id]').getAttribute('data-id') }); FX.toast('Freigegeben'); giftsPage(ctx, r, true); } catch (err) { FX.toast(errText(err)); }
@@ -976,6 +1051,9 @@
       '<label>Über mich<input name="bio" maxlength="160" value="' + esc(me.bio) + '" placeholder="z. B. Kaffee, Bücher und Bergtouren"></label></div>' +
       '<div class="row2"><label>💚 Mag ich<input name="likes" maxlength="200" value="' + esc(me.likes) + '" placeholder="Lieblingsfarbe, Hobbys …"></label>' +
       '<label>🚫 Lieber nicht<input name="dislikes" maxlength="200" value="' + esc(me.dislikes) + '" placeholder="z. B. Deko, Süßes"></label></div></fieldset>' +
+      '<fieldset class="priv-sec"><legend>🤝 Über Freunde gefunden werden</legend>' +
+      '<label class="check"><input type="checkbox" name="discoverable"' + (me.discoverable !== false ? ' checked' : '') + '> Freunde meiner Freunde dürfen mich auf deren Profil sehen und mir eine Anfrage schicken</label>' +
+      '<p class="muted small">Ausgeschaltet findet dich nur, wer deinen Namen mit Code kennt.</p></fieldset>' +
       '<p class="msg"></p><div class="dlg-actions"><button type="submit" class="btn">Profil speichern</button></div></form>' +
       '<aside class="sticky"><p class="eyebrow">Vorschau</p><div id="pcPrev"></div>' +
       '<div class="panel account"><h3>Konto</h3><p class="muted small">Angemeldet als ' + esc(Api.user.email) + '</p>' +
@@ -1003,14 +1081,12 @@
       var d = draft(), m = $('.msg', f);
       if (d.name.length < 2 || d.name.indexOf('#') >= 0) return say(m, ERR.name, false);
       try {
-        var out = await busy($('[type=submit]', f), async function () {
-          var res = await Api.update('wl_profiles', 'id=eq.' + me.id, { name: d.name, avatar: d.avatar, color: d.color, theme: d.theme });
-          await Api.upsert('wl_profile_private?on_conflict=id', { id: me.id, bio: d.bio, birthday: d.birthday, likes: d.likes, dislikes: d.dislikes });
-          await Api.remove('wl_profile_sizes', 'profile=eq.' + me.id);
-          if (d.sizesList.length) await Api.insert('wl_profile_sizes', d.sizesList);
-          return res;
+        // Ein Aufruf, eine Transaktion: Profil, Persoenliches und Groessen werden gemeinsam gespeichert oder gar nicht
+        var out = await busy($('[type=submit]', f), function () {
+          return Api.rpc('wl_save_profile', { p_name: d.name, p_avatar: d.avatar, p_color: d.color, p_theme: d.theme, p_bio: d.bio, p_birthday: d.birthday,
+            p_likes: d.likes, p_dislikes: d.dislikes, p_sizes: d.sizesList.map(function (s) { return { label: s.label, value: s.value }; }), p_discoverable: !!d.discoverable });
         });
-        me = Object.assign(me, out[0], { bio: d.bio, birthday: d.birthday, likes: d.likes, dislikes: d.dislikes, sizesList: d.sizesList }); $('#meLink').innerHTML = avatar(me, 'xs') + '<span>' + esc(me.name) + '</span>';
+        me = Object.assign(me, out, { code: me.code, bio: d.bio, birthday: d.birthday, likes: d.likes, dislikes: d.dislikes, sizesList: d.sizesList }); $('#meLink').innerHTML = avatar(me, 'xs') + '<span>' + esc(me.name) + '</span>';
         say(m, 'Gespeichert ✓', true); FX.toast('Profil gespeichert');
       } catch (err) { say(m, errText(err), false); }
     };
@@ -1071,11 +1147,11 @@
     function when(t) { return t ? new Date(t).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' }) : 'nie'; }
     function row(u) {
       return '<li data-id="' + u.id + '">' + avatar(u, 'sm') +
-        '<span class="au-main"><b>' + handle(u) + (u.is_admin ? ' <span class="tagchip">Admin</span>' : '') + (u.must_change_password ? ' <span class="tagchip warn">muss Passwort ändern</span>' : '') + '</b><small>' + esc(u.email) + '</small></span>' +
+        '<span class="au-main"><b>' + handle(u, true) + (u.is_admin ? ' <span class="tagchip">Admin</span>' : '') + (u.must_change_password ? ' <span class="tagchip warn">muss Passwort ändern</span>' : '') + '</b><small>' + esc(u.email) + '</small></span>' +
         '<span class="au-stats"><small>Seit ' + when(u.created_at) + ' · zuletzt da: ' + when(u.last_sign_in_at) + '</small><small>' +
         [plural(+u.lists, 'Liste', 'Listen'), plural(+u.items, 'Wunsch', 'Wünsche'), plural(+u.friends, 'Freund', 'Freunde'), +u.reservations + ' reserviert'].join(' · ') + '</small></span>' +
-        '<span class="au-act"><button type="button" class="btn small" data-act="reset">🔑 Passwort zurücksetzen</button>' +
-        (u.is_admin ? '' : '<button type="button" class="icon-btn" data-act="delete" aria-label="Konto löschen" title="Konto löschen">🗑</button>') + '</span></li>';
+        '<span class="au-act">' + (u.is_admin ? '<small class="muted">geschützt</small>' : '<button type="button" class="btn small" data-act="reset">🔑 Passwort zurücksetzen</button>' +
+        '<button type="button" class="icon-btn" data-act="delete" aria-label="Konto löschen" title="Konto löschen">🗑</button>') + '</span></li>';
     }
     function paintRows() {
       var list = users.filter(function (u) { return !q || (u.name + '#' + u.code + ' ' + u.email).toLowerCase().indexOf(q) >= 0; });
@@ -1106,7 +1182,7 @@
   }
   function resetDialog(u) {
     openDlg(dlgHead('Passwort zurücksetzen') +
-      '<form class="form" novalidate><p class="muted">Für <b>' + handle(u) + '</b> (' + esc(u.email) + '). Beim nächsten Anmelden muss ein eigenes Passwort festgelegt werden.</p>' +
+      '<form class="form" novalidate><p class="muted">Für <b>' + handle(u, true) + '</b> (' + esc(u.email) + '). Beim nächsten Anmelden muss ein eigenes Passwort festgelegt werden.</p>' +
       '<label class="vopt"><input type="radio" name="mode" value="random" checked><span><b>🎲 Einmal-Passwort erzeugen</b><small>Zufällig; du siehst es gleich und gibst es weiter.</small></span></label>' +
       '<label class="vopt"><input type="radio" name="mode" value="own"><span><b>✍️ Standardpasswort vergeben</b><small>Ein Passwort deiner Wahl, z. B. dein übliches Reset-Passwort.</small></span></label>' +
       '<label class="own-pw" hidden>Standardpasswort <small class="muted">mindestens 8 Zeichen</small><input name="password" minlength="8" maxlength="72" autocomplete="off"></label>' +
@@ -1131,51 +1207,133 @@
   }
 
 
-  // ---------- Teilen per Link / QR-Code ----------
-  function shareUrl(token) { return location.origin + location.pathname + '?teilen=' + token; }
-  async function shareDialog(st) {
-    var l = st.list, token = null;
-    try { var rows = await Api.get('wl_share_links', 'list_id=eq.' + l.id + '&select=token'); token = rows[0] && rows[0].token; }
-    catch (e) { return FX.toast(errText(e)); }
+  // ---------- Links mit QR-Code (Liste teilen, Freunde einladen) ----------
+  function pageUrl(param, token) { return location.origin + location.pathname + '?' + param + '=' + token; }
+  function qrSvg(url) { var q = qrcode(0, 'M'); q.addData(url); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); }
+  function saveQr(svg, file) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
+    a.download = file; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+  // Gemeinsamer Dialog: Link anlegen, anzeigen (mit QR-Code), kopieren, teilen, speichern, erneuern, abschalten
+  async function linkDialog(cfg) {
+    var token = null;
+    try { token = await cfg.load(); } catch (e) { return FX.toast(errText(e)); }
     function paint() {
-      var url = token && shareUrl(token), qr = '';
-      if (url) { var q = qrcode(0, 'M'); q.addData(url); q.make(); qr = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); }
-      openDlg(dlgHead('Liste teilen') +
-        '<p class="muted">Schick den Link oder zeige den QR-Code. Wer ihn öffnet, sieht <b>ohne Anmeldung nur eine Vorschau</b>. Zum Reservieren meldet man sich an und ist danach bei dir <b>Bekannt</b>: sieht nur diese Liste, nicht deine anderen.</p>' +
-        (url ? '<div class="share-box"><div class="share-qr" aria-label="QR-Code zum Scannen">' + qr + '</div><div class="share-side">' +
-          '<label>Dein Freigabe-Link<input readonly value="' + esc(url) + '" data-sel></label>' +
+      var url = token && cfg.urlOf(token);
+      openDlg(dlgHead(cfg.title) + '<p class="muted">' + cfg.intro + '</p>' +
+        (url ? '<div class="share-box"><div class="share-qr" aria-label="QR-Code zum Scannen">' + qrSvg(url) + '</div><div class="share-side">' +
+          '<label>' + cfg.label + '<input readonly value="' + esc(url) + '" data-sel></label>' +
           '<div class="dlg-actions start"><button type="button" class="btn" data-act="copy">Link kopieren</button>' +
           (navigator.share ? '<button type="button" class="btn ghost" data-act="native">Teilen …</button>' : '') +
           '<button type="button" class="btn ghost" data-act="qr-save">QR speichern</button></div>' +
-          (l.visibility === 'private' ? '<p class="msg err">Die Liste ist noch auf „Nur ich“. Bitte stelle sie unter „Liste bearbeiten“ auf „Alle Freunde“ oder „Ausgewählte“, sonst sehen Gäste nichts.</p>' : '') +
-          '<button type="button" class="link-btn danger-text" data-act="off">Link deaktivieren</button></div></div>'
+          (cfg.extra ? cfg.extra() : '') +
+          '<div class="dlg-actions start">' + (cfg.resetText ? '<button type="button" class="link-btn" data-act="reset">↻ Neuen Link erzeugen</button>' : '') +
+          '<button type="button" class="link-btn danger-text" data-act="off">Link deaktivieren</button></div></div></div>'
           : '<div class="dlg-actions start"><button type="button" class="btn" data-act="on">🔗 Link erstellen</button></div>') +
         '<div class="dlg-actions"><button type="button" class="btn ghost" data-close>Fertig</button></div>', 'wide');
+      // Die Sicherheitsabfrage nutzt denselben Dialog und schliesst ihn; danach den Handler wieder anhaengen
+      dlg.onclick = onClick;
+      dlg.removeEventListener('close', onClose); dlg.addEventListener('close', onClose);
     }
-    paint();
-    dlg.onclick = async function (e) {
-      if (e.target === dlg || e.target.closest('[data-close]')) return dlg.close();
+    // "close" kommt asynchron: ist der Dialog bis dahin schon wieder offen (nach der Abfrage), nichts abbauen
+    function onClose() {
+      if (dlg.open) return;
+      dlg.removeEventListener('close', onClose); if (dlg.onclick === onClick) dlg.onclick = null;
+    }
+    async function onClick(e) {
       var b = e.target.closest('[data-act]'); if (!b) return;
       var act = b.dataset.act;
       try {
         if (act === 'on') {
-          token = await busy(b, function () { return Api.rpc('wl_share_enable', { p_list: l.id }); });
-          if (l.visibility === 'private') l.visibility = 'custom';
-          paint(); render();
+          token = await busy(b, function () { return cfg.enable(false); });
+          paint(); if (cfg.onEnable) cfg.onEnable();
+        } else if (act === 'reset') {
+          if (!(await confirmDlg(cfg.resetText, 'Neuen Link erzeugen'))) return paint();
+          token = await cfg.enable(true); FX.toast('Neuer Link erstellt'); paint();
         } else if (act === 'off') {
-          if (!(await confirmDlg('Der Link und der QR-Code funktionieren danach nicht mehr. Wer die Liste schon freigeschaltet bekam, behält den Zugriff.', 'Deaktivieren'))) return;
-          await Api.rpc('wl_share_disable', { p_list: l.id }); token = null; FX.toast('Link deaktiviert');
-          paint();
-        } else if (act === 'copy') copy(shareUrl(token), 'Link kopiert');
-        else if (act === 'native') navigator.share({ title: l.title, text: 'Meine Wunschliste: ' + l.title, url: shareUrl(token) }).catch(function () {});
-        else if (act === 'qr-save') {
-          var svg = $('.share-qr svg', dlg), a = document.createElement('a');
-          a.href = URL.createObjectURL(new Blob([svg.outerHTML.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')], { type: 'image/svg+xml' }));
-          a.download = 'wunschliste-qr.svg'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
-        }
+          if (!(await confirmDlg(cfg.offText, 'Deaktivieren'))) return paint();
+          await cfg.disable(); token = null; FX.toast('Link deaktiviert'); paint();
+        } else if (act === 'copy') copy(cfg.urlOf(token), 'Link kopiert');
+        else if (act === 'native') navigator.share({ title: cfg.shareTitle, text: cfg.shareText, url: cfg.urlOf(token) }).catch(function () {});
+        else if (act === 'qr-save') saveQr($('.share-qr svg', dlg), cfg.file);
       } catch (err) { FX.toast(errText(err)); }
+    }
+    paint();
+  }
+
+  function shareDialog(st) {
+    var l = st.list;
+    return linkDialog({
+      title: 'Liste teilen', label: 'Dein Freigabe-Link', file: 'wunschliste-qr.svg', shareTitle: l.title, shareText: 'Meine Wunschliste: ' + l.title,
+      intro: 'Schick den Link oder zeige den QR-Code. Wer ihn öffnet, sieht <b>ohne Anmeldung nur eine Vorschau</b>. Zum Reservieren meldet man sich an und ist danach bei dir <b>Bekannt</b>: sieht nur diese Liste, nicht deine anderen.',
+      load: function () { return Api.get('wl_share_links', 'list_id=eq.' + l.id + '&select=token').then(function (rows) { return rows[0] && rows[0].token; }); },
+      enable: function () { return Api.rpc('wl_share_enable', { p_list: l.id }); },
+      disable: function () { return Api.rpc('wl_share_disable', { p_list: l.id }); },
+      urlOf: function (t) { return pageUrl('teilen', t); },
+      extra: function () { return l.visibility === 'private' ? '<p class="msg err">Die Liste ist noch auf „Nur ich“. Bitte stelle sie unter „Liste bearbeiten“ auf „Alle Freunde“ oder „Ausgewählte“, sonst sehen Gäste nichts.</p>' : ''; },
+      onEnable: function () { if (l.visibility === 'private') l.visibility = 'custom'; render(); },
+      offText: 'Der Link und der QR-Code funktionieren danach nicht mehr. Wer die Liste schon freigeschaltet bekam, behält den Zugriff.'
+    });
+  }
+
+  // Persoenlicher Einladungslink: befreunden ohne Code
+  function inviteDialog() {
+    return linkDialog({
+      title: '🤝 Freunde per Link einladen', label: 'Dein Einladungslink', file: 'freundschaft-qr.svg', shareTitle: 'Wunschliste',
+      shareText: me.name + ' lädt dich ein, auf der Wunschliste befreundet zu sein',
+      intro: 'Wer den Link öffnet oder den QR-Code scannt, kann sich mit einem Klick mit dir befreunden, ganz ohne deinen Code. Ihr seid dann <b>Freunde</b> und seht alles, was ihr für „Alle Freunde“ freigebt. <b>Teile ihn nur mit Leuten, die du kennst.</b> Mit „Neuen Link erzeugen“ machst du einen weitergegebenen Link jederzeit ungültig.',
+      load: function () { return Api.get('wl_friend_links', 'select=token').then(function (rows) { return rows[0] && rows[0].token; }); },
+      enable: function (reset) { return Api.rpc('wl_friend_link_enable', { p_reset: !!reset }); },
+      disable: function () { return Api.rpc('wl_friend_link_disable'); },
+      urlOf: function (t) { return pageUrl('einladung', t); },
+      resetText: 'Neuen Link erzeugen? Der bisherige Link und QR-Code funktionieren dann nicht mehr. Bestehende Freundschaften bleiben.',
+      offText: 'Einladungslink deaktivieren? Niemand kann sich dann mehr darüber mit dir befreunden. Bestehende Freundschaften bleiben.'
+    });
+  }
+
+  // Einladung ansehen, ohne angemeldet zu sein: wer lädt ein, darunter Anmelden oder Registrieren
+  async function invitePreview(ctx, token) {
+    app.innerHTML = loading();
+    var d = null;
+    try { d = /^[0-9a-f]{32}$/.test(token) ? await Api.pub('wl_friend_link_preview', { p_token: token }) : null; } catch (e) { d = null; }
+    if (ctx.stale()) return;
+    if (!d) { setTheme(null); app.innerHTML = inviteGone(); return; }
+    setTheme(d.theme);
+    app.innerHTML = '<div class="invite-card panel" data-theme="' + esc(d.theme) + '">' + avatar(d, 'xl') +
+      '<p class="eyebrow">Einladung</p><h1>' + esc(d.name) + ' möchte mit dir befreundet sein</h1>' +
+      '<p class="lead">Melde dich an oder erstelle kostenlos ein Konto. Danach bestätigst du die Freundschaft mit einem Klick.</p></div><div id="authSlot"></div>';
+    $('#authSlot', app).appendChild(authEl);
+    setTab('register');
+  }
+  function inviteGone() {
+    return '<div class="empty big"><span class="e-ico">🔗</span><h2>Diese Einladung ist nicht mehr gültig</h2><p>Der Link wurde erneuert oder abgeschaltet. Frag die Person nach einem neuen Link.</p><a class="btn" href="./">Zur Wunschliste</a></div>';
+  }
+
+  // Einladung angemeldet: erst nach einem Klick befreunden (nur das Oeffnen eines Links befreundet niemanden)
+  async function invitePage(ctx, r) {
+    var d = /^[0-9a-f]{32}$/.test(r.id || '') ? await Api.rpc('wl_friend_link_preview', { p_token: r.id }) : null;
+    if (ctx.stale()) return;
+    setTheme(d ? d.theme : me.theme);
+    if (!d) return view(ctx, inviteGone());
+    var body = d.status === 'self'
+      ? '<h1>Das ist dein eigener Einladungslink</h1><p class="lead">Schick ihn an Leute, mit denen du befreundet sein möchtest, oder zeig ihnen den QR-Code.</p><div class="dlg-actions"><button type="button" class="btn" data-act="invite">Link &amp; QR-Code zeigen</button></div>'
+      : d.status === 'friends'
+        ? '<h1>Ihr seid schon befreundet</h1><p class="lead">Du und ' + esc(d.name) + ' seid bereits Freunde.</p><div class="dlg-actions"><a class="btn" href="./?seite=freund&id=' + esc(d.id) + '">Zum Profil</a></div>'
+        : '<p class="eyebrow">Einladung</p><h1>' + esc(d.name) + ' möchte mit dir befreundet sein</h1><p class="lead">' + (d.status === 'known' ? 'Ihr seid bisher Bekannte. ' : '') +
+          'Als Freunde seht ihr gegenseitig eure Profile und alle Listen, die für „Alle Freunde“ freigegeben sind.</p>' +
+          '<div class="dlg-actions"><a class="btn ghost" href="./">Nicht jetzt</a><button type="button" class="btn" data-act="befriend">🤝 Freunde werden</button></div>';
+    view(ctx, '<div class="invite-card panel" data-theme="' + esc(d.theme) + '">' + avatar(d, 'xl') + body + '</div>');
+    app.onclick = async function (e) {
+      var b = e.target.closest('[data-act]'); if (!b) return;
+      if (b.dataset.act === 'invite') return inviteDialog();
+      if (b.dataset.act === 'befriend') {
+        try {
+          var id = await busy(b, function () { return Api.rpc('wl_friend_link_redeem', { p_token: r.id }); });
+          FX.toast('Ihr seid jetzt befreundet 🎉'); go('./?seite=freund&id=' + id, true);
+        } catch (err) { FX.toast(errText(err)); }
+      }
     };
-    dlg.addEventListener('close', function once() { dlg.removeEventListener('close', once); dlg.onclick = null; });
   }
 
   // Vorschau fuer Abgemeldete: nur lesen, zum Reservieren anmelden
@@ -1217,7 +1375,7 @@
     go('./?liste=' + id, true);
   }
 
-  var VIEWS = { teilen: redeemPage,  home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage };
+  var VIEWS = { teilen: redeemPage, einladung: invitePage, home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage };
 
   // ---------- Startseite fuer Abgemeldete ----------
   var DEMO = [
@@ -1250,7 +1408,7 @@
     var f = e.target, m = $('.msg', f), email = f.email.value.trim(), pw = f.password.value;
     if (!email || !pw) return say(m, 'Bitte E-Mail und Passwort eingeben.', false);
     say(m, 'Anmelden …', true);
-    try { await busy($('[type=submit]', f), function () { return Api.signIn(email, pw); }); f.reset(); say(m, '', true); history.replaceState(null, '', /liste=|seite=|teilen=/.test(location.search) ? location.search : './'); render(); }
+    try { await busy($('[type=submit]', f), function () { return Api.signIn(email, pw); }); f.reset(); say(m, '', true); history.replaceState(null, '', /liste=|seite=|teilen=|einladung=/.test(location.search) ? location.search : './'); render(); }
     catch (err) { say(m, errText(err), false); }
   });
   $('#registerForm').addEventListener('submit', async function (e) {
@@ -1266,7 +1424,7 @@
         await Api.signUp({ name: v.name, email: v.email, password: f.password.value, invite: v.invite });
         await Api.signIn(v.email, f.password.value);
       });
-      f.reset(); say(m, '', true); history.replaceState(null, '', /teilen=/.test(location.search) ? location.search : './'); FX.toast('Willkommen, ' + v.name + '! 🎉'); render();
+      f.reset(); say(m, '', true); history.replaceState(null, '', /teilen=|einladung=/.test(location.search) ? location.search : './'); FX.toast('Willkommen, ' + v.name + '! 🎉'); render();
     } catch (err) {
       if (err.code === 'invite') $('.invite', f).hidden = false;
       say(m, errText(err), false);

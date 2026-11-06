@@ -12,7 +12,7 @@ Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seit
 | `site/assets/fx.css`, `fx.js` | Gemeinsame Effekte aller Seiten: Navigation, Pixel-Partikel im Hintergrund, Scroll-Animationen, rollender Countdown, Toast |
 | `site/assets/skinview3d.*` | skinview3d (MIT-Lizenz) |
 | `server/kubejs/server_scripts/` | KubeJS-Skripte für den Minecraft-Server (z. B. `nicknames.js`: `/nick` für Admins) |
-| `supabase/` | Datenbank-Schema (`whitelist.sql`, `wunschliste.sql`) und Edge Functions |
+| `supabase/` | Datenbank-Schema (`whitelist.sql`, `wunschliste*.sql`) und Edge Functions |
 
 ## Anpassen
 - **Discord:** Der Einladungslink steht in `site/gaming/index.html` (`discordLink`) und in der Fußzeile von `site/index.html`, der Code für die Mitgliederzahlen in `site/gaming/gaming.js` (`DISCORD_INVITE`) und der Support-Link in `site/wunschliste/` (`DISCORD` in `app.js`, Texte in `index.html`).
@@ -46,13 +46,16 @@ Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seit
 Läuft komplett über das Supabase-Projekt `skeison-whitelist`; die Seite selbst bleibt statisch auf GitHub Pages.
 - **Konten:** Supabase Auth. Passwörter liegen nur als Hash bei Supabase, nie im Repo. Registriert wird über die Edge Function `wl-signup` (legt das Konto direkt bestätigt an, es wird keine Mail verschickt).
 - **Nur mit Einladung registrieren:** Im Supabase-Dashboard unter *Edge Functions → Secrets* ein Secret `WL_INVITE_CODE` anlegen. Dann fragt die Registrierung nach diesem Code.
-- **Rechte:** stehen in `supabase/wunschliste.sql` (Row Level Security). Man sieht nur sich selbst und bestätigte Freunde; Listen sind privat, für alle Freunde oder für ausgewählte Gruppen/Personen freigegeben; Rollen, Tags und Gruppen sieht nur, wer sie angelegt hat. Reservierungen laufen nur über Datenbank-Funktionen, der Besitzer einer Liste sieht sie nie (Überraschungsschutz).
+- **Registrierungs-Bremse:** höchstens 5 Konten pro Stunde und IP und insgesamt `WL_SIGNUP_CAP` Konten pro Stunde (Secret, Standard 20).
+- **Rechte:** stehen in `supabase/wunschliste.sql` und den Ergänzungen in dieser Reihenfolge: `wunschliste_sharing.sql`, `wunschliste_profile_suggestions.sql`, `wunschliste_fixes.sql`, `wunschliste_friend_links.sql`, `wunschliste_hide_codes.sql` (Row Level Security). Man sieht nur sich selbst und bestätigte Freunde; Listen sind privat, für alle Freunde oder für ausgewählte Gruppen/Personen freigegeben; Rollen, Tags und Gruppen sieht nur, wer sie angelegt hat. Reservierungen laufen nur über Datenbank-Funktionen, der Besitzer einer Liste sieht sie nie (Überraschungsschutz).
+- **Freundescodes:** Jeder sieht nur seinen eigenen Code (`#ABCDE`), die Codes von Freunden bleiben verborgen, damit niemand sie weitergeben kann. Auf dem Profil eines Freundes stehen dessen Freunde, und man kann ihnen direkt eine Anfrage schicken. Ob man selbst dort auftaucht, stellt jeder im Profil unter „Über Freunde gefunden werden“ ein (Bekannte sehen diese Liste nie).
+- **Freunde per Link oder QR-Code:** Unter *Freunde → Einladungslink & QR-Code* erzeugt jeder einen persönlichen Link (`?einladung=…`). Wer ihn öffnet, sieht ohne Anmeldung nur Name und Avatar und wird erst nach einem Klick auf „Freunde werden“ befreundet. Der Link lässt sich erneuern (der alte gilt dann nicht mehr) oder abschalten; wer entfernt wurde, kommt darüber nicht wieder hinein.
 - **Produktvorschau:** Die Edge Function `wl-link-preview` liest Titel, Bild und Preis aus Produktseiten (Open Graph, JSON-LD). Manche Shops (z. B. Amazon) blocken das zeitweise, dann trägt man die Angaben selbst ein.
 - **Designs:** Polarlicht, Geschenkpapier, Pixel-Inventar (Schriften Press Start 2P und VT323 unter OFL in `site/assets/fonts/`), Concept Store, Magazin. Sie stehen in `site/wunschliste/style.css` unter `[data-theme="…"]`; ein neues Design braucht dort einen Block und einen Eintrag in `THEMES` in `app.js` sowie in den `check`-Bedingungen in `wunschliste.sql`.
 - **Passwort vergessen:** Nutzer melden sich im Discord bei der Rolle @Admin oder bei Skeison. Ein Admin setzt das Passwort auf der Seite unter *Admin* zurück: entweder mit einem zufälligen Einmal-Passwort oder mit einem Standardpasswort. Beim nächsten Anmelden muss der Nutzer ein eigenes Passwort festlegen (Edge Function `wl-account`).
 - **Admin werden:** Erst ganz normal registrieren, dann im Supabase-Dashboard im SQL Editor ausführen (E-Mail anpassen):
   `insert into public.wl_admins select id from auth.users where email = 'deine@mail.de';`
-  Danach erscheint nach dem nächsten Laden der Seite der Menüpunkt *Admin*. Admins sehen alle Konten mit Kennzahlen, setzen Passwörter zurück und können Konten löschen (Admin-Konten nicht).
+  Danach erscheint nach dem nächsten Laden der Seite der Menüpunkt *Admin*. Admins sehen alle Konten mit Kennzahlen, setzen Passwörter zurück und können Konten löschen (Admin-Konten sind davor geschützt).
 
 ## Minecraft-Server: Spitznamen (`/nick`)
 `server/kubejs/server_scripts/nicknames.js` nach `<Serverordner>/kubejs/server_scripts/` kopieren und den Server neu starten (KubeJS ist im Modpack enthalten, die Spieler müssen nichts aktualisieren).

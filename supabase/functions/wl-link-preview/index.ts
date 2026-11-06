@@ -18,11 +18,40 @@ function blockedHost(host: string) {
   return host.includes(':'); // IPv6-Literale gar nicht erst abrufen
 }
 
+// Private oder besondere Adressen (fuer aufgeloeste IPs)
+function privateIp(ip: string) {
+  ip = ip.toLowerCase();
+  const m4 = ip.match(/^(?:::ffff:)?(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (m4) {
+    const [a, b] = [+m4[1], +m4[2]];
+    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
+      || (a === 100 && b >= 64 && b <= 127) || (a === 192 && b === 0) || (a === 198 && (b === 18 || b === 19)) || a >= 224;
+  }
+  return ip === '::' || ip === '::1' || /^f[cd]/.test(ip) || /^fe[89ab]/.test(ip) || ip.startsWith('::ffff:');
+}
+// Auch Namen pruefen, die auf private Adressen zeigen (z. B. 127.0.0.1.nip.io). Gibt es kein DNS-API, bleibt es bei der Namenspruefung.
+async function resolvesPrivate(host: string) {
+  const resolve = (Deno as any).resolveDns as undefined | ((h: string, t: string) => Promise<string[]>);
+  if (typeof resolve !== 'function') return false;
+  const ips = (await Promise.all(['A', 'AAAA'].map((t) => resolve(host, t).catch(() => [] as string[])))).flat();
+  return ips.some(privateIp);
+}
+
+// Zeichensatz aus dem Content-Type-Header oder <meta charset> lesen (viele aeltere Shops nutzen ISO-8859-1)
+function decodeHtml(buf: Uint8Array, contentType: string | null) {
+  let cs = contentType?.match(/charset=["']?([\w-]+)/i)?.[1];
+  if (!cs) {
+    const head = new TextDecoder('latin1').decode(buf.subarray(0, 4096));
+    cs = head.match(/<meta[^>]+charset=["']?([\w-]+)/i)?.[1];
+  }
+  try { return new TextDecoder(cs || 'utf-8').decode(buf); } catch { return new TextDecoder().decode(buf); }
+}
+
 async function fetchPage(start: string) {
   let url = start;
   for (let hop = 0; hop < 5; hop++) {
     const u = new URL(url);
-    if (!/^https?:$/.test(u.protocol) || blockedHost(u.hostname)) throw new Error('blocked');
+    if (!/^https?:$/.test(u.protocol) || blockedHost(u.hostname) || await resolvesPrivate(u.hostname)) throw new Error('blocked');
     const r = await fetch(u, {
       redirect: 'manual',
       signal: AbortSignal.timeout(8000),
@@ -40,7 +69,7 @@ async function fetchPage(start: string) {
     while (size < 1_500_000) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); size += value.length; }
     reader.cancel().catch(() => {});
     const buf = new Uint8Array(size); let o = 0; for (const c of chunks) { buf.set(c.subarray(0, size - o), o); o += c.length; }
-    return { html: new TextDecoder().decode(buf), url };
+    return { html: decodeHtml(buf, r.headers.get('content-type')), url };
   }
   throw new Error('redirects');
 }
@@ -55,7 +84,9 @@ function parsePrice(v: unknown): number | null {
   if (typeof v === 'number') return isFinite(v) ? v : null;
   let s = String(v ?? '').replace(/[^\d.,]/g, '');
   if (!s) return null;
-  if (/,\d{1,2}$/.test(s)) s = s.replace(/\./g, '').replace(',', '.'); else s = s.replace(/,/g, '');
+  // "1.299" = deutscher Tausenderpunkt (Preise mit drei Nachkommastellen gibt es praktisch nicht)
+  if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  else if (/,\d{1,2}$/.test(s)) s = s.replace(/\./g, '').replace(',', '.'); else s = s.replace(/,/g, '');
   const n = parseFloat(s);
   return isFinite(n) && n >= 0 && n < 1e8 ? Math.round(n * 100) / 100 : null;
 }

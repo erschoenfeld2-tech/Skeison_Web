@@ -20,6 +20,10 @@ function tempPassword() {
   const abc = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', bytes = crypto.getRandomValues(new Uint8Array(10));
   return Array.from(bytes, (b) => abc[b % abc.length]).join('');
 }
+async function isAdminId(id: string) {
+  const rows = await admin(`/rest/v1/wl_admins?user_id=eq.${id}&select=user_id`).then((r) => r.json()).catch(() => []);
+  return Array.isArray(rows) && rows.length > 0;
+}
 async function setPassword(id: string, password: string, mustChange: boolean) {
   const r = await admin(`/auth/v1/admin/users/${id}`, { method: 'PUT', body: JSON.stringify({ password }) });
   if (!r.ok) {
@@ -46,11 +50,12 @@ Deno.serve(async (req: Request) => {
     return err ? json({ error: err }, 400) : json({ ok: true });
   }
 
-  const adm = await admin(`/rest/v1/wl_admins?user_id=eq.${me}&select=user_id`).then((r) => r.json()).catch(() => []);
-  if (!Array.isArray(adm) || !adm.length) return json({ error: 'not_admin' }, 403);
+  if (!(await isAdminId(me))) return json({ error: 'not_admin' }, 403);
   if (!isId(b.user_id)) return json({ error: 'bad_request' }, 400);
 
   if (b.action === 'admin-reset') {
+    // Admin-Konten sind geschuetzt: sonst koennte ein Admin das Konto eines anderen uebernehmen
+    if (await isAdminId(b.user_id)) return json({ error: 'is_admin' }, 400);
     if (b.password != null && !valid(b.password)) return json({ error: 'password' }, 400);
     const password = b.password ?? tempPassword();
     const err = await setPassword(b.user_id, password, true);
@@ -58,8 +63,7 @@ Deno.serve(async (req: Request) => {
   }
   if (b.action === 'admin-delete') {
     if (b.user_id === me) return json({ error: 'self' }, 400);
-    const other = await admin(`/rest/v1/wl_admins?user_id=eq.${b.user_id}&select=user_id`).then((r) => r.json()).catch(() => []);
-    if (Array.isArray(other) && other.length) return json({ error: 'is_admin' }, 400);
+    if (await isAdminId(b.user_id)) return json({ error: 'is_admin' }, 400);
     const r = await admin(`/auth/v1/admin/users/${b.user_id}`, { method: 'DELETE' });
     return r.ok ? json({ ok: true }) : json({ error: 'failed' }, 502);
   }
