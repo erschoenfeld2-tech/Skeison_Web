@@ -59,6 +59,8 @@
   var OCCASIONS = ['Geburtstag', 'Weihnachten', 'Hochzeit', 'Ostern', 'Einzug', 'Baby', 'Jubiläum', 'Abschluss', 'Einfach so'];
   var PRIO = { 1: 'Wäre nett', 2: 'Wünsche ich mir', 3: 'Herzenswunsch' };
   var VIS = { private: '🔒 Nur du', friends: '👥 Alle Freunde', custom: '🎯 Ausgewählte' };
+  // Profilspalten, die andere sehen duerfen (der Freundescode gehoert nicht dazu; den eigenen liefert wl_my_code)
+  var PCOLS = 'id,name,avatar,color,theme,discoverable';
 
   // ---------- Helfer ----------
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -70,13 +72,22 @@
     try { return new Intl.NumberFormat('de-DE', { style: 'currency', currency: cur || 'EUR', minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(v); }
     catch (e) { return v + ' ' + cur; }
   }
+  // Betraege je Waehrung addieren und als "120 € + 40 $" anzeigen (nie verschiedene Waehrungen zusammenwerfen)
+  function sumCur(rows, val) { var o = {}; rows.forEach(function (r) { var v = val(r), c = r.currency || 'EUR'; if (v) o[c] = (o[c] || 0) + v; }); return o; }
+  function fmtSums(o) {
+    return Object.keys(o).sort(function (a, b) { return a === 'EUR' ? -1 : b === 'EUR' ? 1 : a < b ? -1 : 1; })
+      .map(function (c) { return money(Math.round(o[c] * 100) / 100, c); }).join(' + ');
+  }
   function host(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
   function today() { var t = new Date(); t.setHours(0, 0, 0, 0); return t; }
   function asDate(s) { return new Date(s + 'T00:00:00'); }
   function daysUntil(s) { return Math.round((asDate(s) - today()) / 86400000); }
   function nextBirthday(s) {
-    var b = asDate(s), t = today(), n = new Date(t.getFullYear(), b.getMonth(), b.getDate());
-    if (n < t) n.setFullYear(t.getFullYear() + 1);
+    var b = asDate(s), t = today();
+    // 29.02. wird in Nicht-Schaltjahren am 28.02. gefeiert (statt automatisch am 1. Maerz)
+    function on(y) { var leap = new Date(y, 1, 29).getMonth() === 1; return new Date(y, b.getMonth(), b.getMonth() === 1 && b.getDate() === 29 && !leap ? 28 : b.getDate()); }
+    var n = on(t.getFullYear());
+    if (n < t) n = on(t.getFullYear() + 1);
     return { date: n, days: Math.round((n - t) / 86400000), age: n.getFullYear() - b.getFullYear() };
   }
   function fmtDate(d, year) { return (typeof d === 'string' ? asDate(d) : d).toLocaleDateString('de-DE', year ? { day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'long' }); }
@@ -89,13 +100,17 @@
     return esc(v);
   }
   function avatar(p, cls) { return '<span class="av ' + (cls || '') + '" style="--c:' + esc(p.color) + '" aria-hidden="true">' + glyph(p.avatar) + '</span>'; }
-  function handle(p) { return esc(p.name) + '<span class="code">#' + esc(p.code) + '</span>'; }
+  // Codes nur fuer das eigene Profil und die Admin-Uebersicht zeigen (withCode); bei Freunden bleiben sie verborgen,
+  // damit niemand sie weitergeben kann
+  function handle(p, withCode) { return esc(p.name) + (withCode && p.code ? '<span class="code">#' + esc(p.code) + '</span>' : ''); }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
   function parsePrice(s) {
     s = String(s || '').replace(/[^\d.,]/g, '');
     if (!s) return null;
-    if (/,\d{1,2}$/.test(s)) s = s.replace(/\./g, '').replace(',', '.'); else s = s.replace(/,/g, '');
-    var n = parseFloat(s); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+    // "1.500" und "1.234.567" sind deutsche Tausenderpunkte, "49,99" ein deutsches Komma, "1,299.00" englisch
+    if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    else if (/,\d{1,2}$/.test(s)) s = s.replace(/\./g, '').replace(',', '.'); else s = s.replace(/,/g, '');
+    var n = parseFloat(s); return isFinite(n) && n >= 0 && n < 1e8 ? Math.round(n * 100) / 100 : null;
   }
   function vals(form) {
     var o = {};
@@ -118,7 +133,7 @@
     received: 'Dieser Wunsch wurde schon erfüllt.', bad_quantity: 'Diese Anzahl ist nicht möglich.', not_authenticated: 'Bitte melde dich erneut an.',
     not_friend: 'Vorschläge können nur Freunde machen, nicht Bekannte.', too_many_sizes: 'Mehr als 12 Größen sind nicht möglich.', too_many: 'Du hast hier schon 10 offene Vorschläge.',
     no_profile: 'Dein Profil wurde nicht gefunden. Bitte melde dich ab und wieder an.',
-    not_admin: 'Dafür brauchst du Admin-Rechte.', self: 'Dein eigenes Konto kannst du hier nicht löschen.', is_admin: 'Admin-Konten können hier nicht gelöscht werden.',
+    not_admin: 'Dafür brauchst du Admin-Rechte.', self: 'Dein eigenes Konto kannst du hier nicht löschen.', is_admin: 'Admin-Konten können hier nicht gelöscht oder zurückgesetzt werden.',
     over_email_send_rate_limit: 'Zu viele Versuche. Bitte später erneut probieren.', same_password: 'Das ist schon dein aktuelles Passwort.'
   };
   function errText(e) {
@@ -218,11 +233,12 @@
     app.setAttribute('data-page', r.page);
     try {
       if (!me) {
-        var rows = await Api.get('wl_profiles', 'id=eq.' + Api.user.id);
-        if (!rows.length) throw Object.assign(new Error('no_profile'), { code: 'no_profile' });
-        me = rows[0];
+        var uid = Api.user.id;
+        var got = await Promise.all([Api.get('wl_profiles', 'id=eq.' + uid + '&select=' + PCOLS + ',must_change_password'), Api.rpc('wl_my_code'),
+          Api.get('wl_admins', 'select=user_id&user_id=eq.' + uid)]);
+        if (!got[0].length) throw Object.assign(new Error('no_profile'), { code: 'no_profile' });
+        me = got[0][0]; me.code = got[1] || ''; isAdmin = got[2].length > 0;
         await loadMyExtras();
-        isAdmin = (await Api.get('wl_admins', 'select=user_id&user_id=eq.' + me.id)).length > 0;
       }
       if (ctx.stale()) return;
       $('#adminLink').hidden = !isAdmin;
@@ -245,7 +261,7 @@
 
   // ---------- Daten ----------
   async function loadFriends() {
-    var res = await Promise.all([Api.get('wl_friendships', 'select=*'), Api.get('wl_profiles', 'id=neq.' + me.id), Api.get('wl_contacts', 'select=*'), Api.get('wl_trust', 'select=person,level'),
+    var res = await Promise.all([Api.get('wl_friendships', 'select=*'), Api.get('wl_profiles', 'id=neq.' + me.id + '&select=' + PCOLS), Api.get('wl_contacts', 'select=*'), Api.get('wl_trust', 'select=person,level'),
       Api.get('wl_profile_private', 'id=neq.' + me.id), Api.get('wl_profile_sizes', 'profile=neq.' + me.id + '&order=sort.asc,created_at.asc')]);
     var byId = {}, cById = {}, lvl = {}, priv = {}, sizes = {}, out = { friends: [], incoming: [], outgoing: [] };
     res[4].forEach(function (x) { priv[x.id] = x; });
@@ -273,10 +289,6 @@
     me.bio = pr.bio || ''; me.birthday = pr.birthday || null; me.likes = pr.likes || ''; me.dislikes = pr.dislikes || ''; me.sizesList = r[1];
   }
   function loadGroups() { return Api.get('wl_groups', 'select=*,wl_group_members(member)&order=created_at'); }
-  async function syncLinks(table, key, id, col, values) {
-    await Api.remove(table, key + '=eq.' + id);
-    if (values.length) await Api.insert(table, values.map(function (v) { var o = {}; o[key] = id; o[col] = v; return o; }));
-  }
 
   // ---------- Bausteine ----------
   function profileCard(p, opt) {
@@ -292,7 +304,7 @@
     return '<article class="pcard2 ' + (opt.big ? 'big' : '') + '" data-theme="' + esc(p.theme) + '">' +
       '<div class="pc-banner"><i></i><i></i></div>' +
       '<div class="pc-main">' + avatar(p, 'xl') +
-      '<div class="pc-name"><h3>' + handle(p) + '</h3>' + (opt.copy ? '<button type="button" class="link-btn" data-act="copy-handle">Code kopieren</button>' : '') + '</div>' +
+      '<div class="pc-name"><h3>' + handle(p, opt.self) + '</h3>' + (opt.copy ? '<button type="button" class="link-btn" data-act="copy-handle">Code kopieren</button>' : '') + '</div>' +
       (p.bio ? '<p class="pc-bio">' + esc(p.bio) + '</p>' : opt.self ? '<p class="pc-bio muted">Noch keine Beschreibung. <a href="./?seite=profil">Profil ausfüllen</a></p>' : '') +
       label + (chips.length ? '<ul class="pc-facts">' + chips.join('') + '</ul>' : '') + '</div></article>';
   }
@@ -417,7 +429,7 @@
   async function home(ctx) {
     var res = await Promise.all([
       Api.get('wl_lists', 'owner=eq.' + me.id + '&select=*,wl_items(count)&order=archived.asc,created_at.desc'),
-      Api.get('wl_lists', 'owner=neq.' + me.id + '&archived=is.false&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,code,avatar,color),wl_items(count)&order=event_date.asc.nullslast,created_at.desc'),
+      Api.get('wl_lists', 'owner=neq.' + me.id + '&archived=is.false&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,avatar,color),wl_items(count)&order=event_date.asc.nullslast,created_at.desc'),
       loadFriends(), Api.rpc('wl_my_reservations')
     ]);
     var mine = res[0], others = res[1], fr = res[2], gifts = res[3];
@@ -465,7 +477,7 @@
   // ---------- Liste ----------
   async function listPage(ctx, r) {
     if (!isId(r.id)) throw Object.assign(new Error('no_access'), { code: 'no_access' });
-    var rows = await Api.get('wl_lists', 'id=eq.' + r.id + '&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,code,avatar,color,theme)');
+    var rows = await Api.get('wl_lists', 'id=eq.' + r.id + '&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,avatar,color,theme)');
     if (!rows.length) throw Object.assign(new Error('no_access'), { code: 'no_access' });
     var st = { list: rows[0], sort: 'prio', f: { q: '', cat: '', prio: '', price: '', only: false }, ctx: ctx };
     st.owner = st.list.owner.id === me.id;
@@ -528,11 +540,11 @@
       if (F.only && (st.owner ? it.received : !isFree(it, st.res[it.id]))) return false;
       return true;
     });
-    var total = items.reduce(function (s, it) { return s + (it.received || it.price == null ? 0 : it.price * it.quantity); }, 0);
+    var total = fmtSums(sumCur(items, function (it) { return it.received || it.price == null ? 0 : it.price * it.quantity; }));
     return { items: items, filtered: filtered, total: total };
   }
   function listCount(st, v) {
-    return (v.filtered ? v.items.length + ' von ' : '') + plural(st.items.length, 'Wunsch', 'Wünsche') + (v.total ? ' · zusammen ca. ' + esc(money(v.total, 'EUR')) : '');
+    return (v.filtered ? v.items.length + ' von ' : '') + plural(st.items.length, 'Wunsch', 'Wünsche') + (v.total ? ' · zusammen ca. ' + esc(v.total) : '');
   }
   function listResults(st, v) {
     var l = st.list;
@@ -609,7 +621,7 @@
     if (act === 'reset-filters') { st.f = { q: '', cat: '', prio: '', price: '', only: false }; return paintList(st, true); }
     try {
       if (act === 'del-item') {
-        if (!(await confirmDlg('„' + it.title + '“ wirklich löschen?', 'Löschen'))) return;
+        if (!(await confirmDlg('„' + it.title + '“ wirklich löschen? Schon bekommen? Dann markiere ihn lieber als „Erhalten“, so wissen alle Schenkenden Bescheid.', 'Löschen'))) return;
         await Api.remove('wl_items', 'id=eq.' + it.id); FX.toast('Wunsch gelöscht');
       } else if (act === 'toggle-received') {
         await busy(b, function () { return Api.update('wl_items', 'id=eq.' + it.id, { received: !it.received }); });
@@ -743,10 +755,10 @@
         var saved = await busy($('[type=submit]', f), async function () {
           var out = l ? await Api.update('wl_lists', 'id=eq.' + l.id, row) : await Api.insert('wl_lists', row);
           var id = out[0].id;
-          // Gruppen gelten nur bei "Ausgewaehlte". Einzelne Personen bleiben sonst erhalten,
+          // In einem Schritt: Gruppen gelten nur bei "Ausgewaehlte". Einzelne Personen bleiben sonst erhalten (null),
           // damit per Link freigeschaltete Gaeste ihren Zugriff behalten (sie stehen dann im Sichtbarkeits-Hinweis).
-          await syncLinks('wl_list_groups', 'list_id', id, 'group_id', row.visibility === 'custom' ? v.groups || [] : []);
-          if (row.visibility === 'custom') await syncLinks('wl_list_people', 'list_id', id, 'person', v.people || []);
+          var custom = row.visibility === 'custom';
+          await Api.rpc('wl_set_list_shares', { p_list: id, p_groups: custom ? v.groups || [] : [], p_people: custom ? v.people || [] : null });
           return out[0];
         });
         dlg.close(); FX.toast(l ? 'Liste gespeichert' : 'Liste angelegt 🎉');
@@ -776,7 +788,7 @@
     }
     function paintGrid() {
       var list = fr.friends.filter(function (p) {
-        var hay = (p.name + ' ' + p.code + ' ' + p.contact.relation + ' ' + (p.contact.tags || []).join(' ')).toLowerCase();
+        var hay = (p.name + ' ' + p.contact.relation + ' ' + (p.contact.tags || []).join(' ')).toLowerCase();
         return (!q || hay.indexOf(q) >= 0) && (!filter || p.contact.relation === filter || (p.contact.tags || []).indexOf(filter) >= 0);
       });
       $('#fgrid').innerHTML = list.length ? list.map(friendCard).join('') : '<p class="muted">Keine Treffer.</p>';
@@ -786,8 +798,8 @@
     view(ctx,
       '<header class="page-head"><p class="eyebrow">Nur Freunde sehen sich gegenseitig</p><h1>Freunde &amp; Gruppen</h1></header>' +
       '<div class="friends-top" data-stagger>' +
-      '<div class="panel handle-box"><p class="eyebrow">Dein Freundescode</p><button type="button" class="handle-big" data-act="copy-handle">' + handle(me) + ' <small>kopieren</small></button>' +
-      '<p class="muted small">Schick ihn Freunden und Familie. Sie geben ihn bei sich ein, du bestätigst die Anfrage, fertig.</p></div>' +
+      '<div class="panel handle-box"><p class="eyebrow">Dein Freundescode</p><button type="button" class="handle-big" data-act="copy-handle">' + handle(me, true) + ' <small>kopieren</small></button>' +
+      '<p class="muted small">Schick ihn Freunden und Familie. Sie geben ihn bei sich ein, du bestätigst die Anfrage, fertig. Die Codes deiner Freunde siehst du nicht, damit niemand sie weitergeben kann.</p></div>' +
       '<form class="panel add-friend" novalidate><label>Freund hinzufügen<span class="url-row"><input name="handle" placeholder="Name#CODE" autocomplete="off" maxlength="40" required><button type="submit" class="btn">Anfrage senden</button></span></label><p class="msg"></p></form>' +
       '</div>' +
       (fr.incoming.length || fr.outgoing.length ? '<section class="requests"><h2>Anfragen</h2><ul class="plist">' +
@@ -885,7 +897,7 @@
         await busy($('[type=submit]', f), async function () {
           var row = { name: v.name, emoji: v.emoji || '👪', color: v.color || '#5b85ff' };
           var out = g ? await Api.update('wl_groups', 'id=eq.' + g.id, row) : await Api.insert('wl_groups', row);
-          await syncLinks('wl_group_members', 'group_id', out[0].id, 'member', v.members || []);
+          await Api.rpc('wl_set_group_members', { p_group: out[0].id, p_members: v.members || [] });
         });
         dlg.close(); FX.toast('Gruppe gespeichert'); render();
       } catch (err) { say(m, errText(err), false); }
@@ -895,10 +907,19 @@
   async function friendPage(ctx, r) {
     if (!isId(r.id)) throw Object.assign(new Error('no_access'), { code: 'no_access' });
     if (r.id === me.id) return go('./?seite=profil', true);
-    var res = await Promise.all([loadFriends(), Api.get('wl_lists', 'owner=eq.' + r.id + '&archived=is.false&select=*,wl_items(count)&order=event_date.asc.nullslast'), loadGroups()]);
+    var res = await Promise.all([loadFriends(), Api.get('wl_lists', 'owner=eq.' + r.id + '&archived=is.false&select=*,wl_items(count)&order=event_date.asc.nullslast'), loadGroups(),
+      // Freunde dieses Freundes (nur wenn er mich als Freund fuehrt und nur, wer das erlaubt); sonst kein Abschnitt
+      Api.rpc('wl_friends_of', { p_via: r.id }).catch(function () { return null; })]);
     var fr = res[0], p = fr.friends.filter(function (x) { return x.id === r.id; })[0];
     if (!p) throw Object.assign(new Error('no_access'), { code: 'no_access' });
-    var groups = res[2];
+    var groups = res[2], fof = res[3] || [];
+    function fofRow(x) {
+      var act = x.status === 'friends' ? '<a class="btn small ghost" href="./?seite=freund&id=' + esc(x.id) + '">Befreundet</a>'
+        : x.status === 'requested' ? '<span class="muted small">Angefragt</span>'
+        : x.status === 'incoming' ? '<button type="button" class="btn small" data-act="fof-accept" data-pid="' + esc(x.id) + '">Anfrage annehmen</button>'
+        : '<button type="button" class="btn small" data-act="fof-req" data-pid="' + esc(x.id) + '">Anfrage senden</button>';
+      return '<li>' + avatar(x, 'sm') + '<span><b>' + esc(x.name) + '</b></span><span class="sp"></span>' + act + '</li>';
+    }
     setTheme(p.theme);
     view(ctx,
       '<p class="back"><a href="./?seite=freunde"><span class="arr">←</span> Freunde</a></p>' +
@@ -918,7 +939,10 @@
       '<button type="button" class="link-btn danger-text" data-act="unfriend">Freundschaft beenden</button></div></div>' +
       '<section><div class="sec-head"><h2>Listen von ' + esc(p.name) + '</h2></div>' +
       (res[1].length ? '<div class="lgrid" data-stagger>' + res[1].map(function (l) { return listCard(l); }).join('') + '</div>'
-        : emptyBox('🎈', 'Keine Listen für dich', esc(p.name) + ' hat (noch) keine Liste für dich freigegeben.')) + '</section>');
+        : emptyBox('🎈', 'Keine Listen für dich', esc(p.name) + ' hat (noch) keine Liste für dich freigegeben.')) + '</section>' +
+      (fof.length ? '<section><div class="sec-head"><h2>Freunde von ' + esc(p.name) + ' <small class="muted">' + fof.length + '</small></h2></div>' +
+        '<p class="muted small">Hier stehen nur Freunde von ' + esc(p.name) + ', die das in ihrem Profil erlauben. Codes bleiben verborgen. Ob du hier bei anderen auftauchst, stellst du in deinem <a href="./?seite=profil">Profil</a> ein.</p>' +
+        '<ul class="plist">' + fof.map(fofRow).join('') + '</ul></section>' : ''));
     app.onchange = async function (e) {
       var gid = e.target.getAttribute('data-group'); if (!gid) return;
       try {
@@ -930,6 +954,15 @@
     app.onclick = async function (e) {
       var b = e.target.closest('[data-act]'); if (!b) return;
       if (b.dataset.act === 'label') labelDialog(p, render);
+      if (b.dataset.act === 'fof-req' || b.dataset.act === 'fof-accept') {
+        try {
+          var out = await busy(b, function () {
+            return b.dataset.act === 'fof-req' ? Api.rpc('wl_request_via', { p_via: p.id, p_other: b.dataset.pid }) : Api.rpc('wl_accept_friend', { p_other: b.dataset.pid }).then(function () { return 'accepted'; });
+          });
+          FX.toast(out === 'accepted' || out === 'already_friends' ? 'Ihr seid jetzt befreundet 🎉' : 'Anfrage gesendet');
+          render();
+        } catch (err) { FX.toast(errText(err)); }
+      }
       if (b.dataset.act === 'level') {
         try { await busy(b, function () { return Api.rpc('wl_set_level', { p_other: p.id, p_level: p.level === 'known' ? 'friend' : 'known' }); }); FX.toast(p.level === 'known' ? p.name + ' ist jetzt Freund ⭐' : p.name + ' ist jetzt Bekannt'); render(); } catch (err) { FX.toast(errText(err)); }
       }
@@ -942,21 +975,30 @@
 
   // ---------- Meine Geschenke ----------
   async function giftsPage(ctx, r, quiet) {
-    var rows = await Api.rpc('wl_my_reservations');
+    var res = await Promise.all([Api.rpc('wl_my_reservations'), Api.get('wl_orphan_gifts', 'order=deleted_at.desc').catch(function () { return []; })]);
+    var rows = res[0], orphans = res[1];
     setTheme(me.theme);
-    var budget = 0, spent = 0, done = 0, groups = {}, order = [];
+    var done = 0, groups = {}, order = [];
+    function cost(g) { return g.price == null || g.group_gift ? 0 : g.price * g.quantity; }
+    var budget = fmtSums(sumCur(rows, cost)) || money(0, 'EUR'), open = fmtSums(sumCur(rows, function (g) { return g.purchased ? 0 : cost(g); })) || money(0, 'EUR');
     rows.forEach(function (g) {
-      var cost = g.price == null || g.group_gift ? 0 : g.price * g.quantity;
-      budget += cost; if (g.purchased) { spent += cost; done++; }
+      if (g.purchased) done++;
       if (!groups[g.list_id]) { groups[g.list_id] = []; order.push(g.list_id); }
       groups[g.list_id].push(g);
     });
+    // Geschenke, die schon gekauft waren, deren Wunsch aber geloescht wurde
+    var orphanBox = orphans.length ? '<section class="gift-group orphans"><div class="gg-head"><span>🗑</span><span><b>Gelöschte Wünsche, die du schon gekauft hast</b> <small>Der Wunsch wurde von der Liste entfernt. Vielleicht kurz nachfragen, ob das Geschenk noch passt.</small></span></div>' +
+      '<ul class="gift-rows">' + orphans.map(function (o) {
+        return '<li data-oid="' + esc(o.id) + '"><span class="thumb">' + placeholder('🎁', o.title) + '</span><span class="gr-main"><b>' + esc(o.title) + '</b><small>' +
+          [o.owner_name ? 'für ' + esc(o.owner_name) : '', o.list_title ? esc(o.list_title) : '', o.quantity > 1 ? o.quantity + '×' : '', 'gelöscht am ' + fmtDate(new Date(o.deleted_at), true)].filter(Boolean).join(' · ') + '</small></span>' +
+          '<span class="gr-price">' + esc(money(o.price, o.currency)) + '</span><button type="button" class="icon-btn" data-act="orphan-ok" aria-label="Hinweis entfernen" title="Erledigt">✓</button></li>';
+      }).join('') + '</ul></section>' : '';
     var pct = rows.length ? Math.round(done / rows.length * 100) : 0;
     view(ctx,
       '<header class="page-head"><p class="eyebrow">Deine Einkaufsliste</p><h1>Meine Geschenke</h1><p class="lead">Alles, was du für andere reserviert hast. Hak ab, was du schon besorgt hast.</p></header>' +
       (rows.length ? '<div class="gift-stats" data-stagger><div class="tile"><b>' + rows.length + '</b><span>reserviert</span></div><div class="tile"><b>' + done + '</b><span>schon gekauft</span></div>' +
-        '<div class="tile"><b>' + esc(money(budget, 'EUR')) + '</b><span>Budget (ohne Gruppengeschenke)</span></div>' +
-        '<div class="tile prog"><span>Fortschritt ' + pct + ' %</span><div class="bar"><i style="width:' + pct + '%"></i></div><small class="muted">' + esc(money(budget - spent, 'EUR')) + ' noch offen</small></div></div>' +
+        '<div class="tile"><b>' + esc(budget) + '</b><span>Budget (ohne Gruppengeschenke)</span></div>' +
+        '<div class="tile prog"><span>Fortschritt ' + pct + ' %</span><div class="bar"><i style="width:' + pct + '%"></i></div><small class="muted">' + esc(open) + ' noch offen</small></div></div>' + orphanBox +
         order.map(function (id) {
           var gs = groups[id], g0 = gs[0], d = g0.event_date ? daysUntil(g0.event_date) : null;
           return '<section class="gift-group"><a class="gg-head" href="./?liste=' + id + '">' + avatar({ avatar: g0.owner_avatar, color: g0.owner_color }, 'sm') +
@@ -971,13 +1013,15 @@
                 '<button type="button" class="icon-btn" data-act="unreserve" aria-label="Reservierung freigeben" title="Freigeben">✕</button></li>';
             }).join('') + '</ul></section>';
         }).join('')
-        : emptyBox('🛍️', 'Noch nichts reserviert', 'Öffne eine Liste deiner Freunde und reserviere einen Wunsch. Dann erscheint er hier.', '<a class="btn" href="./">Zur Übersicht</a>')), quiet);
+        : orphanBox + emptyBox('🛍️', 'Noch nichts reserviert', 'Öffne eine Liste deiner Freunde und reserviere einen Wunsch. Dann erscheint er hier.', '<a class="btn" href="./">Zur Übersicht</a>')), quiet);
     app.onchange = async function (e) {
       if (e.target.getAttribute('data-act') !== 'bought') return;
       var id = e.target.closest('[data-id]').getAttribute('data-id');
       try { await Api.rpc('wl_set_purchased', { p_item: id, p_purchased: e.target.checked }); giftsPage(ctx, r, true); } catch (err) { FX.toast(errText(err)); }
     };
     app.onclick = async function (e) {
+      var ok = e.target.closest('[data-act="orphan-ok"]');
+      if (ok) { try { await Api.remove('wl_orphan_gifts', 'id=eq.' + ok.closest('[data-oid]').getAttribute('data-oid')); giftsPage(ctx, r, true); } catch (err) { FX.toast(errText(err)); } return; }
       var b = e.target.closest('[data-act="unreserve"]'); if (!b) return;
       if (!(await confirmDlg('Reservierung freigeben? Dann können andere diesen Wunsch wieder reservieren.', 'Freigeben'))) return;
       try { await Api.rpc('wl_unreserve', { p_item: b.closest('[data-id]').getAttribute('data-id') }); FX.toast('Freigegeben'); giftsPage(ctx, r, true); } catch (err) { FX.toast(errText(err)); }
@@ -1004,6 +1048,9 @@
       '<label>Über mich<input name="bio" maxlength="160" value="' + esc(me.bio) + '" placeholder="z. B. Kaffee, Bücher und Bergtouren"></label></div>' +
       '<div class="row2"><label>💚 Mag ich<input name="likes" maxlength="200" value="' + esc(me.likes) + '" placeholder="Lieblingsfarbe, Hobbys …"></label>' +
       '<label>🚫 Lieber nicht<input name="dislikes" maxlength="200" value="' + esc(me.dislikes) + '" placeholder="z. B. Deko, Süßes"></label></div></fieldset>' +
+      '<fieldset class="priv-sec"><legend>🤝 Über Freunde gefunden werden</legend>' +
+      '<label class="check"><input type="checkbox" name="discoverable"' + (me.discoverable !== false ? ' checked' : '') + '> Freunde meiner Freunde dürfen mich auf deren Profil sehen und mir eine Anfrage schicken</label>' +
+      '<p class="muted small">Ausgeschaltet findet dich nur, wer deinen Namen mit Code kennt.</p></fieldset>' +
       '<p class="msg"></p><div class="dlg-actions"><button type="submit" class="btn">Profil speichern</button></div></form>' +
       '<aside class="sticky"><p class="eyebrow">Vorschau</p><div id="pcPrev"></div>' +
       '<div class="panel account"><h3>Konto</h3><p class="muted small">Angemeldet als ' + esc(Api.user.email) + '</p>' +
@@ -1034,9 +1081,9 @@
         // Ein Aufruf, eine Transaktion: Profil, Persoenliches und Groessen werden gemeinsam gespeichert oder gar nicht
         var out = await busy($('[type=submit]', f), function () {
           return Api.rpc('wl_save_profile', { p_name: d.name, p_avatar: d.avatar, p_color: d.color, p_theme: d.theme, p_bio: d.bio, p_birthday: d.birthday,
-            p_likes: d.likes, p_dislikes: d.dislikes, p_sizes: d.sizesList.map(function (s) { return { label: s.label, value: s.value }; }) });
+            p_likes: d.likes, p_dislikes: d.dislikes, p_sizes: d.sizesList.map(function (s) { return { label: s.label, value: s.value }; }), p_discoverable: !!d.discoverable });
         });
-        me = Object.assign(me, out, { bio: d.bio, birthday: d.birthday, likes: d.likes, dislikes: d.dislikes, sizesList: d.sizesList }); $('#meLink').innerHTML = avatar(me, 'xs') + '<span>' + esc(me.name) + '</span>';
+        me = Object.assign(me, out, { code: me.code, bio: d.bio, birthday: d.birthday, likes: d.likes, dislikes: d.dislikes, sizesList: d.sizesList }); $('#meLink').innerHTML = avatar(me, 'xs') + '<span>' + esc(me.name) + '</span>';
         say(m, 'Gespeichert ✓', true); FX.toast('Profil gespeichert');
       } catch (err) { say(m, errText(err), false); }
     };
@@ -1097,11 +1144,11 @@
     function when(t) { return t ? new Date(t).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' }) : 'nie'; }
     function row(u) {
       return '<li data-id="' + u.id + '">' + avatar(u, 'sm') +
-        '<span class="au-main"><b>' + handle(u) + (u.is_admin ? ' <span class="tagchip">Admin</span>' : '') + (u.must_change_password ? ' <span class="tagchip warn">muss Passwort ändern</span>' : '') + '</b><small>' + esc(u.email) + '</small></span>' +
+        '<span class="au-main"><b>' + handle(u, true) + (u.is_admin ? ' <span class="tagchip">Admin</span>' : '') + (u.must_change_password ? ' <span class="tagchip warn">muss Passwort ändern</span>' : '') + '</b><small>' + esc(u.email) + '</small></span>' +
         '<span class="au-stats"><small>Seit ' + when(u.created_at) + ' · zuletzt da: ' + when(u.last_sign_in_at) + '</small><small>' +
         [plural(+u.lists, 'Liste', 'Listen'), plural(+u.items, 'Wunsch', 'Wünsche'), plural(+u.friends, 'Freund', 'Freunde'), +u.reservations + ' reserviert'].join(' · ') + '</small></span>' +
-        '<span class="au-act"><button type="button" class="btn small" data-act="reset">🔑 Passwort zurücksetzen</button>' +
-        (u.is_admin ? '' : '<button type="button" class="icon-btn" data-act="delete" aria-label="Konto löschen" title="Konto löschen">🗑</button>') + '</span></li>';
+        '<span class="au-act">' + (u.is_admin ? '<small class="muted">geschützt</small>' : '<button type="button" class="btn small" data-act="reset">🔑 Passwort zurücksetzen</button>' +
+        '<button type="button" class="icon-btn" data-act="delete" aria-label="Konto löschen" title="Konto löschen">🗑</button>') + '</span></li>';
     }
     function paintRows() {
       var list = users.filter(function (u) { return !q || (u.name + '#' + u.code + ' ' + u.email).toLowerCase().indexOf(q) >= 0; });
@@ -1132,7 +1179,7 @@
   }
   function resetDialog(u) {
     openDlg(dlgHead('Passwort zurücksetzen') +
-      '<form class="form" novalidate><p class="muted">Für <b>' + handle(u) + '</b> (' + esc(u.email) + '). Beim nächsten Anmelden muss ein eigenes Passwort festgelegt werden.</p>' +
+      '<form class="form" novalidate><p class="muted">Für <b>' + handle(u, true) + '</b> (' + esc(u.email) + '). Beim nächsten Anmelden muss ein eigenes Passwort festgelegt werden.</p>' +
       '<label class="vopt"><input type="radio" name="mode" value="random" checked><span><b>🎲 Einmal-Passwort erzeugen</b><small>Zufällig; du siehst es gleich und gibst es weiter.</small></span></label>' +
       '<label class="vopt"><input type="radio" name="mode" value="own"><span><b>✍️ Standardpasswort vergeben</b><small>Ein Passwort deiner Wahl, z. B. dein übliches Reset-Passwort.</small></span></label>' +
       '<label class="own-pw" hidden>Standardpasswort <small class="muted">mindestens 8 Zeichen</small><input name="password" minlength="8" maxlength="72" autocomplete="off"></label>' +
