@@ -14,7 +14,14 @@
     { id: 'geschenkpapier', name: 'Geschenkpapier', desc: 'Packpapier, Schleife und Wünsche als Anhänger' },
     { id: 'pixel', name: 'Pixel-Inventar', desc: 'Retro-Pixel wie im Spiel, Herzenswünsche sind verzaubert' },
     { id: 'kaufhaus', name: 'Concept Store', desc: 'Klar und edel wie ein Online-Shop' },
-    { id: 'magazin', name: 'Magazin', desc: 'Große Typo wie im Hochglanz-Katalog' }
+    { id: 'magazin', name: 'Magazin', desc: 'Große Typo wie im Hochglanz-Katalog' },
+    { id: 'weihnacht', name: 'Weihnachten', desc: 'Tannengrün, Rot und Gold mit Lichterkette' },
+    { id: 'ostern', name: 'Ostern', desc: 'Zarte Pastellfarben und bunte Eier' },
+    { id: 'herbst', name: 'Herbst', desc: 'Warme Laubfarben und fallende Blätter' },
+    { id: 'winter', name: 'Verschneiter Winter', desc: 'Eisblau mit leise fallendem Schnee' },
+    { id: 'gold', name: 'Schwarz & Gold', desc: 'Hochwertiges Schwarz mit goldenen Akzenten' },
+    { id: 'sommer', name: 'Sommer', desc: 'Sonne, Himmelblau und sandige Wärme' },
+    { id: 'barbie', name: 'Barbie-Pink', desc: 'Knallig pink, glitzernd und verspielt' }
   ];
   var EMOJIS = '🎁 🎄 🎂 🎉 💍 🍼 🏡 🎓 🐣 ⭐ 🦊 🐻 🐼 🐸 🦄 🐙 🌻 🍀 🌈 🔥 ⚡ 🎮 🎧 📚 🎨 ⚽ 🚲 ✈️ 🍕 ☕ 👾 🧸'.split(' ');
   var GROUP_EMOJIS = '👪 ❤️ 🏠 🎓 💼 ⚽ 🎮 🍻 🌍 ⭐ 👵 🧑‍🤝‍🧑'.split(' ');
