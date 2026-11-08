@@ -75,7 +75,9 @@ wait_for 6-wieder-online "Konto erstellen" 90
 alive 6-wieder-online
 
 adb logcat -d > "$OUT/logcat-release.txt" 2>/dev/null
-if grep -q "FATAL EXCEPTION" "$OUT/logcat-release.txt"; then log "FEHLER  Absturz im Protokoll (logcat-release.txt)"; FAIL=1; fi
+# Nur Abstuerze der App selbst zaehlen (uiautomator stuerzt im Emulator gelegentlich ab)
+crashed() { grep -A3 "FATAL EXCEPTION" "$1" | grep -q "Process: $PKG"; }
+if crashed "$OUT/logcat-release.txt"; then log "FEHLER  Absturz im Protokoll (logcat-release.txt)"; FAIL=1; fi
 
 # 7. Bruecke zur Webseite (Teilen, QR speichern, Zurueck schliesst Dialoge) mit der Debug-Version,
 #    die sich per Chrome-DevTools-Protokoll fernsteuern laesst
@@ -94,7 +96,7 @@ else
   node "$HERE/bridge-test.mjs" 9222 "$OUT" || FAIL=1
 fi
 adb logcat -d > "$OUT/logcat-debug.txt" 2>/dev/null
-if grep -q "FATAL EXCEPTION" "$OUT/logcat-debug.txt"; then log "FEHLER  Absturz im Protokoll (logcat-debug.txt)"; FAIL=1; fi
+if crashed "$OUT/logcat-debug.txt"; then log "FEHLER  Absturz im Protokoll (logcat-debug.txt)"; FAIL=1; fi
 
 rm -f "$OUT"/*.xml
 if [ $FAIL -eq 0 ]; then log "ERGEBNIS: alle Tests bestanden"; else log "ERGEBNIS: mindestens ein Test fehlgeschlagen"; fi
