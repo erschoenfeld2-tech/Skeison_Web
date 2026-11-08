@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Wunschliste als App · Skeison</title>
+<meta name="description" content="Die Wunschliste als App für Android und iPhone: gleiches Konto, immer aktuell.">
+<meta name="theme-color" content="#0b0f1c">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Wunschliste">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="app-page">
+<main class="wrap" id="inhalt">
+  <p class="back"><a href="./"><span class="arr">←</span> Zur Wunschliste</a></p>
+
+  <header class="ap-hero">
+    <img class="ap-icon" src="icons/icon-192.png" width="96" height="96" alt="">
+    <div>
+      <span class="tag">Für dein Handy</span>
+      <h1>Die Wunschliste als App</h1>
+      <p class="lead">Alles wie auf der Webseite, mit demselben Konto. Die App zeigt immer die aktuelle Wunschliste: Was du am Handy änderst, ist sofort auch am Computer da und umgekehrt.</p>
+    </div>
+  </header>
+
+  <div class="ap-grid">
+    <section class="ap-card" data-os="android">
+      <h2>🤖 Android</h2>
+      <p class="ap-you" hidden>Dein Gerät</p>
+      <a class="btn wide" id="apkLink" href="https://github.com/erschoenfeld2-tech/Skeison_Web/releases/download/app-latest/Wunschliste.apk">App herunterladen (APK)</a>
+      <ol>
+        <li>Knopf antippen, die Datei <b>Wunschliste.apk</b> wird geladen.</li>
+        <li>Datei öffnen. Beim ersten Mal fragt Android, ob dein Browser Apps installieren darf: <b>Zulassen</b>.</li>
+        <li><b>Installieren</b> antippen und mit deinem Wunschliste-Konto anmelden.</li>
+      </ol>
+      <details class="help"><summary>Geteilte Links direkt in der App öffnen</summary>
+        <p>Einstellungen › Apps › Wunschliste › <b>Standardmäßig öffnen</b> › „Unterstützte Links öffnen“ einschalten und den Link hinzufügen. Danach landen Wunschlisten-Links aus WhatsApp &amp; Co. sofort in der App.</p>
+      </details>
+      <details class="help"><summary>Updates</summary>
+        <p>Die Wunschliste selbst ist in der App immer aktuell, dafür musst du nichts tun. Gibt es eine neue Version der App, meldet sie sich von selbst.</p>
+      </details>
+    </section>
+
+    <section class="ap-card" data-os="ios">
+      <h2>🍎 iPhone &amp; iPad</h2>
+      <p class="ap-you" hidden>Dein Gerät</p>
+      <ol>
+        <li>Diese Seite in <b>Safari</b> öffnen.</li>
+        <li>Unten auf das Teilen-Symbol <b>⬆︎</b> tippen.</li>
+        <li><b>Zum Home-Bildschirm</b> wählen und <b>Hinzufügen</b> tippen.</li>
+      </ol>
+      <p class="muted small">Die Wunschliste startet dann wie eine App, ohne Adressleiste. Beim ersten Start einmal anmelden.</p>
+    </section>
+
+    <section class="ap-card" data-os="web">
+      <h2>💻 Ohne Download</h2>
+      <p class="ap-you" hidden>Dein Gerät</p>
+      <p>Chrome und Edge können die Wunschliste auch direkt installieren, auf Android wie am Computer.</p>
+      <button type="button" class="btn ghost" id="installBtn" hidden>Jetzt installieren</button>
+      <p class="muted small" id="installHint">Im Browser-Menü <b>⋮</b> auf „App installieren“ oder „Zum Startbildschirm hinzufügen“ tippen.</p>
+    </section>
+  </div>
+
+  <section class="ap-perks">
+    <h2>Was die App zusätzlich kann</h2>
+    <ul>
+      <li>📤 <b>Teilen</b> über WhatsApp, Signal, Mail &amp; Co. mit dem Teilen-Menü des Handys</li>
+      <li>🖼️ <b>QR-Codes</b> landen als Bild in deiner Galerie</li>
+      <li>🔗 <b>Links</b> zu Listen und Einladungen öffnen direkt in der App</li>
+      <li>🔄 <b>Nach unten ziehen</b> lädt neu, und nach einer Pause holt sich die App neue Reservierungen von selbst</li>
+      <li>🌙 <b>Hell und dunkel</b> wie dein Handy, die Statusleiste passt sich dem Design deiner Liste an</li>
+      <li>📡 <b>Ohne Internet</b> sagt sie Bescheid und lädt weiter, sobald du wieder online bist</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="muted">Wunschliste · Skeison</span>
+    <span class="support muted">Fragen oder Probleme? Im <a href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Discord</a> der Rolle <b>@Admin</b> oder Skeison direkt schreiben.</span>
+    <a href="./">← Zur Wunschliste</a>
+  </div>
+</footer>
+<script src="app-install.js"></script>
+</body>
+</html>

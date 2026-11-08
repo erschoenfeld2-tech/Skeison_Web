@@ -1,0 +1,58 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Die Versionsnummer setzt der GitHub-Workflow (fortlaufende Laufnummer), lokal ist sie 1.
+def versionNo = (System.getenv('WL_VERSION_CODE') ?: '1') as int
+// Der Signaturschluessel kommt aus den GitHub-Secrets. Ohne ihn wird mit dem Debug-Schluessel signiert (nur zum Testen).
+def keystore = System.getenv('WL_KEYSTORE')
+
+android {
+    namespace 'de.skeison.wunschliste'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'de.skeison.wunschliste'
+        minSdk 26
+        targetSdk 35
+        versionCode versionNo
+        versionName "1.${versionNo}"
+    }
+
+    buildFeatures { buildConfig true }
+
+    signingConfigs {
+        if (keystore) {
+            release {
+                storeFile file(keystore)
+                storePassword System.getenv('WL_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('WL_KEY_ALIAS') ?: 'wunschliste'
+                keyPassword System.getenv('WL_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystore ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+    implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+}

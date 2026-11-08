@@ -13,6 +13,7 @@ Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seit
 | `site/assets/skinview3d.*` | skinview3d (MIT-Lizenz) |
 | `server/kubejs/server_scripts/` | KubeJS-Skripte für den Minecraft-Server (z. B. `nicknames.js`: `/nick` für Admins) |
 | `supabase/` | Datenbank-Schema (`whitelist.sql`, `wunschliste*.sql`) und Edge Functions |
+| `android-app/` | Wunschliste als Android-App: lädt die Live-Webseite, ergänzt Teilen, QR speichern, Zurück-Taste, Links in der App. Gebaut, getestet und veröffentlicht von `.github/workflows/android-app.yml` (Details in `android-app/README.md`). Installationsseite: `site/wunschliste/app.html` |
 
 ## Anpassen
 - **Discord:** Der Einladungslink steht in `site/gaming/index.html` (`discordLink`) und in der Fußzeile von `site/index.html`, der Code für die Mitgliederzahlen in `site/gaming/gaming.js` (`DISCORD_INVITE`) und der Support-Link in `site/wunschliste/` (`DISCORD` in `app.js`, Texte in `index.html`).
