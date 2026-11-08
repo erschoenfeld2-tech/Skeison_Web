@@ -55,9 +55,12 @@ alive 4-aktualisiert
 
 # 5. Dunkelmodus des Handys
 adb shell cmd uimode night yes
-sleep 6
-wait_for 5-dunkel "Konto erstellen" 45
-alive 5-dunkel
+sleep 6; shot 5-dunkel-umgeschaltet
+alive 5-dunkel-umgeschaltet
+adb shell am force-stop $PKG
+adb shell am start -W -n $PKG/.MainActivity >/dev/null
+wait_for 5-dunkel-start "Konto erstellen" 60
+alive 5-dunkel-start
 adb shell cmd uimode night no
 sleep 4
 

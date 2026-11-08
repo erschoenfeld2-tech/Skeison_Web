@@ -584,6 +584,7 @@ public class MainActivity extends Activity {
         pageReady = true;
         swipe.setRefreshing(false);
         offline.setVisibility(View.VISIBLE);
+        root.setBackgroundColor(Color.rgb(0x0b, 0x0f, 0x1c));   // auch hinter Status- und Navigationsleiste
         setBarIcons(false);
     }
 
