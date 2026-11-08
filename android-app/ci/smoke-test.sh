@@ -84,8 +84,17 @@ if crashed "$OUT/logcat-release.txt"; then log "FEHLER  Absturz im Protokoll (lo
 adb uninstall $PKG >/dev/null 2>&1
 adb install -r "$DEBUG_APK" >/dev/null || { log "FEHLER  Installation Debug-Version"; FAIL=1; }
 adb logcat -c
+# Nach einer Installation startet Android im Emulator gelegentlich Google-Dienste neu und beendet dabei
+# frisch gestartete Apps. Deshalb kurz warten und den Start notfalls einmal wiederholen.
+sleep 10
+BEFORE=$FAIL
 adb shell am start -W -n $PKG/.MainActivity >/dev/null
-wait_for 7-debug-start "Konto erstellen" 90
+if ! wait_for 7-debug-start "Konto erstellen" 60; then
+  FAIL=$BEFORE
+  log "HINWEIS 7-debug-start: zweiter Startversuch"
+  adb shell am start -W -n $PKG/.MainActivity >/dev/null
+  wait_for 7-debug-start-2 "Konto erstellen" 60
+fi
 sleep 3
 APP_PID=$(adb shell pidof $PKG | tr -d '\r')
 SOCK=$(adb shell cat /proc/net/unix | grep -o "webview_devtools_remote_${APP_PID}\b" | head -1)
