@@ -40,6 +40,14 @@ jobs:
         with:
           path: .steam-cache
           key: steam-${{ github.run_id }}
+      # Versionsnummern: haengt den Commit an alle lokalen CSS- und JS-Links (z. B. main.css?v=4dbe144).
+      # GitHub Pages laesst Browser Dateien 10 Minuten zwischenspeichern; ohne Nummer mischten sie nach einem
+      # Update neues HTML mit alten Skripten. Externe Links (http...) bleiben unveraendert.
+      - name: Versionsnummern an CSS und JS
+        run: |
+          v="${GITHUB_SHA::7}"
+          find site -name '*.html' -exec sed -i -E "s#(href|src)=\"([A-Za-z0-9_./-]+\.(css|js))\"#\1=\"\2?v=${v}\"#g" {} +
+          echo "Version ${v}:"; grep -rhoE '(href|src)="[^"]+\?v=[0-9a-f]+"' site --include='*.html' | sort -u | head -20
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
