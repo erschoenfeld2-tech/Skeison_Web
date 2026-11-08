@@ -7,7 +7,7 @@
   var DATA_BASE = 'https://raw.githubusercontent.com/erschoenfeld2-tech/Skeison_Web/data/';
   var DISCORD_INVITE = 'tjVKFGMRw7';
   var $ = function (id) { return document.getElementById(id); };
-  var FX = window.FX || { roll: function (e, v) { e.textContent = v; }, count: function (e, v, f) { e.textContent = (f || String)(v); }, reduced: true };
+  var FX = window.FX || { roll: function (e, v) { e.textContent = v; }, reduced: true };
   var nf = new Intl.NumberFormat('de-DE');
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
   function ext(a, href) { a.href = href; a.target = '_blank'; a.rel = 'noopener'; return a; }
@@ -28,15 +28,25 @@
   var canvas = $('skinCanvas');
   try {
     var v = new skinview3d.SkinViewer({ canvas: canvas, width: 300, height: 400 });
-    v.fov = 40; v.zoom = 0.85; v.autoRotate = !FX.reduced; v.autoRotateSpeed = 0.6;
+    v.fov = 40; v.zoom = 0.85; v.autoRotateSpeed = 0.6;
     v.controls.enablePan = false;
     var ANIMS = { idle: skinview3d.IdleAnimation, wave: skinview3d.WaveAnimation, walk: skinview3d.WalkingAnimation, run: skinview3d.RunningAnimation };
+    // Ruhig bei "Bewegung reduzieren" oder "Animationen pausieren": keine Drehung, keine Bewegung,
+    // bis jemand selbst eine Animation waehlt (dann laeuft sie, das ist gewollt)
+    var chosen = false;
+    var applyStill = function () {
+      var still = FX.reduced || FX.still;
+      v.autoRotate = !still;
+      if (v.animation) v.animation.paused = still && !chosen;
+    };
     var setAnim = function (name) {
       v.animation = new ANIMS[name]();
+      applyStill();
       document.querySelectorAll('#skinAnims .chip').forEach(function (c) { var on = c.getAttribute('data-anim') === name; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
     };
     setAnim('idle');
-    document.querySelectorAll('#skinAnims .chip').forEach(function (c) { c.addEventListener('click', function () { setAnim(c.getAttribute('data-anim')); }); });
+    document.querySelectorAll('#skinAnims .chip').forEach(function (c) { c.addEventListener('click', function () { chosen = true; setAnim(c.getAttribute('data-anim')); }); });
+    document.addEventListener('fx:still', function () { chosen = false; applyStill(); });
     Promise.resolve(v.loadSkin('../skin/skeison.png')).then(function () { canvas.classList.add('ready'); }, function () { canvas.classList.add('ready'); });
     // Rendern pausieren, wenn der Skin nicht im Bild ist (spart Akku)
     // ... und auch, wenn das Fenster im Hintergrund ist (fx:idle aus assets/fx.js)
@@ -79,7 +89,8 @@
     if (s.level != null) st.push(['Level', s.level, String]);
     if (st.length) {
       var dl = $('stStats'); dl.hidden = false;
-      st.forEach(function (p) { var d = el('div'), dd = el('dd'); d.appendChild(el('dt', '', p[0])); d.appendChild(dd); dl.appendChild(d); FX.count(dd, p[1], p[2]); });
+      // Werte sofort zeigen (vorher zaehlten sie beim Laden von 0 hoch und verzoegerten echte Daten)
+      st.forEach(function (p) { var d = el('div'), dd = el('dd', '', p[2](p[1])); d.appendChild(el('dt', '', p[0])); d.appendChild(dd); dl.appendChild(d); });
     }
     if (s.recent && s.recent.length) body.appendChild(gameList('Zuletzt gespielt', s.recent, 'recent'));
     if (s.top && s.top.length) body.appendChild(gameList('Meistgespielt', s.top, 'hours'));
@@ -101,6 +112,6 @@
     on.appendChild(el('i', 'ping pulse')); on.appendChild(onN); on.appendChild(document.createTextNode(' online'));
     all.appendChild(allN); all.appendChild(document.createTextNode(' Mitglieder'));
     box.appendChild(on); box.appendChild(all); box.hidden = false;
-    FX.count(onN, d.approximate_presence_count || 0, nf.format); FX.count(allN, d.approximate_member_count, nf.format);
+    onN.textContent = nf.format(d.approximate_presence_count || 0); allN.textContent = nf.format(d.approximate_member_count);
   }).catch(function () {});
 })();

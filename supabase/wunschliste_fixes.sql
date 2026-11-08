@@ -1,5 +1,5 @@
 -- Wunschliste: Korrekturen zu Teilen, Stufen, Vorschlaegen und Profil (nach dem Review).
--- Zustand der Supabase-Datenbank (Projekt "skeison-whitelist"); zur Dokumentation.
+-- Zustand der Supabase-Datenbank (Projekt "skeison-whitelist"); zur Dokumentation, bereits angewendet.
 -- Alle Aenderungen sind abwaertskompatibel: die bisherige Seite funktioniert damit unveraendert weiter.
 
 -- 1) Wer eine bestaetigte Freundschaft beendet, sperrt die andere Person fuer seine Freigabe-Links.

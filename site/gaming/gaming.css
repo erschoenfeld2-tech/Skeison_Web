@@ -37,10 +37,9 @@
 #stBody { flex: 1; display: flex; flex-direction: column; }
 .games { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
 .game { display: block; text-decoration: none; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; transition: border-color .2s, transform .3s var(--ease); }
-.game:hover { border-color: var(--accent); transform: translateY(-2px); color: var(--text); }
+.game:hover { border-color: var(--accent); color: var(--text); }
 .game .im { overflow: hidden; }
 .game img { display: block; width: 100%; aspect-ratio: 460 / 215; object-fit: cover; background: var(--panel2); transition: transform .6s var(--ease); }
-.game:hover img { transform: scale(1.05); }
 .game div.t { padding: 7px 10px 9px; } .game b { display: block; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .game span { font-size: .78rem; color: var(--muted); }
 .sk-line { height: 12px; margin: 8px 0; }
 .sk-game { aspect-ratio: 460 / 260; border-radius: 8px; }
@@ -53,7 +52,6 @@
 .discord p { margin: 4px 0 0; color: var(--muted); }
 .dc-orb { width: 68px; height: 68px; display: grid; place-items: center; border-radius: 14px; color: #fff; background: var(--discord); box-shadow: inset 0 -4px 0 rgba(0,0,0,.2); }
 .dc-orb svg { width: 38px; height: 38px; transition: transform .4s var(--ease); }
-.discord:hover .dc-orb svg { transform: rotate(-8deg); }
 .dc-stats { display: flex; flex-wrap: wrap; gap: 16px; font-weight: 700; color: var(--text) !important; }
 .dc-stats span { display: inline-flex; align-items: center; gap: 8px; }
 .dc-stats .on { color: var(--ok); } .dc-stats .all { color: var(--muted); }
@@ -69,3 +67,10 @@
   .announce { --ball-o: .08; }
   .cta-row .btn { flex: 1 1 100%; }
 }
+/* Hover-Bewegung nur mit echter Maus (am Handy bliebe sie nach dem Tippen haengen) und ohne "Bewegung reduzieren" */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .game:hover { transform: translateY(-2px); }
+  .game:hover img { transform: scale(1.05); }
+  .discord:hover .dc-orb svg { transform: rotate(-8deg); }
+}
+@media (prefers-reduced-motion: reduce) { .skin canvas { transform: none; } }

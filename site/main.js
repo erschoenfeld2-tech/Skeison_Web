@@ -9,13 +9,14 @@
   // Projekte mit eigener Beschreibung (Repo-Name wie auf GitHub, Gross-/Kleinschreibung egal).
   // Alle weiteren oeffentlichen Repos erscheinen automatisch danach.
   var PROJECTS = [
-    { repo: 'investment-helper', title: 'Kurslot', sub: 'Investment-Helper', chart: 'AAPL',
+    // look: Kachel im eigenen Aussehen des Projekts (home.css, data-look): kl = Kurslot, rb = Raumbuchung, gm = Skeison/Gaming
+    { repo: 'investment-helper', look: 'kl', title: 'Kurslot', sub: 'Investment-Helper', chart: 'AAPL',
       text: 'Aktie, ETF oder Kryptowährung eingeben und eine faktenbasierte Einordnung bekommen: echter Kursverlauf, Erwartung gegen Ist-Zahlen, Schwankungstreiber und wie lange frühere Erholungen gedauert haben. Keine Anlageberatung.',
       tags: ['Kursverlauf', 'Schock & Erholung', 'Bewertung', 'Supabase Edge Function'] },
-    { repo: 'raumbuchungssytem', title: 'Raumbuchungssystem', sub: 'Schulprojekt · Hausmesse Stand 23', more: '#hausmesse',
+    { repo: 'raumbuchungssytem', look: 'rb', title: 'Raumbuchungssystem', sub: 'Schulprojekt · Hausmesse Stand 23', more: '#hausmesse',
       text: 'Räume über einen interaktiven Grundriss buchen und per NFC-Karte am Kartenleser einchecken. Statische Web-App mit Supabase und Row-Level-Security.',
       tags: ['NFC-Check-in', 'Grundriss', 'Supabase', 'Python'] },
-    { repo: 'skeison_web', title: 'Skeison Web', sub: 'Diese Seite', live: false,
+    { repo: 'skeison_web', look: 'gm', title: 'Skeison Web', sub: 'Diese Seite', live: false,
       text: 'Projektübersicht, Wunschliste, Gaming-Profil und Cobblemon Server mit Ranglisten, Whitelist-Bewerbung und Live-Status.',
       tags: ['Vanilla JS', 'GitHub Pages', 'Supabase'] }
   ];
@@ -82,7 +83,8 @@
     return '';
   }
   function projectCard(p, r) {
-    var card = el('article', 'project' + (p.chart ? ' wide' : '')), body = el('div', 'p-body');
+    var card = el('article', 'project' + (p.chart ? ' wide' : '') + (p.look ? ' look' : '')), body = el('div', 'p-body');
+    if (p.look) card.setAttribute('data-look', p.look);
     var code = r ? r.html_url : 'https://github.com/' + GH_USER + '/' + p.repo;
     var head = el('div', 'p-head'), h = el('h3');
     h.appendChild(ext(el('a', '', p.title || (r && r.name)), code)); head.appendChild(h);

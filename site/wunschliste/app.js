@@ -25,6 +25,36 @@
     { id: 'barbie', name: 'Barbie-Pink', desc: 'Knallig pink, glitzernd und verspielt' }
   ];
   var CATEGORIES = ['Technik', 'Mode', 'Schuhe', 'Bücher', 'Spiele', 'Haushalt', 'Küche', 'Deko', 'Beauty', 'Sport', 'Outdoor', 'Hobby', 'Erlebnis', 'Gutschein', 'Spielzeug', 'Schmuck', 'Sonstiges'];
+  // Grobe Vorkategorisierung: Stichwoerter im Titel (auch in zusammengesetzten Woertern wie "Wanderrucksack") und
+  // typische Shops. Reihenfolge = Vorrang bei Gleichstand (z. B. "Laufschuhe" -> Schuhe statt Sport).
+  var CAT_RULES = [
+    ['Gutschein', /gutschein|gift ?card|geschenkkarte|guthabenkarte/, /^$/],
+    ['Erlebnis', /erlebnis|ticket|konzert|eintritt|workshop|kochkurs|reise|urlaub|hotel|wellness|massage|kino|musical|festival|escape|fallschirm|ballonfahrt|freizeitpark|therme/, /jochen-schweizer|mydays|eventim|ticketmaster|booking|airbnb/],
+    ['Schuhe', /schuh|sneaker|stiefel|boots|sandale|pantoffel|slipper|loafer|pumps|crocs|birkenstock/, /^$/],
+    ['Spielzeug', /lego|duplo|playmobil|puppe|plüsch|kuscheltier|spielzeug|holzspiel|ferngesteuert|rc-auto|bauklötze|schleich|barbie|hot wheels|tonie/, /lego\.com|mytoys|smyths|tonies/],
+    ['Spiele', /\bspiel\b|spiele\b|brettspiel|kartenspiel|puzzle|game|ps5|ps4|playstation|xbox|nintendo|switch 2|konsole|controller|gamepad|steam deck/, /steampowered|nintendo|playstation|xbox|spiele-offensive/],
+    ['Bücher', /buch|bücher|roman|book|comic|manga|hörbuch|bildband|thriller|biografie|taschenbuch|hardcover/, /thalia|hugendubel|buecher|weltbild|audible/],
+    ['Schmuck', /schmuck|\bkette\b|halskette|armband|\bring\b|ohrring|anhänger|armreif|brosche|perlen|\buhr\b|armbanduhr/, /pandora|thomas-?sabo|christ\.de|swarovski|purelei/],
+    ['Beauty', /parf[uü]m|duft|creme|lippenstift|make-?up|mascara|nagellack|shampoo|serum|kosmetik|pflege|bodylotion|lidschatten|haartrockner|glätteisen|lockenstab/, /douglas|flaconi|sephora|rossmann|dm\.de|notino/],
+    ['Technik', /kopfhörer|headphone|earbuds|airpods|laptop|notebook|tablet|ipad|iphone|smartphone|handy|kamera|camera|objektiv|monitor|tastatur|\bmaus\b|lautsprecher|speaker|bluetooth|\busb\b|ladegerät|powerbank|smartwatch|fernseher|\btv\b|beamer|drucker|router|\bssd\b|festplatte|grafikkarte|e-?reader|kindle|drohne|apple watch|garmin|echo dot|alexa|webcam|mikrofon/, /mediamarkt|saturn|cyberport|notebooksbilliger|alternate|apple\.com|conrad|galaxus/],
+    ['Küche', /küche|kochtopf|\btopf\b|pfanne|messer|kaffeemaschine|espresso|siebträger|mixer|wasserkocher|toaster|airfryer|heißluftfritteuse|geschirr|tasse|becher|besteck|backform|schneidebrett|thermomix|kitchenaid|gewürz|teekanne|mühle/, /wmf|fissler|kochform/],
+    ['Outdoor', /wander|zelt|schlafsack|rucksack|outdoor|camping|trekking|isomatte|stirnlampe|taschenlampe|kompass|hängematte|campingkocher|trinkflasche/, /globetrotter|bergfreunde|tatonka|deuter|jack-?wolfskin|campz/],
+    ['Sport', /sport|fitness|hantel|kettlebell|yoga|fahrrad|\bbike\b|trikot|fußball|basketball|tennis|schläger|golf|\bski\b|snowboard|helm|protein|laufband|boxhandschuh|klettergurt|skateboard|inliner/, /decathlon|sportscheck|bike-discount|rose-?bikes/],
+    ['Mode', /shirt|hemd|bluse|pullover|pulli|hoodie|jacke|mantel|\bhose\b|jeans|kleid|\brock\b|socken|mütze|\bschal\b|handschuhe|gürtel|handtasche|unterwäsche|\bbh\b|sweatshirt|cardigan|weste|kleidung|bademantel|pyjama|schlafanzug/, /zalando|aboutyou|asos|h&m|hm\.com|zara|uniqlo|snipes|bonprix/],
+    ['Haushalt', /staubsauger|saugroboter|bügeleisen|handtuch|bettwäsche|bettdecke|kopfkissen|aufbewahrung|wäschekorb|putz|reinigung|werkzeug|bohrmaschine|akkuschrauber|luftreiniger|ventilator|heizlüfter/, /ikea|obi\.de|hornbach|bauhaus|toom/],
+    ['Deko', /deko|kerze|vase|poster|bilderrahmen|\bbild\b|pflanze|monstera|lampe|leuchte|lichterkette|teppich|zierkissen|figur|wanduhr|kunstdruck|blumen/, /desenio|juniqe|depot|butlers|westwing/],
+    ['Hobby', /malen|leinwand|pinsel|acrylfarbe|stricken|wolle|nähen|nähmaschine|gitarre|klavier|e-?piano|ukulele|instrument|modellbau|basteln|fotografie|garten|aquarium|teleskop|mikroskop|lötkolben|3d-drucker|angel/, /thomann|gerstaecker|idee-shop/]
+  ];
+  // Liefert die wahrscheinlichste Kategorie fuer Titel und Link oder '' (dann bleibt das Feld leer)
+  function guessCategory(title, url) {
+    var t = String(title || '').toLowerCase(), h = '', best = '', score = 0;
+    try { var u = new URL(url); h = u.hostname.replace(/^www\./, ''); t += ' ' + decodeURIComponent(u.pathname).toLowerCase().replace(/[-_/]+/g, ' '); } catch (e) { /* kein Link */ }
+    CAT_RULES.forEach(function (r) {
+      var sc = (t.match(new RegExp(r[1].source, 'g')) || []).length * 2 + (h && r[2].source !== '^$' && r[2].test(h) ? 3 : 0);
+      if (sc > score) { score = sc; best = r[0]; }
+    });
+    return best;
+  }
   var PRICE_BANDS = [['', 'Jeder Preis'], ['0-25', 'bis 25 €'], ['25-50', '25 – 50 €'], ['50-100', '50 – 100 €'], ['100-250', '100 – 250 €'], ['250-', 'über 250 €'], ['none', 'ohne Preis']];
   var SORTS = [['prio', 'Wichtigste zuerst'], ['value', 'Wichtig & wertvoll zuerst'], ['cheap', 'Preis aufsteigend'], ['pricey', 'Preis absteigend'], ['cat', 'Nach Kategorie'], ['az', 'A – Z'], ['new', 'Neueste zuerst']];
   // Profil-Symbole: Gruppen mit Auswahl; Eintraege mit Varianten (Farben, Hauttoene) klappen nach dem Anklicken eine Auswahl auf
@@ -204,13 +234,11 @@
   window.addEventListener('popstate', render);
   Api.onAuthChange(function () { me = null; isAdmin = false; render(); });
 
-  function view(ctx, html, quiet) {
+  // App-Inhalte erscheinen sofort: Einblenden bei jedem Seitenwechsel hielt Listen und Wuensche zurueck
+  // (data-stagger wird entfernt, damit nichts unsichtbar auf eine Einblendung wartet)
+  function view(ctx, html) {
     if (ctx.stale()) return false;
-    app.innerHTML = quiet ? html.replace(/ data-stagger/g, '') : html;
-    if (!quiet) $$('[data-stagger]', app).forEach(function (c) {
-      Array.prototype.forEach.call(c.children, function (ch, i) { ch.style.setProperty('--i', Math.min(i, 8)); });
-      FX.reveal(c);
-    });
+    app.innerHTML = html.replace(/ data-stagger/g, '');
     return true;
   }
   function loading() { return '<div class="loading"><div class="sk" style="height:180px"></div><div class="grid3"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>'; }
@@ -334,6 +362,7 @@
     else if (o.owner) {
       act = '<button type="button" class="btn small ghost" data-act="edit-item">Bearbeiten</button>' +
         '<button type="button" class="btn small ghost" data-act="toggle-received" title="Als erhalten markieren">' + (it.received ? '↩︎ Doch nicht' : '✓ Erhalten') + '</button>' +
+        '<button type="button" class="icon-btn" data-act="copy-item" aria-label="In eine andere Liste kopieren" title="In eine andere Liste kopieren">⧉</button>' +
         '<button type="button" class="icon-btn" data-act="del-item" aria-label="Wunsch löschen">🗑</button>';
     } else if (it.received) act = '<span class="state done">🎉 Schon erfüllt</span>';
     else if (it.group_gift) {
@@ -360,7 +389,7 @@
       '<div class="wish-meta"><span class="dots" title="' + PRIO[it.priority] + '">' + '●●●'.slice(0, it.priority) + '<i>' + '●●●'.slice(it.priority) + '</i> ' + PRIO[it.priority] + '</span>' +
       (url ? '<a class="shop" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(host(url)) + ' ↗</a>' : '') +
       (it.category ? '<span class="cat-tag">' + esc(it.category) + '</span>' : '') + (it.group_gift ? '<span class="gg-tag">🧩 Gruppengeschenk</span>' : '') + '</div>' +
-      '<div class="wish-act">' + act + '</div></div></article>';
+      '<div class="wish-act">' + act + (o.copy ? '<button type="button" class="icon-btn" data-act="copy-item" aria-label="Auf meine Liste übernehmen" title="Auf meine Liste übernehmen">⧉</button>' : '') + '</div></div></article>';
   }
 
   function themePicker(name, current) {
@@ -549,7 +578,7 @@
   }
   function listResults(st, v) {
     var l = st.list;
-    return v.items.length ? '<div class="wishes" data-stagger>' + v.items.map(function (it) { return wishCard(it, { owner: st.owner, res: st.res[it.id], emoji: l.emoji }); }).join('') + '</div>'
+    return v.items.length ? '<div class="wishes" data-stagger>' + v.items.map(function (it) { return wishCard(it, { owner: st.owner, res: st.res[it.id], emoji: l.emoji, copy: !st.owner }); }).join('') + '</div>'
       : st.items.length ? (v.filtered ? emptyBox('🔎', 'Nichts gefunden', 'Mit diesen Filtern passt gerade kein Wunsch.', '<button type="button" class="btn ghost" data-act="reset-filters">Filter zurücksetzen</button>') : emptyBox('🎉', 'Alles vergeben', 'Mit diesem Filter ist gerade nichts übrig.'))
         : st.owner ? emptyBox('✨', 'Füge deinen ersten Wunsch hinzu', 'Produktlink einfügen genügt: Bild, Titel und Preis werden automatisch übernommen.', '<button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>')
           : emptyBox('🕊️', 'Noch leer', esc(l.owner.name) + ' hat hier noch keine Wünsche eingetragen.');
@@ -568,6 +597,8 @@
     var v = listView(st), F = st.f, filtered = v.filtered;
     var free = st.items.filter(function (it) { return isFree(it, st.res[it.id]); }).length;
     var catCount = {}; st.items.forEach(function (it) { if (it.category) catCount[it.category] = (catCount[it.category] || 0) + 1; });
+    var uncats = st.owner ? st.items.filter(function (it) { return !it.category; }).length : 0;
+    var autoBtn = uncats ? '<button type="button" class="cc auto" data-act="auto-cat" title="Kategorien anhand von Titel und Shop vorschlagen">✨ Kategorien vorschlagen <small>' + uncats + ' ohne</small></button>' : '';
     var cats = Object.keys(catCount).sort(function (x, y) { return x.localeCompare(y, 'de'); });
 
     // Bei "Alle Freunde" zusaetzlich die einzeln Freigeschalteten (z. B. per Link) zeigen, damit nichts unsichtbar bleibt
@@ -599,8 +630,8 @@
         '<label class="check"><input type="checkbox" name="only"' + (F.only ? ' checked' : '') + '> ' + (st.owner ? 'Erhaltene ausblenden' : 'Nur freie Wünsche') + '</label>' +
         '<button type="button" class="link-btn" data-act="reset-filters"' + (filtered ? '' : ' hidden') + '>Filter zurücksetzen</button>' +
         '<span class="sp"></span><span class="muted tb-count">' + listCount(st, v) + '</span></div>' +
-        (cats.length ? '<div class="catchips" role="group" aria-label="Kategorien"><button type="button" class="cc' + (F.cat ? '' : ' on') + '" data-act="cat" data-cat="">Alle</button>' +
-          cats.map(function (c) { return '<button type="button" class="cc' + (F.cat === c ? ' on' : '') + '" data-act="cat" data-cat="' + esc(c) + '">' + esc(c) + ' <small>' + catCount[c] + '</small></button>'; }).join('') + '</div>' : '') : '') +
+        (cats.length || autoBtn ? '<div class="catchips" role="group" aria-label="Kategorien">' + (cats.length ? '<button type="button" class="cc' + (F.cat ? '' : ' on') + '" data-act="cat" data-cat="">Alle</button>' +
+          cats.map(function (c) { return '<button type="button" class="cc' + (F.cat === c ? ' on' : '') + '" data-act="cat" data-cat="' + esc(c) + '">' + esc(c) + ' <small>' + catCount[c] + '</small></button>'; }).join('') : '') + autoBtn + '</div>' : '') : '') +
       '<div id="wishRes">' + listResults(st, v) + '</div>', quiet);
   }
   function isFree(it, res) {
@@ -614,6 +645,8 @@
     var card = b.closest('.wish'), it = card && st.items.filter(function (x) { return x.id === card.getAttribute('data-id'); })[0];
     var act = b.dataset.act;
     if (act === 'add-item') return itemDialog(st, null);
+    if (act === 'copy-item') return copyDialog(st, it);
+    if (act === 'auto-cat') return autoCategorize(st);
     if (act === 'edit-item') return itemDialog(st, it);
     if (act === 'edit-list') return listDialog(st.list);
     if (act === 'share') return shareDialog(st);
@@ -646,6 +679,58 @@
     paintList(st, true);
   }
 
+  // Wunsch in andere Listen kopieren (eigene Listen) oder von einer Freundesliste auf die eigene uebernehmen.
+  // Reservierungen und "erhalten" werden nie mitkopiert; bei fremden Wuenschen auch nicht deren Notiz "Wofuer".
+  async function copyDialog(st, it) {
+    if (!it) return;
+    var lists;
+    try { lists = await Api.get('wl_lists', 'owner=eq.' + me.id + '&select=id,title,emoji,archived&order=archived.asc,created_at.desc'); }
+    catch (e) { return FX.toast(errText(e)); }
+    lists = lists.filter(function (l) { return l.id !== st.list.id; });
+    var foreign = !st.owner;
+    openDlg(dlgHead(foreign ? '⧉ Auf meine Liste übernehmen' : '⧉ Wunsch kopieren') +
+      '<form class="form" novalidate><p class="muted">„' + esc(it.title) + '“ ' + (foreign
+        ? 'kommt als neuer Wunsch auf deine Liste. ' + esc(st.list.owner.name) + ' erfährt davon nichts; die Notiz „Wofür“ wird nicht übernommen.'
+        : 'wird in die gewählten Listen kopiert, mit Bild, Preis, Kategorie und Notiz. Das Original bleibt hier, Reservierungen werden nicht mitkopiert.') + '</p>' +
+      (lists.length ? '<p class="eyebrow">In welche Liste?</p><div class="checks">' + lists.map(function (l) {
+        return '<label class="cchip"><input type="checkbox" name="to" value="' + esc(l.id) + '"><span>' + esc(l.emoji) + ' ' + esc(l.title) + (l.archived ? ' <small>archiviert</small>' : '') + '</span></label>';
+      }).join('') + '</div>' : '<p class="muted">' + (foreign ? 'Du hast noch keine eigene Liste.' : 'Du hast noch keine andere Liste.') + ' Leg auf der <a href="./">Übersicht</a> eine an, dann kannst du hierher kopieren.</p>') +
+      '<p class="msg"></p><div class="dlg-actions"><button type="button" class="btn ghost" data-close>Abbrechen</button>' + (lists.length ? '<button type="submit" class="btn">Kopieren</button>' : '') + '</div></form>', 'small');
+    var f = $('form', dlg);
+    f.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var to = vals(f).to || [], m = $('.msg', f);
+      if (!to.length) return say(m, 'Bitte wähle mindestens eine Liste.', false);
+      var rows = to.map(function (id) {
+        return { list_id: id, title: it.title, url: it.url, image_url: it.image_url, price: it.price, currency: it.currency, note: foreign ? '' : it.note,
+          category: it.category || guessCategory(it.title, it.url), priority: foreign ? 2 : it.priority, quantity: it.quantity, group_gift: it.group_gift };
+      });
+      try {
+        await busy($('[type=submit]', f), function () { return Api.insert('wl_items', rows); }); // ein Aufruf: alle oder keine
+        var names = lists.filter(function (l) { return to.indexOf(l.id) >= 0; }).map(function (l) { return l.title; });
+        dlg.close(); FX.toast('Kopiert nach ' + names.join(', ') + ' ✨');
+      } catch (err) { say(m, errText(err), false); }
+    });
+  }
+
+  // Grobe Vorkategorisierung fuer bestehende Wuensche ohne Kategorie (nur eigene Listen)
+  async function autoCategorize(st) {
+    var todo = st.items.filter(function (it) { return !it.category; }).map(function (it) { return { it: it, cat: guessCategory(it.title, it.url) }; })
+      .filter(function (x) { return x.cat; });
+    var rest = st.items.filter(function (it) { return !it.category; }).length - todo.length;
+    if (!todo.length) return FX.toast('Für die Wünsche ohne Kategorie habe ich keinen passenden Vorschlag gefunden.');
+    var sample = todo.slice(0, 4).map(function (x) { return x.it.title.slice(0, 40) + ' → ' + x.cat; }).join(', ');
+    if (!(await confirmDlg(plural(todo.length, 'Wunsch bekommt', 'Wünsche bekommen') + ' eine Kategorie, z. B. ' + sample + (todo.length > 4 ? ' …' : '') + '.' +
+      (rest ? ' ' + plural(rest, 'Wunsch bleibt', 'Wünsche bleiben') + ' ohne, weil nichts eindeutig passt.' : '') + ' Du kannst alles danach beim Bearbeiten ändern.', 'Übernehmen'))) return;
+    var res = await Promise.all(todo.map(function (x) {
+      return Api.update('wl_items', 'id=eq.' + x.it.id, { category: x.cat }).then(function () { return true; }, function () { return false; });
+    }));
+    var ok = res.filter(Boolean).length;
+    FX.toast(ok === todo.length ? 'Kategorien vergeben ✨' : ok + ' von ' + todo.length + ' Kategorien gespeichert. Bitte später erneut versuchen.');
+    await loadListData(st).catch(function () {});
+    paintList(st, true);
+  }
+
   function itemDialog(st, it, opt) {
     var sug = !!(opt && opt.suggest), x = it || { title: '', url: '', image_url: '', price: null, currency: 'EUR', note: '', category: '', priority: 2, quantity: 1, group_gift: false };
     var catList = CATEGORIES.slice(); st.items.forEach(function (i) { if (i.category && catList.indexOf(i.category) < 0) catList.push(i.category); });
@@ -658,7 +743,7 @@
       '<div class="row2"><label>Preis<input name="price" inputmode="decimal" placeholder="z. B. 49,99" value="' + (x.price != null ? esc(String(x.price).replace('.', ',')) : '') + '"></label>' +
       '<label>Währung<select name="currency">' + ['EUR', 'USD', 'GBP', 'CHF'].map(function (c) { return '<option' + (c === x.currency ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></label></div>' +
       '<label>Bildadresse <small class="muted">wird mit der Vorschau gefüllt</small><input name="image_url" type="url" placeholder="https://…/bild.jpg" value="' + esc(x.image_url || '') + '"></label>' +
-      '<label>Kategorie <small class="muted">zum Filtern und Sortieren</small><input name="category" list="itemCats" maxlength="30" value="' + esc(x.category || '') + '" placeholder="z. B. Technik"></label>' +
+      '<label>Kategorie <small class="muted cat-hint">zum Filtern und Sortieren</small><input name="category" list="itemCats" maxlength="30" value="' + esc(x.category || '') + '" placeholder="z. B. Technik"></label>' +
       '<datalist id="itemCats">' + catList.map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>' +
       (sug ? '' : '<fieldset class="prio-pick"><legend>Wie sehr wünschst du es dir?</legend>' + [1, 2, 3].map(function (p) {
         return '<label><input type="radio" name="priority" value="' + p + '"' + (x.priority === p ? ' checked' : '') + '><span>' + '●●●'.slice(0, p) + ' ' + PRIO[p] + '</span></label>';
@@ -667,7 +752,16 @@
       '<label class="check"><input type="checkbox" name="group_gift"' + (x.group_gift ? ' checked' : '') + '> 🧩 Gruppengeschenk <small class="muted">mehrere legen zusammen</small></label></div>') +
       '</div><div class="item-preview"><p class="eyebrow">Vorschau</p><div class="pv"></div></div></div>' +
       '<p class="msg save-msg"></p><div class="dlg-actions"><button type="button" class="btn ghost" data-close>Abbrechen</button><button type="submit" class="btn">' + (sug ? 'Vorschlag senden' : it ? 'Speichern' : 'Hinzufügen') + '</button></div></form>', 'wide');
-    var f = $('form', dlg), pv = $('.pv', dlg);
+    var f = $('form', dlg), pv = $('.pv', dlg), hint = $('.cat-hint', dlg), autoCat = '';
+    // Kategorie vorschlagen, solange sie leer ist oder nur unser eigener Vorschlag drinsteht (eigene Eingaben bleiben)
+    function suggestCat() {
+      var cur = f.category.value.trim();
+      if (cur && cur !== autoCat) return;
+      var g = guessCategory(f.title.value, f.url.value.trim());
+      if (g === cur) return;
+      f.category.value = autoCat = g;
+      hint.textContent = g ? '✨ automatisch vorgeschlagen, gern ändern' : 'zum Filtern und Sortieren';
+    }
     function data() {
       var v = vals(f);
       return { title: v.title, url: safeUrl(v.url) || null, image_url: /^https:\/\//.test(v.image_url) ? v.image_url : null, price: parsePrice(v.price),
@@ -682,6 +776,7 @@
         var p = await busy(btn, function () { return Api.fn('wl-link-preview', { url: u }); });
         if (p.error) throw Object.assign(new Error(p.error), { code: p.error });
         if (p.title && (!f.title.value || btn)) f.title.value = p.title.slice(0, 120);
+        suggestCat();
         if (p.image) f.image_url.value = p.image;
         if (p.price != null && (!f.price.value || btn)) { f.price.value = String(p.price).replace('.', ','); f.currency.value = ['EUR', 'USD', 'GBP', 'CHF'].indexOf(p.currency) >= 0 ? p.currency : 'EUR'; }
         if (p.description && !f.note.value) f.note.placeholder = p.description.slice(0, 120) + ' …';
@@ -690,7 +785,11 @@
       } catch (err) { say(m, 'Der Shop lässt sich gerade nicht auslesen. Trag die Angaben einfach selbst ein.', false); }
       preview();
     }
-    f.addEventListener('input', preview);
+    f.addEventListener('input', function (e) {
+      if (e.target.name === 'title' || e.target.name === 'url') suggestCat();
+      if (e.target.name === 'category') hint.textContent = 'zum Filtern und Sortieren';
+      preview();
+    });
     f.addEventListener('change', preview);
     f.url.addEventListener('paste', function () { setTimeout(function () { if (safeUrl(f.url.value.trim())) fetchPreview(null); }, 0); });
     $('[data-act="fetch"]', f).addEventListener('click', function (e) { fetchPreview(e.currentTarget); });

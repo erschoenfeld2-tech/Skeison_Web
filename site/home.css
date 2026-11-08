@@ -1,0 +1,184 @@
+/* Hauptseite: ruhiges, sachliches Design. Nur index.html laedt diese Datei (nach main.css), die Unterseiten bleiben unveraendert.
+   Leitlinien: neutrales Anthrazit statt Nachtblau, keine Farbschleier und Leuchtflaechen, eckige Kanten, Haarlinien statt Schatten,
+   eine einzige Akzentfarbe (das Skeison-Gelb der Unterseiten), damit der Wechsel auf Gaming, Cobblemon und Wunschliste nicht bricht. */
+:root {
+  --bg: #0f0f0e; --panel: #161615; --panel2: #1e1e1c; --line: #2c2c29; --text: #ecebe6; --muted: #a09e96;
+  --accent: #ffcb05; --accent2: #d6d4cc; --pink: var(--accent); --on-pink: #141410; --ok: #3ddc84; --bad: #ff6b6b; --shadow: rgba(0,0,0,.5);
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #f5f4f0; --panel: #ffffff; --panel2: #eeede8; --line: #d9d7cf; --text: #151513; --muted: #5d5c56;
+    --accent: #f2bd00; --accent2: #2a2a27; --on-pink: #151513; --ok: #13804a; --bad: #c62f2f; --shadow: rgba(0,0,0,.12); }
+  /* Gelb als Schrift ist auf Hell zu blass: dort dunkles Ocker */
+  .cd b, .srv.soon, .wl-st.res { color: #7a5c00; }
+}
+
+/* Keine Farbschleier im Hintergrund */
+.fx-bg { display: none; }
+
+/* Typografie: kleine Beschriftungen in Monospace, Ueberschriften enger */
+body { font-feature-settings: "ss01", "cv11"; }
+h1, h2, h3 { font-weight: 700; letter-spacing: -.02em; }
+.eyebrow, .tag, .facts dt, .p-sub, .project .meta, .c-note, .chart figcaption, .addon-label, .wl-st, .plan-legend, .cd > div > span, .foot-bottom {
+  font-family: var(--mono); letter-spacing: .04em;
+}
+.eyebrow { color: var(--muted); font-weight: 500; font-size: .78rem; }
+.eyebrow::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 10px; background: var(--accent); vertical-align: .05em; }
+
+/* Links im Text: Textfarbe mit Unterstrich statt Blau */
+a { color: var(--text); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+a:hover { color: var(--text); text-decoration-color: var(--accent); }
+.brand, .btn, .links a, .more-link, .teaser, .addon, .foot-links a, .p-head h3 a { text-decoration: none; }
+
+/* Eckig: keine runden Ecken, keine Unterkanten-Schatten */
+.brand-mark, .skip, .tag, .btn, .links a, .links .nav-cta, .menu-btn, .links, .cd div, .feature, .fair, .wl-demo, .wl-item, .wl-img, .wl-st, .plan,
+.project, .p-tags li, .chart, .teaser, .addon, .face, .card, .ico, .sk, .sk-chart, .loop-pause, .motion-btn, .totop, .toast, :focus-visible { border-radius: 0; }
+.brand-mark, .btn, .cd div, .face { box-shadow: none; }
+.plan rect { rx: 0; }
+.totop svg { display: none; } /* eckiger Knopf ohne Fortschrittsring */
+
+/* Navigation */
+.nav-bar.scrolled { background: color-mix(in srgb, var(--bg) 92%, transparent); }
+.links .nav-cta { color: #141410; }
+
+/* Buttons: gelbe Flaeche oder Haarlinie */
+.btn { font-weight: 700; padding: 12px 20px; }
+.btn.ghost { border-color: var(--line); }
+.btn.ghost:hover { border-color: var(--text); }
+.btn.small { padding: 7px 13px; }
+
+/* Abschnitte: Haarlinie oben statt schwebender Karten mit Schleier */
+.feature, .fair { border: 0; background: none; }
+main#inhalt > section { margin: 0; padding: clamp(48px, 7vw, 88px) 0; border-top: 1px solid var(--line); }
+.intro { padding-bottom: clamp(40px, 6vw, 72px); }
+.intro h1 { font-size: clamp(2.8rem, 8vw, 5rem); letter-spacing: -.04em; }
+.feature h2, .fair h2 { font-size: clamp(1.8rem, 4vw, 2.6rem); }
+
+/* Schilder: Umriss statt Farbflaeche */
+.tag { padding: 3px 8px; font-weight: 600; font-size: .72rem; color: var(--muted); background: none; border: 1px solid var(--line); }
+.tag.pink { color: var(--text); background: none; border-color: var(--accent); }
+
+/* Haken der Wunschliste: schlichtes Quadrat statt rosa Haken-Kachel */
+.checks li { padding-left: 22px; }
+.checks li::before { top: .62em; width: 8px; height: 8px; border-radius: 0; background: var(--accent); }
+
+/* Demo-Grafiken: flach, Haarlinien */
+.wl-demo, .plan { background: var(--panel); box-shadow: none; }
+.wl-item { background: var(--bg); }
+.wl-img { background: var(--panel2); }
+.wl-st.res { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.hall { fill: var(--panel2); }
+
+/* Countdown */
+.cd div { background: var(--panel); }
+.cd b { font-weight: 700; }
+
+/* Projekte ohne eigenes Aussehen (weitere GitHub-Repos): schlicht mit Haarlinie */
+.projects { gap: 16px; }
+.project { border: 1px solid var(--line); background: var(--bg); }
+.project:hover { background: var(--panel); }
+.p-tags li { background: none; }
+.chart { background: var(--panel); }
+
+/* Gaming-Hinweis */
+.teaser { background: var(--panel); }
+.teaser:hover { border-color: var(--text); }
+.addon { border-style: solid; margin-left: 0; }
+.addon:hover { border-color: var(--text); }
+.go, .addon > .arr { color: var(--text); }
+
+/* Fusszeile */
+.foot { margin-top: 0; }
+
+/* =====================================================================================================
+   Projekte im eigenen Aussehen: Der Rahmen der Hauptseite bleibt sachlich, jede Projekt-Kachel ist ein
+   "Fenster" mit den Farben, Formen und Schriften des echten Projekts (Werte von den Live-Seiten uebernommen).
+   .look + data-look: wl Wunschliste, rb Raumbuchungssystem, kl Kurslot, gm Skeison/Gaming, cb Cobblemon
+   ===================================================================================================== */
+.look { --b-mono: inherit; --b-shadow: none; }
+/* Wunschliste, Gaming, Skeison Web: Nachtblau mit Skeison-Gelb (wie wunschliste/ und gaming/) */
+.look[data-look="wl"], .look[data-look="gm"], .look[data-look="cb"] {
+  --b-bg: #0b0f1c; --b-surface: #151b31; --b-raised: #1c2443; --b-line: #2a3460; --b-ink: #eef2ff; --b-muted: #9aa6cb;
+  --b-accent: #ffcb05; --b-btn: #ffcb05; --b-on-btn: #1a1500; --b-link: #8aa6ff; --b-hi: #ffcb05; --b-radius: 14px; --b-btn-radius: 8px;
+  --b-font: system-ui, "Segoe UI", Roboto, sans-serif; --b-shadow: inset 0 -3px 0 rgba(0,0,0,.2);
+  --b-tag: #ffcb05; --b-on-tag: #1a1500;
+}
+.look[data-look="wl"] { --b-tag: #ff5f8f; --b-on-tag: #1f0612; --b-check: #ff5f8f; }
+.look[data-look="cb"] { --b-accent: #ee1515; --b-radius: 12px; }
+/* Raumbuchungssystem: Nachtblau-Violett, Verlauf auf den Knoepfen, Segoe UI (wie die Live-Demo) */
+.look[data-look="rb"] {
+  --b-bg: #0f1117; --b-surface: #1a1d27; --b-raised: #22263a; --b-line: #2e3250; --b-ink: #e8eaf6; --b-muted: #8891b4;
+  --b-accent: #7c3aed; --b-btn: linear-gradient(135deg, #4361ee, #7c3aed); --b-on-btn: #fff; --b-link: #a5b4fc; --b-hi: #a5b4fc;
+  --b-radius: 14px; --b-btn-radius: 8px; --b-font: "Segoe UI", system-ui, sans-serif; --b-tag: #22263a; --b-on-tag: #c7d0ff;
+}
+/* Kurslot: gruenliches Schwarz, Bricolage Grotesque / Instrument Sans / IBM Plex Mono, Indigo-Akzent (wie Kurslot) */
+.look[data-look="kl"] {
+  --b-bg: #101210; --b-surface: #181b17; --b-raised: #1d211c; --b-line: #2a2e27; --b-ink: #e9ebe4; --b-muted: #969c90;
+  --b-accent: #6e88e4; --b-btn: #6e88e4; --b-on-btn: #0d1226; --b-link: #a2b3f0; --b-hi: #a2b3f0; --b-radius: 9px; --b-btn-radius: 9px;
+  --b-font: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif; --b-head: "Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
+  --b-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace; --b-tag: #1d211c; --b-on-tag: #969c90; --b-good: #3e9c60;
+}
+@media (prefers-color-scheme: light) {
+  .look[data-look="wl"], .look[data-look="gm"], .look[data-look="cb"] {
+    --b-bg: #f3f5fc; --b-surface: #ffffff; --b-raised: #eef2ff; --b-line: #d6ddf5; --b-ink: #141a33; --b-muted: #5a6692; --b-link: #2f5cf0; --b-hi: #8a6300; }
+  .look[data-look="wl"] { --b-tag: #c8245a; --b-on-tag: #fff; --b-check: #c8245a; }
+  .look[data-look="kl"] {
+    --b-bg: #f5f5f2; --b-surface: #ffffff; --b-raised: #fafaf7; --b-line: #dcded6; --b-ink: #191c18; --b-muted: #5a6058;
+    --b-btn: #2f55c4; --b-on-btn: #fff; --b-link: #1e3d99; --b-hi: #1e3d99; --b-tag: #eceee7; --b-on-tag: #5a6058; --b-good: #1e7f4a; }
+  /* Das Raumbuchungssystem hat kein helles Design und bleibt dunkel */
+}
+
+/* Gemeinsame Umsetzung: Flaeche, Kante, Schrift, Knoepfe, Schilder des Projekts */
+.look[data-look] { background: var(--b-surface); color: var(--b-ink); border: 1px solid var(--b-line); border-radius: var(--b-radius); font-family: var(--b-font); }
+.look :is(h2, h3) { font-family: var(--b-head, var(--b-font)); color: var(--b-ink); letter-spacing: -.01em; }
+.look :is(.lead, .muted, .p-text, .p-sub, .meta, .facts dt, .plan-legend, .wl-head span, .wl-t small, .c-note, .chart figcaption, .addon-label, .cd > div > span) { color: var(--b-muted); }
+.look :is(.tag, .facts dt, .p-sub, .meta, .c-note, .chart figcaption, .addon-label, .wl-st, .plan-legend, .cd > div > span, .p-tags li) { font-family: var(--b-mono); letter-spacing: .02em; }
+.look a:not(.btn) { color: var(--b-link); text-decoration: none; }
+.look a:not(.btn):hover { color: var(--b-ink); }
+.look .p-head h3 a { color: var(--b-ink); }
+.look .btn { border-radius: var(--b-btn-radius); background: var(--b-btn); color: var(--b-on-btn); border-color: transparent; box-shadow: var(--b-shadow); font-weight: 800; }
+.look .btn:hover { color: var(--b-on-btn); }
+.look .btn.ghost { background: transparent; color: var(--b-ink); border-color: var(--b-line); box-shadow: none; }
+.look .btn.ghost:hover { color: var(--b-ink); border-color: var(--b-accent); }
+.look .tag { border: 0; border-radius: 6px; background: var(--b-tag); color: var(--b-on-tag); font-weight: 800; padding: 4px 10px; }
+.look .p-tags li { border-radius: 6px; background: var(--b-raised); border-color: var(--b-line); color: var(--b-ink); }
+.look .loop-pause { border-radius: var(--b-btn-radius); background: color-mix(in srgb, var(--b-bg) 80%, transparent); border-color: var(--b-line); }
+
+/* Grosse Abschnitte (Wunschliste, Hausmesse) als Fenster mit Innenabstand statt Haarlinie */
+main#inhalt > section.look { margin: clamp(28px, 5vw, 56px) 0; padding: clamp(24px, 4vw, 44px); border: 1px solid var(--b-line); }
+
+/* Wunschliste: Haken-Kacheln und Demo-Liste wie in der App */
+.look[data-look="wl"] .checks li { padding-left: 28px; }
+.look[data-look="wl"] .checks li::before { top: .3em; width: 18px; height: 18px; border-radius: 5px; background: color-mix(in srgb, var(--b-check) 18%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ff5f8f' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E") center / 12px no-repeat; }
+.look[data-look="wl"] .wl-demo { background: var(--b-bg); border: 1px solid var(--b-line); border-radius: 16px; box-shadow: 0 30px 60px -36px rgba(0,0,0,.6); }
+.look[data-look="wl"] .wl-item { background: var(--b-surface); border-color: var(--b-line); border-radius: 12px; }
+.look[data-look="wl"] .wl-img { background: var(--b-raised); border-radius: 10px; }
+.look[data-look="wl"] .wl-st { border-radius: 6px; }
+.look[data-look="wl"] .wl-st.res { color: var(--b-check); background: color-mix(in srgb, var(--b-check) 14%, transparent); }
+
+/* Raumbuchung: Grundriss und Countdown in den Farben der Demo */
+.look[data-look="rb"] .plan { background: var(--b-bg); border: 1px solid var(--b-line); border-radius: 12px; }
+.look[data-look="rb"] .plan rect { rx: 6px; }
+.look[data-look="rb"] .plan rect.plan-wall { rx: 10px; stroke: var(--b-line); }
+.look[data-look="rb"] .hall { fill: var(--b-raised); }
+.look[data-look="rb"] .nfc-dot, .look[data-look="rb"] .lg.nfc { fill: #6d7cf5; background: #6d7cf5; }
+.look[data-look="rb"] .cd div { background: var(--b-raised); border-color: var(--b-line); border-radius: 8px; }
+.look[data-look="rb"] .cd b { color: var(--b-hi); }
+.look[data-look="rb"] .facts dd { color: var(--b-ink); }
+.look[data-look="rb"] .fair .lead b, .look[data-look="rb"] .lead b { color: var(--b-ink); }
+
+/* Kurslot: Diagramm wie in Kurslot */
+.look[data-look="kl"] .chart { background: var(--b-bg); border: 1px solid var(--b-line); border-radius: 9px; }
+.look[data-look="kl"] .chart.up, .look[data-look="kl"] .chart.up .c-ch { color: var(--b-good); }
+.look[data-look="kl"] .c-val b { color: var(--b-ink); font-family: var(--b-mono); }
+
+/* Gaming und Cobblemon: Karten wie auf den Unterseiten */
+.look[data-look="gm"].teaser:hover { border-color: var(--b-accent); }
+.look[data-look="gm"] .go { color: var(--b-accent); }
+.look[data-look="gm"] .face { border-radius: 8px; }
+.look[data-look="cb"].addon { border-style: dashed; margin-top: 10px; }
+.look[data-look="cb"].addon:hover { border-color: var(--b-accent); }
+.look[data-look="cb"] > .arr { color: var(--b-accent); }
+
+/* Projekt-Kacheln im eigenen Aussehen: beim Zeigen Kante in der Projektfarbe */
+.project.look:hover { background: var(--b-surface); border-color: var(--b-accent); }

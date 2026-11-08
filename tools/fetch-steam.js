@@ -79,18 +79,33 @@ async function fromApi() {
 
 const hasData = (s) => s && s.name && ((s.top && s.top.length) || (s.recent && s.recent.length) || s.gameCount);
 const write = (file, s) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(s, null, 1) + '\n'); };
+// Kurzbericht in der Zusammenfassung des GitHub-Actions-Laufs (Actions -> Lauf anklicken), damit der Stand ohne Logs sichtbar ist
+const summary = (lines) => { if (process.env.GITHUB_STEP_SUMMARY) try { fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '### Steam\n' + lines.map(l => '- ' + l).join('\n') + '\n'); } catch (e) { /* nur Hinweis */ } };
+const readCache = () => { try { return JSON.parse(fs.readFileSync(CACHE, 'utf8')); } catch (e) { return null; } };
 
 module.exports = { parse, fromApiJson };
 if (require.main === module) (async () => {
+  const source = KEY ? 'Steam Web API (STEAM_API_KEY gesetzt)' : 'XML-Profilseite ohne Schluessel (wird von Steam oft geblockt)';
   try {
     const s = KEY ? await fromApi() : await fromXml();
-    write(OUT, s);
-    if (hasData(s)) write(CACHE, s);
-    console.log('steam.json geschrieben (' + (KEY ? 'Steam Web API' : 'XML') + ')');
+    if (hasData(s)) {
+      write(OUT, s); write(CACHE, s);
+      console.log('steam.json geschrieben (' + source + ')');
+      summary(['Quelle: ' + source, 'Aktualisiert: ' + s.updated, 'Spiele: ' + (s.gameCount || '–') + ', Level: ' + (s.level != null ? s.level : '–')]);
+      return;
+    }
+    // Profil gefunden, aber keine Spiele: meist sind die Spieldetails privat. Dann lieber den letzten vollen Stand zeigen.
+    const hint = 'Profil gefunden, aber keine Spiele. Steam -> Profil bearbeiten -> Privatsphaere: "Spieldetails" auf Oeffentlich stellen.';
+    console.log(hint);
+    const cached = readCache();
+    write(OUT, hasData(cached) ? cached : s);
+    summary(['Quelle: ' + source, hint, hasData(cached) ? 'Gezeigt wird der Stand vom ' + cached.updated : 'Kein frueherer Stand vorhanden']);
   } catch (e) {
     console.log('Steam-Daten nicht aktualisiert: ' + e.message);
-    let cached = null; try { cached = JSON.parse(fs.readFileSync(CACHE, 'utf8')); } catch (err) {}
+    const cached = readCache();
     if (hasData(cached)) { write(OUT, cached); console.log('Letzten erfolgreichen Stand vom ' + cached.updated + ' verwendet.'); }
-    else console.log('Kein zwischengespeicherter Stand vorhanden.' + (KEY ? '' : ' Tipp: Secret STEAM_API_KEY eintragen (siehe README).'));
+    else console.log('Kein zwischengespeicherter Stand vorhanden.');
+    summary(['Quelle: ' + source, 'Fehler: ' + e.message, hasData(cached) ? 'Gezeigt wird der Stand vom ' + cached.updated : 'Kein frueherer Stand vorhanden',
+      KEY ? 'Schluessel pruefen (steamcommunity.com/dev/apikey)' : 'Abhilfe: Secret STEAM_API_KEY eintragen (README, Abschnitt Steam)']);
   }
 })();
