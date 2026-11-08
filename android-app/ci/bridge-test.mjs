@@ -11,8 +11,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const adb = (cmd) => { try { return execSync(`adb ${cmd}`, { encoding: 'utf8' }); } catch (e) { return ''; } };
 const shot = (name) => { try { writeFileSync(`${out}/${name}.png`, execSync('adb exec-out screencap -p')); } catch (e) {} };
 
-const pages = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-const page = pages.find((p) => p.type === 'page' && p.url.includes('/wunschliste'));
+process.on('uncaughtException', (e) => { log(`FEHLER  7-bruecke: ${e && e.message ? e.message : e}`); process.exit(1); });
+process.on('unhandledRejection', (e) => { log(`FEHLER  7-bruecke: ${e && e.message ? e.message : e}`); process.exit(1); });
+setTimeout(() => { log('FEHLER  7-bruecke: Zeitlimit erreicht'); process.exit(1); }, 120000).unref();
+
+// Die DevTools-Schnittstelle der WebView braucht nach dem Start einen Moment
+let page = null;
+for (let i = 0; i < 30 && !page; i++) {
+  try {
+    const pages = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
+    page = pages.find((p) => p.type === 'page' && p.url.includes('/wunschliste') && p.webSocketDebuggerUrl) || null;
+  } catch (e) { /* noch nicht bereit */ }
+  if (!page) await sleep(1000);
+}
 if (!page) { log('FEHLER  7-bruecke: keine Wunschliste-Seite in der WebView gefunden'); process.exit(1); }
 
 const ws = new WebSocket(page.webSocketDebuggerUrl);
@@ -26,6 +37,7 @@ const run = (expression) => new Promise((res) => {
   ws.send(JSON.stringify({ id: i, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true, userGesture: true } }));
 });
 
+for (let i = 0; i < 20 && (await run('typeof window.__wlApp')) !== 'object'; i++) await sleep(500);
 ok('Bruecke geladen', (await run('typeof window.__wlApp')) === 'object');
 ok('Seite weiss, dass sie in der App laeuft', (await run("document.documentElement.classList.contains('in-app')")) === true);
 ok('App-Kennung im User-Agent', (await run("navigator.userAgent.includes('SkeisonWunschlisteApp/')")) === true);

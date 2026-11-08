@@ -84,7 +84,9 @@ adb install -r "$DEBUG_APK" >/dev/null || { log "FEHLER  Installation Debug-Vers
 adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity >/dev/null
 wait_for 7-debug-start "Konto erstellen" 90
-SOCK=$(adb shell cat /proc/net/unix | grep -o 'webview_devtools_remote_[0-9]*' | head -1)
+sleep 3
+APP_PID=$(adb shell pidof $PKG | tr -d '\r')
+SOCK=$(adb shell cat /proc/net/unix | grep -o "webview_devtools_remote_${APP_PID}\b" | head -1)
 if [ -z "$SOCK" ]; then
   log "FEHLER  7: DevTools-Socket der WebView nicht gefunden"; FAIL=1
 else
