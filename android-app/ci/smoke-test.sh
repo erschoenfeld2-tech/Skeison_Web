@@ -12,12 +12,19 @@ FAIL=0
 log()  { echo "$*" | tee -a "$OUT/ergebnis.txt"; }
 shot() { adb exec-out screencap -p > "$OUT/$1.png" 2>/dev/null; }
 dump() { adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb shell cat /sdcard/ui.xml > "$OUT/$1.xml" 2>/dev/null; }
-# wait_for <name> <text> <sekunden>: wartet, bis der Text auf dem Bildschirm steht (auch Text in der WebView)
+# wait_for <name> <text> <sekunden>: wartet, bis der Text auf dem Bildschirm steht (auch Text in der WebView).
+# Im Emulator starten Google-Dienste gelegentlich neu (nach Installation, Netzwechsel) und Android beendet dabei
+# die App, ohne dass sie abstuerzt. Dann wird sie einmal neu gestartet. Echte Abstuerze findet crashed() unten.
 wait_for() {
-  local end=$((SECONDS + $3))
+  local end=$((SECONDS + $3)) restarted=0
   while [ $SECONDS -lt $end ]; do
     dump "$1"
     if grep -q "$2" "$OUT/$1.xml"; then log "OK      $1: \"$2\" sichtbar"; shot "$1"; return 0; fi
+    if [ $restarted -eq 0 ] && ! adb shell pidof $PKG >/dev/null 2>&1; then
+      restarted=1; end=$((end + 30))
+      log "HINWEIS $1: App vom System beendet (kein Absturz), neuer Start"
+      sleep 5; adb shell am start -W -n $PKG/.MainActivity >/dev/null
+    fi
     sleep 1
   done
   log "FEHLER  $1: \"$2\" nicht gefunden"; shot "$1"; FAIL=1; return 1
@@ -87,14 +94,8 @@ adb logcat -c
 # Nach einer Installation startet Android im Emulator gelegentlich Google-Dienste neu und beendet dabei
 # frisch gestartete Apps. Deshalb kurz warten und den Start notfalls einmal wiederholen.
 sleep 10
-BEFORE=$FAIL
 adb shell am start -W -n $PKG/.MainActivity >/dev/null
-if ! wait_for 7-debug-start "Konto erstellen" 60; then
-  FAIL=$BEFORE
-  log "HINWEIS 7-debug-start: zweiter Startversuch"
-  adb shell am start -W -n $PKG/.MainActivity >/dev/null
-  wait_for 7-debug-start-2 "Konto erstellen" 60
-fi
+wait_for 7-debug-start "Konto erstellen" 90
 sleep 3
 APP_PID=$(adb shell pidof $PKG | tr -d '\r')
 SOCK=$(adb shell cat /proc/net/unix | grep -o "webview_devtools_remote_${APP_PID}\b" | head -1)
