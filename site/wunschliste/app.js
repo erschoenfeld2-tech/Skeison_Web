@@ -234,13 +234,11 @@
   window.addEventListener('popstate', render);
   Api.onAuthChange(function () { me = null; isAdmin = false; render(); });
 
-  function view(ctx, html, quiet) {
+  // App-Inhalte erscheinen sofort: Einblenden bei jedem Seitenwechsel hielt Listen und Wuensche zurueck
+  // (data-stagger wird entfernt, damit nichts unsichtbar auf eine Einblendung wartet)
+  function view(ctx, html) {
     if (ctx.stale()) return false;
-    app.innerHTML = quiet ? html.replace(/ data-stagger/g, '') : html;
-    if (!quiet) $$('[data-stagger]', app).forEach(function (c) {
-      Array.prototype.forEach.call(c.children, function (ch, i) { ch.style.setProperty('--i', Math.min(i, 8)); });
-      FX.reveal(c);
-    });
+    app.innerHTML = html.replace(/ data-stagger/g, '');
     return true;
   }
   function loading() { return '<div class="loading"><div class="sk" style="height:180px"></div><div class="grid3"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>'; }

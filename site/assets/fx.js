@@ -1,5 +1,5 @@
-// Gemeinsame Effekte: Pixel-Partikel im Hintergrund, Navigation, Scroll-Animationen, Countdown-Rolle, Toast.
-// Respektiert "Bewegung reduzieren" im System; ohne JavaScript bleibt alles sichtbar.
+// Gemeinsame Effekte: Pixel-Partikel im Hintergrund, Navigation, Scroll-Animationen, Countdown-Rolle, Toast,
+// Knopf "Animationen pausieren". Respektiert "Bewegung reduzieren" im System; ohne JavaScript bleibt alles sichtbar.
 (function () {
   'use strict';
   var root = document.documentElement;
@@ -19,6 +19,33 @@
   }
   window.addEventListener('blur', setIdle); window.addEventListener('focus', setIdle); document.addEventListener('visibilitychange', setIdle);
   setIdle();
+
+  // "Animationen pausieren" (Knopf in der Navigation, siehe initNav): haelt alle Dauer-Animationen an, auch Partikel
+  // und 3D-Skin (CSS-Klasse "fx-still", Ereignis "fx:still"). Die Wahl gilt fuer alle Seiten und wird gespeichert.
+  var STILL_KEY = 'fx-still';
+  FX.still = false;
+  try { FX.still = localStorage.getItem(STILL_KEY) === '1'; } catch (e) { /* ohne Speicher: Standard "laeuft" */ }
+  root.classList.toggle('fx-still', FX.still);
+  function setStill(on) {
+    FX.still = on; root.classList.toggle('fx-still', on);
+    try { localStorage.setItem(STILL_KEY, on ? '1' : '0'); } catch (e) { /* Wahl gilt dann nur fuer diese Seite */ }
+    each('.motion-btn', function (b) { b.setAttribute('aria-pressed', String(on)); });
+    document.dispatchEvent(new CustomEvent('fx:still', { detail: on }));
+  }
+
+  // Sprungmarken (#abschnitt): Mausklick scrollt sanft, Tastatur springt sofort.
+  // CSS "scroll-behavior: smooth" haette auch den Tastatur-Fokus verzoegert (er landete erst nach ~0,4 s im Bild).
+  // e.detail === 0: per Tastatur ausgeloest. Ziele ohne Element (z. B. #bewerben) laufen normal ueber hashchange.
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button || e.detail === 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || reduced) return;
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a || a.classList.contains('skip')) return;
+    var id = decodeURIComponent(a.getAttribute('href').slice(1)), t = id && document.getElementById(id);
+    if (!t) return;
+    e.preventDefault();
+    t.scrollIntoView({ behavior: 'smooth' });
+    if (location.hash !== '#' + id) history.pushState(null, '', '#' + id);
+  });
 
   // Countdown-Ziffer: alte Zahl rollt nach oben weg, neue rollt von unten herein
   FX.roll = function (el, val) {
@@ -88,22 +115,6 @@
     o.observe(el);
   };
 
-  // Zahl hochzaehlen
-  FX.count = function (el, to, fmt) {
-    fmt = fmt || String;
-    if (reduced) { el.textContent = fmt(to); return; }
-    el.textContent = fmt(0);
-    FX.whenVisible(el, function () {
-      var t0 = null;
-      (function step(t) {
-        if (t0 === null) t0 = t;
-        var p = Math.min((t - t0) / 1600, 1);
-        el.textContent = fmt(Math.round(to * (1 - Math.pow(1 - p, 4))));
-        if (p < 1) requestAnimationFrame(step);
-      })(performance.now());
-    });
-  };
-
   // Kurze Meldung unten
   var toastEl, toastT;
   FX.toast = function (text) {
@@ -148,6 +159,17 @@
     var secs = anchors.map(function (a) { return document.querySelector(a.getAttribute('href')); });
     var active = null, hover = null;
     if (links) Array.prototype.forEach.call(links.children, function (c, i) { c.style.setProperty('--i', i); });
+
+    // Knopf "Animationen pausieren" (WCAG 2.2.2: Dauerbewegung braucht eine Pause); bei "Bewegung reduzieren" per CSS ausgeblendet
+    if (links) {
+      var mb = document.createElement('button');
+      mb.type = 'button'; mb.className = 'motion-btn'; mb.setAttribute('aria-pressed', String(FX.still));
+      mb.setAttribute('aria-label', 'Animationen pausieren'); mb.title = 'Animationen pausieren';
+      mb.innerHTML = '<svg class="i-pause" viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="1" width="3.5" height="12" rx="1"/><rect x="8.5" y="1" width="3.5" height="12" rx="1"/></svg>'
+        + '<svg class="i-play" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9.5-5.5z"/></svg><span class="mb-t" aria-hidden="true">Animationen pausieren</span>';
+      mb.addEventListener('click', function () { setStill(!FX.still); });
+      links.insertBefore(mb, links.querySelector('.nav-cta'));
+    }
 
     function place(a) {
       if (!ind) return;
@@ -236,10 +258,13 @@
     // Zwischen den Bildern schlaeft der Tab (setTimeout), gezeichnet wird synchron zum Bildschirm
     function schedule() { timer = setTimeout(function () { timer = 0; raf = requestAnimationFrame(frame); }, 1000 / FPS); }
     function stop() { clearTimeout(timer); cancelAnimationFrame(raf); timer = raf = 0; }
-    function run() { if (timer || raf || FX.idle) return; last = performance.now(); readColor(); schedule(); }
-    readColor(); size(); run();
-    window.addEventListener('resize', function () { clearTimeout(resizeT); resizeT = setTimeout(size, 150); });
+    function run() { if (timer || raf || FX.idle || FX.still) return; last = performance.now(); readColor(); schedule(); }
+    // Pausiert ("Animationen pausieren"): ein ruhendes Bild statt einer leeren Flaeche
+    function drawStill() { last = performance.now(); frame(last); stop(); }
+    readColor(); size(); if (FX.still) drawStill(); else run();
+    window.addEventListener('resize', function () { clearTimeout(resizeT); resizeT = setTimeout(function () { size(); if (FX.still) drawStill(); }, 150); });
     document.addEventListener('fx:idle', function (e) { if (e.detail) stop(); else run(); });
+    document.addEventListener('fx:still', function (e) { if (e.detail) stop(); else run(); });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

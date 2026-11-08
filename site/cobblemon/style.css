@@ -6,7 +6,7 @@
 :root[data-theme="light"] { --shadow: rgba(20,26,51,.2); --bg: #f2f5ff; --panel: #fff; --panel2: #eef2ff; --line: #d6ddf5; --text: #141a33; --muted: #5a6692; --accent: #d79a00; }
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --shadow: rgba(20,26,51,.2); --bg: #f2f5ff; --panel: #fff; --panel2: #eef2ff; --line: #d6ddf5; --text: #141a33; --muted: #5a6692; --accent: #d79a00; } }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+/* Kein CSS-"smooth": das verzoegerte auch den Tastatur-Fokus. Mausklicks auf Sprungmarken scrollen sanft per fx.js */
 body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, "Segoe UI", Roboto, sans-serif; }
 .skip { position: absolute; left: 16px; top: -60px; z-index: 100; padding: 10px 16px; border-radius: 10px; background: var(--accent); color: #1a1500; transition: top .2s; }
 .skip:focus { top: 12px; }
@@ -24,7 +24,7 @@ section { margin: 84px 0; }
 .pill::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
 .pill { position: relative; }
 .pill.on::before { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
-.pill.on::after { content: ""; position: absolute; left: 14px; top: 50%; width: 9px; height: 9px; margin-top: -4.5px; border-radius: 50%; background: var(--ok); animation: fx-ping 1.8s cubic-bezier(0,0,.2,1) infinite; }
+.pill.on::after { content: ""; position: absolute; left: 14px; top: 50%; width: 9px; height: 9px; margin-top: -4.5px; border-radius: 50%; background: var(--ok); animation: fx-ping 1.8s cubic-bezier(0,0,.2,1) 2; } /* zwei Pulse, dann Ruhe (unter 5 s) */
 .pill.off::before { background: var(--red); }
 .copy { transition: border-color .2s, background-color .3s; cursor: pointer; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 14px; font: inherit; font-family: ui-monospace, Consolas, monospace; font-size: .92rem; }
 .copy small { color: var(--accent); font-family: system-ui, sans-serif; margin-left: 6px; }
@@ -54,6 +54,7 @@ section { margin: 84px 0; }
 .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .rows .row { animation: row-in .45s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 35ms); }
 @keyframes row-in { from { opacity: 0; transform: translateX(-8px); } }
+.rows.still .row { animation: none; } /* Suche: beim Tippen keine Animation (app.js, rowsInto) */
 .row { transition: background-color .2s, transform .3s var(--ease); display: grid; grid-template-columns: 30px 34px 1fr auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,.03); }
 :root[data-theme="light"] .row, :root:not([data-theme="dark"]) .row { background: rgba(20,26,51,.04); }
 .row .rank { font-weight: 800; color: var(--muted); text-align: center; }
@@ -86,7 +87,6 @@ a { color: var(--accent2); font-weight: 600; } a:hover { color: var(--accent); }
 .foot-in { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 520px) { .row { grid-template-columns: 26px 30px 1fr auto; gap: 8px; } }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 .countdown { margin-top: 22px; }
 .cd-label { margin: 0 0 8px; color: var(--muted); font-weight: 600; }
@@ -99,8 +99,7 @@ a { color: var(--accent2); font-weight: 600; } a:hover { color: var(--accent); }
 .btn:hover { color: #1a1500; }
 .btn:hover { filter: brightness(1.08); } .btn:disabled { opacity: .6; cursor: default; }
 .btn.small { padding: 4px 12px; } .btn.ghost { box-shadow: none; background: none; color: var(--text); border-color: var(--line); } .btn.ghost:hover { color: var(--text); border-color: var(--accent); }
-.card { cursor: pointer; transition: border-color .2s, transform .3s var(--ease); } .card:hover { border-color: var(--accent); transform: translateY(-2px); }
-.card:hover .more .arr, .card:hover .more { transform: translateX(3px); }
+.card { cursor: pointer; transition: border-color .2s, transform .3s var(--ease); } .card:hover { border-color: var(--accent); }
 .more { transition: transform .35s var(--ease); margin: 12px 0 0; text-align: right; color: var(--accent); font-weight: 600; font-size: .85rem; }
 .dlg { box-shadow: 0 30px 80px -30px var(--shadow); background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 16px; padding: 22px; width: min(440px, calc(100vw - 32px)); }
 .dlg.wide { width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 48px); }
@@ -139,20 +138,18 @@ body:has(.hero[data-phase="end"]) .fx-bg { color: #c49bff; } body:has(.hero[data
 .ms.next .ms-state { color: #1a1500; background: var(--accent); border-color: var(--accent); }
 .ms-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--line); }
 .ms.nether { border-left-color: #ff6a2b; } .ms.end { border-left-color: #c49bff; } .ms.start { border-left-color: var(--accent2); }
-.ms.done { opacity: .65; } .ms.done .ms-state { color: var(--ok); border-color: var(--ok); }
 @media (max-width: 520px) { .ms { grid-template-columns: auto 1fr; } .ms-state { grid-column: 2; justify-self: start; } .status-row .btn { flex: 1 1 100%; } .hero .ball { --ball-o: .1; } }
 [hidden] { display: none !important; }
 .back { margin: 0 0 18px; font-size: .88rem; }
 .back a { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; text-decoration: none; color: var(--muted); border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 60%, transparent); transition: color .2s, border-color .2s; }
 .back a:hover { color: var(--text); border-color: var(--accent); }
-.back a:hover .arr { transform: translateX(-4px); }
 .empty-box { grid-column: 1 / -1; padding: 18px 20px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
 .empty-box p { margin: 0; }
 
 /* Ranglisten-Kopf: Zeitraum und Statistik-Suche */
 .head-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .pill.unk::before { background: var(--accent); }
-/* Zeitplan: laufender Serverstart */
+/* Zeitplan: erreichte Meilensteine (Serverstart, Nether, End) sind aktiv, deckend mit gruenem Schild */
 .ms.active { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
 .ms.active .ms-state { color: #06210f; background: var(--ok); border-color: var(--ok); }
 /* Wochensieger: "Woche N", Datum per Klick */
@@ -218,9 +215,16 @@ body:has(.hero[data-phase="end"]) .fx-bg { color: #c49bff; } body:has(.hero[data
 .wr-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 12ch; }
 .wr-val { color: var(--accent); font-variant-numeric: tabular-nums; padding: 1px 8px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .wr-go { color: var(--muted); font-size: 1.3rem; line-height: 1; transition: transform .3s var(--ease), color .2s; }
-.win-row:not(:disabled):hover .wr-go { transform: translateX(3px); color: var(--accent); }
+.win-row:not(:disabled):hover .wr-go { color: var(--accent); }
 .dlg.past .seg { display: none; }
 @media (max-width: 520px) { .win-row { grid-template-columns: 30px minmax(0, 1fr) auto 10px; padding: 10px 14px; gap: 8px; } .wr-name { max-width: 8ch; } .win h3 { padding: 0 14px 12px; } }
 .cell.with-head { display: inline-flex; align-items: center; gap: 8px; }
 .st-head { display: inline-flex; } .st-head:empty { display: none; }
 @media (max-width: 520px) { .row .av { width: 28px; height: 28px; } }
+/* Hover-Bewegung nur mit echter Maus (am Handy bliebe sie nach dem Tippen haengen) und ohne "Bewegung reduzieren" */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .card:hover { transform: translateY(-2px); }
+  .card:hover .more .arr, .card:hover .more { transform: translateX(3px); }
+  .back a:hover .arr { transform: translateX(-4px); }
+  .win-row:not(:disabled):hover .wr-go { transform: translateX(3px); }
+}

@@ -44,18 +44,22 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
 
 /* Einblenden beim Scrollen: nur aktiv, wenn JavaScript laeuft (Klasse "fx" auf <html>) */
 .fx [data-reveal]:not(.in), .fx [data-stagger]:not(.in) > * { opacity: 0; }
-.fx [data-reveal].in { animation: fx-rise .7s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
-.fx [data-stagger].in > * { animation: fx-rise .7s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
+/* Kurz und dezent (250 ms, 8 px, 40 ms Staffelung): vorher 0,7 s und 70 ms, ein Abschnitt brauchte bis 1,3 s */
+.fx [data-reveal].in { animation: fx-rise .25s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+.fx [data-stagger].in > * { animation: fx-rise .25s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
 .fx [data-stagger].in > .ball, .fx [data-stagger]:not(.in) > .ball { animation: fx-spin 160s steps(640) infinite; opacity: var(--ball-o, .14); }
 .fx [data-reveal].in.now, .fx [data-stagger].in.now > * { animation: none; } /* per Tastatur erreicht: sofort sichtbar */
-@keyframes fx-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes fx-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* Buttons */
 .btn { transition: transform .2s var(--ease), filter .2s, background-color .2s, border-color .2s; }
 .btn:not(.ghost):hover { filter: brightness(1.06); }
 .btn:active { transform: translateY(1px); }
 .arr { display: inline-block; transition: transform .3s var(--ease); }
-a:hover .arr, button:hover .arr, .card:hover .arr { transform: translateX(3px); }
+/* Pfeil-Bewegung nur mit echter Maus (am Handy bliebe sie nach dem Tippen haengen) */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  a:hover .arr, button:hover .arr, .card:hover .arr { transform: translateX(3px); }
+}
 
 /* Pulsierender Punkt, nur fuer echten Live-Status */
 .ping { position: relative; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
@@ -104,11 +108,28 @@ a:hover .arr, button:hover .arr, .card:hover .arr { transform: translateX(3px); 
 .ball { position: absolute; z-index: -1; pointer-events: none; color: var(--accent); will-change: transform; animation: fx-spin 160s steps(640) infinite; }
 @keyframes fx-spin { to { transform: rotate(360deg); } }
 
-/* Fenster im Hintergrund: alle Animationen anhalten (siehe fx.js, setIdle) */
-.fx-idle *, .fx-idle *::before, .fx-idle *::after { animation-play-state: paused !important; }
-/* Einmalige Einblendungen und Countdown-Ziffern laufen trotzdem zu Ende: Ein sichtbares, aber nicht aktives Fenster
-   (unter Windows per Mausrad scrollbar) zeigte sonst neu erreichte Abschnitte dauerhaft mit Deckkraft 0 */
-.fx-idle [data-reveal].in, .fx-idle [data-stagger].in > *, .fx-idle .cd b > span { animation-play-state: running !important; }
+/* Fenster im Hintergrund (fx-idle, siehe fx.js setIdle) oder Knopf "Animationen pausieren" (fx-still, siehe fx.js setStill):
+   alle Dauer-Animationen anhalten */
+.fx-idle *, .fx-idle *::before, .fx-idle *::after,
+.fx-still *, .fx-still *::before, .fx-still *::after { animation-play-state: paused !important; }
+/* Einmalige Animationen laufen trotzdem zu Ende, sonst blieben sie bei Deckkraft 0 stehen: Einblendungen, Countdown-Ziffern,
+   Ranglisten-Zeilen und Dialoge (z. B. in einem sichtbaren, aber nicht aktiven Fenster, unter Windows per Mausrad scrollbar) */
+:is(.fx-idle, .fx-still) :is([data-reveal].in, [data-stagger].in > :not(.ball), .cd b > span, .rows .row, .dlg),
+:is(.fx-idle, .fx-still) .dlg::backdrop { animation-play-state: running !important; }
+
+/* Knopf "Animationen pausieren" in der Navigation aller Seiten (fx.js, setStill); die Wahl wird gespeichert */
+.motion-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; margin-left: 4px; padding: 0; cursor: pointer; border-radius: 8px;
+  border: 1px solid transparent; background: none; color: var(--muted); font: inherit; font-weight: 600; transition: color .2s, border-color .2s; }
+.motion-btn:hover { color: var(--text); border-color: var(--line); }
+.motion-btn[aria-pressed="true"] { color: var(--accent); }
+.motion-btn svg { width: 14px; height: 14px; fill: currentColor; flex: none; }
+.motion-btn .mb-t { display: none; }
+.motion-btn .i-play, .motion-btn[aria-pressed="true"] .i-pause { display: none; }
+.motion-btn[aria-pressed="true"] .i-play { display: block; }
+@media (max-width: 760px) {
+  .motion-btn { display: flex; justify-content: flex-start; align-items: center; gap: 10px; width: auto; height: auto; margin: 0; padding: 12px; font-size: 1rem; color: var(--muted); }
+  .motion-btn .mb-t { display: inline; }
+}
 
 /* Pause-Knopf fuer Dauer-Animationen in Demo-Grafiken ([data-loops], siehe fx.js) */
 [data-loops].paused *, [data-loops].paused *::before, [data-loops].paused *::after { animation-play-state: paused !important; }
@@ -119,8 +140,16 @@ a:hover .arr, button:hover .arr, .card:hover .arr { transform: translateX(3px); 
 .loop-pause .i-play, .loop-pause[aria-pressed="true"] .i-pause { display: none; }
 .loop-pause[aria-pressed="true"] .i-play { display: block; }
 
-/* Bewegungen reduzieren, wenn im System eingestellt */
+/* "Bewegung reduzieren" im System: weniger und sanftere Bewegung, nicht null. Ueberblendungen (Deckkraft, Farbe) bleiben
+   und helfen beim Verstehen; Bewegung und Schleifen fallen weg. Hover-Bewegung ist in den Seiten-CSS an no-preference gebunden. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-  .loop-pause { display: none; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; scroll-behavior: auto !important; }
+  .fx [data-reveal].in:not(.now), .fx [data-stagger].in:not(.now) > :not(.ball),
+  .dlg[open]:not(.closing), .dlg[open]:not(.closing)::backdrop { animation: fx-fade .2s ease-out !important; }
+  .toast { transform: translate(-50%, 0); }
+  .links, .totop, .btn:active { transform: none; }
+  .nav-ind.ready, .seg-ind.ready { transition: opacity .2s; }
+  .arr { transition: none; }
+  .loop-pause, .motion-btn { display: none; } /* Schleifen stehen hier ohnehin still */
 }
+@keyframes fx-fade { from { opacity: 0; } }

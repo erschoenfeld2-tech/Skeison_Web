@@ -159,8 +159,9 @@
     });
   }
 
-  function rowsInto(ul, list, b) {
-    ul.textContent = '';
+  // still = true: ohne Einflieg-Animation (Suche: sonst flogen bei jedem Tastendruck alle Zeilen neu herein)
+  function rowsInto(ul, list, b, still) {
+    ul.textContent = ''; ul.classList.toggle('still', !!still);
     list.forEach(function (e, i) {
       var li = el('li', 'row r' + (e.rank <= 3 ? e.rank : '')); li.style.setProperty('--i', Math.min(i, 15));
       li.appendChild(el('span', 'rank', String(e.rank)));
@@ -171,7 +172,7 @@
     });
     if (!list.length) ul.appendChild(el('li', 'empty', 'Keine Treffer.'));
   }
-  function renderBoardDlg() {
+  function renderBoardDlg(still) {
     var b = histView ? histView.board : data && data.boards.filter(function (x) { return x.id === openBoardId; })[0];
     if (!b) return;
     var past = histView ? (histView.week.winners[b.id] || []) : null;
@@ -182,7 +183,7 @@
       : b.desc;
     var q = $('bdSearch').value.trim().toLowerCase();
     var all = (past || b[mode] || []).map(function (e, i) { return { name: e.name, value: e.value, rank: i + 1 }; });
-    rowsInto($('bdList'), q ? all.filter(function (e) { return e.name.toLowerCase().indexOf(q) >= 0; }) : all, b);
+    rowsInto($('bdList'), q ? all.filter(function (e) { return e.name.toLowerCase().indexOf(q) >= 0; }) : all, b, still === true);
     document.querySelectorAll('[data-bmode]').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-bmode') === mode); });
   }
   function openBoard(id) { openBoardId = id; histView = null; $('bdSearch').value = ''; renderBoardDlg(); $('boardDlg').showModal(); }
@@ -278,7 +279,7 @@
 
   document.querySelectorAll('.seg button[data-mode]').forEach(function (b) { b.addEventListener('click', function () { setMode(b.getAttribute('data-mode')); }); });
   document.querySelectorAll('[data-bmode]').forEach(function (b) { b.addEventListener('click', function () { setMode(b.getAttribute('data-bmode')); }); });
-  $('bdSearch').addEventListener('input', renderBoardDlg);
+  $('bdSearch').addEventListener('input', function () { renderBoardDlg(true); });
   // Dialoge schliessen mit kurzer Ausblend-Animation (Klick daneben, Schliessen-Knopf oder Escape)
   function closeDlg(d) {
     if (!d.open || d.classList.contains('closing')) return;
@@ -346,13 +347,14 @@
     var ol = $('timeline'), now = Date.now(), next = current();
     ol.textContent = '';
     MILESTONES.forEach(function (m) {
-      var active = m.id === 'start' && m.at <= now;
-      var li = el('li', 'ms ' + m.id + (active ? ' active' : m.at <= now ? ' done' : m === next ? ' next' : ''));
+      // Jeder erreichte Meilenstein ist "Aktiv" (deckend, gruenes Schild wie beim Serverstart), nicht mehr halb durchsichtig
+      var active = m.at <= now;
+      var li = el('li', 'ms ' + m.id + (active ? ' active' : m === next ? ' next' : ''));
       li.appendChild(el('span', 'ms-ico', m.icon));
       var b = el('div'); b.appendChild(el('h3', '', m.title));
       b.appendChild(el('div', 'ms-date', new Date(m.at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr'));
       b.appendChild(el('p', '', m.text)); li.appendChild(b);
-      li.appendChild(el('span', 'ms-state', active ? 'Aktiv' : m.at <= now ? 'Offen' : m === next ? 'Als Nächstes' : 'Geplant'));
+      li.appendChild(el('span', 'ms-state', active ? 'Aktiv' : m === next ? 'Als Nächstes' : 'Geplant'));
       ol.appendChild(li);
     });
   }
