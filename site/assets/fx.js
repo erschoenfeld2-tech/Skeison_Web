@@ -34,10 +34,51 @@
   };
 
   // Einblenden beim Scrollen
+  var pending = [];
+  function show(el) { el.classList.add('in'); if (io) io.unobserve(el); }
   var io = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) {
-    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    es.forEach(function (e) { if (e.isIntersecting) show(e.target); });
   }, { rootMargin: '0px 0px -6% 0px', threshold: 0.06 }) : null;
-  FX.reveal = function (el) { if (io) io.observe(el); else el.classList.add('in'); };
+  // Bei "Bewegung reduzieren" oder ohne Observer sofort zeigen
+  FX.reveal = function (el) { if (io && !reduced) { io.observe(el); pending.push(el); } else el.classList.add('in'); };
+  // Sicherheitsnetz: Meldet der Observer nichts (Fehler, Drucken, alte Browser), zeigt ein Nachzuegler-Check
+  // nach dem Laden und nach jedem Scrollen alles, was im Bild ist. Inhalt bleibt so nie dauerhaft unsichtbar.
+  var sweepT = 0;
+  function sweep() {
+    var h = window.innerHeight;
+    pending = pending.filter(function (el) {
+      if (el.classList.contains('in')) return false;
+      var r = el.getBoundingClientRect();
+      if (r.top < h && r.bottom > 0) { show(el); return false; }
+      return true;
+    });
+  }
+  function sweepSoon(ms) { clearTimeout(sweepT); sweepT = setTimeout(sweep, ms); }
+  window.addEventListener('scroll', function () { sweepSoon(400); }, { passive: true });
+  window.addEventListener('load', function () { sweepSoon(1200); });
+  window.addEventListener('beforeprint', function () { pending.forEach(show); pending = []; });
+  // Tastatur: Springt der Fokus in einen noch unsichtbaren Abschnitt, sofort zeigen
+  document.addEventListener('focusin', function (e) {
+    var sel = '[data-reveal], [data-stagger]', n = e.target.closest ? e.target.closest(sel) : null;
+    // "now": Einblend-Animation ueberspringen (auch eine gerade laufende), damit der Fokusrahmen sofort sichtbar ist
+    while (n) { n.classList.add('now'); if (!n.classList.contains('in')) show(n); n = n.parentElement && n.parentElement.closest(sel); }
+  });
+
+  // Pause-Knopf fuer Demo-Grafiken mit Dauer-Animation ([data-loops]): haelt alle Animationen darin an
+  function loopPause(box) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'loop-pause'; b.setAttribute('aria-pressed', 'false');
+    b.setAttribute('aria-label', 'Animation anhalten'); b.title = 'Animation anhalten';
+    b.innerHTML = '<svg class="i-pause" viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="1" width="3.5" height="12" rx="1"/><rect x="8.5" y="1" width="3.5" height="12" rx="1"/></svg>'
+      + '<svg class="i-play" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9.5-5.5z"/></svg>';
+    b.addEventListener('click', function () {
+      var on = box.classList.toggle('paused');
+      b.setAttribute('aria-pressed', String(on));
+      var t = on ? 'Animation fortsetzen' : 'Animation anhalten';
+      b.setAttribute('aria-label', t); b.title = t;
+    });
+    box.appendChild(b);
+  }
   function indexChildren(c) { Array.prototype.forEach.call(c.children, function (ch, i) { ch.style.setProperty('--i', Math.min(i, 8)); }); }
 
   // Einmal ausfuehren, sobald ein Element sichtbar wird
@@ -93,6 +134,7 @@
       if (window.MutationObserver) new MutationObserver(function () { indexChildren(c); }).observe(c, { childList: true });
     });
     each('.seg', segIndicator);
+    each('[data-loops]', loopPause);
     initNav();
     initParticles();
   }

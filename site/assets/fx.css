@@ -15,7 +15,7 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
 .nav-bar { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid transparent; transition: background-color .3s, border-color .3s; }
 .nav-bar.scrolled { background: color-mix(in srgb, var(--bg) 82%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-bottom-color: var(--line); }
 .nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; height: var(--nav-h); }
-.brand { display: inline-flex; align-items: center; gap: 10px; font-size: 1.2rem; font-weight: 800; color: var(--text); text-decoration: none; }
+.brand { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-size: 1.2rem; font-weight: 800; color: var(--text); text-decoration: none; }
 .brand:hover { color: var(--text); }
 .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; font-weight: 900; color: #1a1500; background: var(--accent); box-shadow: inset 0 -3px 0 rgba(0,0,0,.22); }
 .links { position: relative; display: flex; align-items: center; gap: 2px; }
@@ -26,7 +26,7 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
 .links .nav-cta { margin-left: 10px; color: #1a1500; background: var(--accent); font-weight: 800; }
 .links .nav-cta:hover { color: #1a1500; filter: brightness(1.06); }
 .nav-progress { position: absolute; left: 0; bottom: -1px; height: 2px; width: 100%; transform-origin: 0 50%; transform: scaleX(0); background: var(--accent); opacity: .7; }
-.menu-btn { display: none; width: 42px; height: 42px; place-items: center; align-content: center; gap: 5px; padding: 0; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); }
+.menu-btn { display: none; width: 44px; height: 44px; place-items: center; align-content: center; gap: 5px; padding: 0; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); }
 .menu-btn span { display: block; width: 18px; height: 2px; border-radius: 2px; background: var(--text); transition: transform .35s var(--ease), opacity .2s; }
 .nav-bar.open .menu-btn span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
 .nav-bar.open .menu-btn span:nth-child(2) { opacity: 0; }
@@ -47,6 +47,7 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
 .fx [data-reveal].in { animation: fx-rise .7s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
 .fx [data-stagger].in > * { animation: fx-rise .7s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
 .fx [data-stagger].in > .ball, .fx [data-stagger]:not(.in) > .ball { animation: fx-spin 160s steps(640) infinite; opacity: var(--ball-o, .14); }
+.fx [data-reveal].in.now, .fx [data-stagger].in.now > * { animation: none; } /* per Tastatur erreicht: sofort sichtbar */
 @keyframes fx-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
 /* Buttons */
@@ -58,7 +59,8 @@ a:hover .arr, button:hover .arr, .card:hover .arr { transform: translateX(3px); 
 
 /* Pulsierender Punkt, nur fuer echten Live-Status */
 .ping { position: relative; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
-.ping.pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: currentColor; animation: fx-ping 2s cubic-bezier(0,0,.2,1) infinite; }
+/* Zwei Pulse (4 s), dann Ruhe: Bewegung ueber 5 s braeuchte sonst einen Pause-Knopf (WCAG 2.2.2) */
+.ping.pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: currentColor; animation: fx-ping 2s cubic-bezier(0,0,.2,1) 2; }
 @keyframes fx-ping { 75%, 100% { transform: scale(2.4); opacity: 0; } }
 
 /* Countdown-Ziffern rollen */
@@ -104,8 +106,21 @@ a:hover .arr, button:hover .arr, .card:hover .arr { transform: translateX(3px); 
 
 /* Fenster im Hintergrund: alle Animationen anhalten (siehe fx.js, setIdle) */
 .fx-idle *, .fx-idle *::before, .fx-idle *::after { animation-play-state: paused !important; }
+/* Einmalige Einblendungen und Countdown-Ziffern laufen trotzdem zu Ende: Ein sichtbares, aber nicht aktives Fenster
+   (unter Windows per Mausrad scrollbar) zeigte sonst neu erreichte Abschnitte dauerhaft mit Deckkraft 0 */
+.fx-idle [data-reveal].in, .fx-idle [data-stagger].in > *, .fx-idle .cd b > span { animation-play-state: running !important; }
+
+/* Pause-Knopf fuer Dauer-Animationen in Demo-Grafiken ([data-loops], siehe fx.js) */
+[data-loops].paused *, [data-loops].paused *::before, [data-loops].paused *::after { animation-play-state: paused !important; }
+.loop-pause { position: absolute; top: 8px; right: 8px; z-index: 2; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; cursor: pointer; border-radius: 8px;
+  color: var(--muted); background: color-mix(in srgb, var(--bg) 80%, transparent); border: 1px solid var(--line); transition: color .2s, border-color .2s; }
+.loop-pause:hover { color: var(--text); border-color: var(--accent); }
+.loop-pause svg { width: 14px; height: 14px; fill: currentColor; }
+.loop-pause .i-play, .loop-pause[aria-pressed="true"] .i-pause { display: none; }
+.loop-pause[aria-pressed="true"] .i-play { display: block; }
 
 /* Bewegungen reduzieren, wenn im System eingestellt */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  .loop-pause { display: none; }
 }
