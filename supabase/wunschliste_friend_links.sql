@@ -1,5 +1,5 @@
 -- Wunschliste: Freundschaft per Link oder QR-Code (ohne den #CODE kennen zu muessen).
--- Zustand der Supabase-Datenbank (Projekt "skeison-whitelist"); zur Dokumentation. Setzt wunschliste_fixes.sql voraus.
+-- Zustand der Supabase-Datenbank (Projekt "skeison-whitelist"); zur Dokumentation, bereits angewendet. Setzt wunschliste_fixes.sql voraus.
 -- Ablauf: Jeder kann einen persoenlichen Einladungslink erzeugen, erneuern (der alte gilt dann nicht mehr) oder abschalten.
 -- Wer ihn oeffnet, sieht ohne Anmeldung nur Name und Avatar (wl_friend_link_preview). Angemeldet bestaetigt man die
 -- Freundschaft mit einem Klick (wl_friend_link_redeem); nur das Oeffnen des Links befreundet niemanden.
