@@ -1,0 +1,117 @@
+name: Android-App
+# Baut die Wunschliste-App (android-app/), testet sie im Android-Emulator und veroeffentlicht sie.
+# - main:            Release "app-latest" mit Wunschliste.apk (Download-Link auf wunschliste/app.html)
+# - andere Branches: Vorabversion "app-test" mit APK, Bildschirmfotos und Protokollen
+# Die App laedt die Webseite live. Aenderungen an site/wunschliste/ brauchen daher KEINEN neuen App-Build.
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths: ['android-app/**', '.github/workflows/android-app.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      WL_VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      # Ohne festen Schluessel koennte man die App spaeter nicht ueber die alte Version installieren
+      - name: Signaturschluessel bereitstellen
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PW" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "WL_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "SIGNED=true" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Secrets ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD fehlen: die App wird nur mit dem Test-Schluessel signiert und nicht als app-latest veroeffentlicht."
+            echo "SIGNED=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: App bauen
+        env:
+          WL_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          mkdir -p dist
+          set -o pipefail
+          gradle -p android-app assembleRelease assembleDebug --no-daemon --stacktrace 2>&1 | tee dist/build-log.txt
+          cp android-app/app/build/outputs/apk/release/app-release.apk dist/Wunschliste.apk
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/Wunschliste-debug.apk"
+          ls -la dist
+
+      - name: Baufehler anzeigen
+        if: failure()
+        run: grep -E "error:|What went wrong|FAILURE|Could not|Exception" -A3 dist/build-log.txt | head -40 | sed 's/^/::error::/' || true
+
+      - name: KVM fuer den Emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Test im Android-Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash android-app/ci/smoke-test.sh dist/Wunschliste.apk "$RUNNER_TEMP/Wunschliste-debug.apk" dist/test
+
+      - name: Testversion veroeffentlichen (Branch)
+        if: always() && github.ref != 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          if [ -d test ]; then zip -qr test-ergebnis.zip test; cp test/ergebnis.txt test-ergebnis.txt 2>/dev/null || true; fi
+          gh release delete app-test --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create app-test --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Wunschliste-App Testversion 1.${WL_VERSION_CODE}" \
+            --notes "Testbuild vom Branch ${GITHUB_REF_NAME} (${GITHUB_SHA::7}), nur zum Ausprobieren. versionCode: ${WL_VERSION_CODE}" \
+            $(ls *.apk *.zip *.txt 2>/dev/null)
+
+      - name: App veroeffentlichen
+        if: github.ref == 'refs/heads/main' && env.SIGNED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete app-latest --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create app-latest --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+            --title "Wunschliste-App 1.${WL_VERSION_CODE}" \
+            --notes "Die Wunschliste als Android-App. **Wunschliste.apk** auf dem Handy herunterladen und öffnen (beim ersten Mal das Installieren aus dieser Quelle erlauben). Anleitung: https://erschoenfeld2-tech.github.io/Skeison_Web/wunschliste/app.html
+
+          Die App zeigt immer die aktuelle Webseite; dieses Update betrifft nur die App selbst.
+
+          versionCode: ${WL_VERSION_CODE}" \
+            dist/Wunschliste.apk
+
+      - name: Ohne Signaturschluessel nicht veroeffentlicht
+        if: github.ref == 'refs/heads/main' && env.SIGNED != 'true'
+        run: |
+          echo "::error::Die App wurde gebaut, aber nicht veroeffentlicht: In den Repository-Secrets fehlen ANDROID_KEYSTORE_BASE64 und ANDROID_KEYSTORE_PASSWORD (siehe android-app/README.md)."
+          exit 1
