@@ -82,8 +82,16 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash android-app/ci/smoke-test.sh dist/Wunschliste.apk "$RUNNER_TEMP/Wunschliste-debug.apk" dist/test
 
-      - name: Testversion veroeffentlichen (Branch)
-        if: always() && github.ref != 'refs/heads/main'
+      - name: Testergebnis anzeigen
+        if: always()
+        run: |
+          [ -f dist/test/ergebnis.txt ] || exit 0
+          cat dist/test/ergebnis.txt
+          grep -E "^FEHLER" dist/test/ergebnis.txt | sed 's/^/::error::/' || true
+
+      # Auf Branches immer; auf main nur, wenn etwas schiefging (dann mit Bildschirmfotos zur Fehlersuche)
+      - name: Testversion veroeffentlichen
+        if: always() && (github.ref != 'refs/heads/main' || failure())
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
