@@ -30,7 +30,9 @@ wait_for() {
   log "FEHLER  $1: \"$2\" nicht gefunden"; shot "$1"; FAIL=1; return 1
 }
 alive() {
-  if adb shell pidof $PKG >/dev/null 2>&1; then log "OK      $1: App laeuft"; else log "FEHLER  $1: App laeuft nicht mehr"; FAIL=1; fi
+  if adb shell pidof $PKG >/dev/null 2>&1; then log "OK      $1: App laeuft"
+  elif adb logcat -d 2>/dev/null | grep -q "Killing [0-9]*:$PKG.*dying proc"; then log "HINWEIS $1: App vom System beendet (Google-Dienste starteten neu), kein Absturz"
+  else log "FEHLER  $1: App laeuft nicht mehr"; FAIL=1; fi
 }
 net() { adb shell svc wifi "$1"; adb shell svc data "$1"; }
 
