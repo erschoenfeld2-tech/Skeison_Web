@@ -3,6 +3,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Erinnerungen an Anlaesse und Geschenke, die noch besorgt werden muessen -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Nur falls die Webseite einmal die Kamera nutzt (z. B. QR-Code scannen); wird erst dann abgefragt -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />

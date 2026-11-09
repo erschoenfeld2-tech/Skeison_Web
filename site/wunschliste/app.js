@@ -10,6 +10,22 @@
   var authEl = $('#auth'), authHome = authEl.parentNode;
   var DISCORD = 'https://discord.gg/tjVKFGMRw7';
 
+  // App-Modus: in der Android-App (Kennung im User-Agent) und als installierte Web-App gibt es unten eine Menueleiste
+  var APP_MODE = /SkeisonWunschlisteApp\//.test(navigator.userAgent) || !!window.WL_FORCE_APP ||
+    !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  // Benachrichtigungen gibt es nur in der Android-App (window.__wlApp kommt aus deren bridge.js)
+  var NATIVE = /SkeisonWunschlisteApp\//.test(navigator.userAgent) || !!window.WL_FORCE_APP;
+  document.documentElement.classList.toggle('app-mode', APP_MODE);
+  // Listen, zu denen man keine Erinnerungen moechte (nur auf diesem Geraet)
+  var MUTE_KEY = 'wl-muted-lists';
+  function mutedLists() { try { return JSON.parse(localStorage.getItem(MUTE_KEY)) || []; } catch (e) { return []; } }
+  function isMuted(id) { return mutedLists().indexOf(id) >= 0; }
+  function setMuted(id, on) {
+    var m = mutedLists().filter(function (x) { return x !== id; });
+    if (on) m.push(id);
+    try { localStorage.setItem(MUTE_KEY, JSON.stringify(m)); } catch (e) {}
+  }
+
   var THEMES = [
     { id: 'polarlicht', name: 'Polarlicht', desc: 'Nachthimmel mit Nordlicht und Glas-Karten' },
     { id: 'geschenkpapier', name: 'Geschenkpapier', desc: 'Packpapier, Schleife und Wünsche als Anhänger' },
@@ -232,7 +248,11 @@
     go(a.getAttribute('href'));
   });
   window.addEventListener('popstate', render);
-  Api.onAuthChange(function () { me = null; isAdmin = false; render(); });
+  Api.onAuthChange(function () {
+    me = null; isAdmin = false; lastSync = 0;
+    if (!Api.user) sendNotify(null);   // abgemeldet: keine Erinnerungen mehr auf diesem Geraet
+    render();
+  });
 
   // App-Inhalte erscheinen sofort: Einblenden bei jedem Seitenwechsel hielt Listen und Wuensche zurueck
   // (data-stagger wird entfernt, damit nichts unsichtbar auf eine Einblendung wartet)
@@ -257,6 +277,11 @@
       var on = a.getAttribute('data-nav') === r.page || (r.page === 'freund' && a.getAttribute('data-nav') === 'freunde');
       a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
+    var tab = { freund: 'freunde', freunde: 'freunde', geschenke: 'geschenke', profil: 'profil' }[r.page] || 'home';
+    $$('#tabbar [data-tab]').forEach(function (a) {
+      var on = a.getAttribute('data-tab') === tab;
+      a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
     app.onclick = app.onchange = app.oninput = app.onsubmit = null;
     if (!app.firstChild || app.getAttribute('data-page') !== r.page) app.innerHTML = loading();
     app.setAttribute('data-page', r.page);
@@ -274,8 +299,12 @@
       document.body.classList.toggle('is-locked', me.must_change_password);
       if (me.must_change_password) return forcePassword(ctx);
       $('#meLink').innerHTML = avatar(me, 'xs') + '<span>' + esc(me.name) + '</span>';
+      $('#tabAv').innerHTML = avatar(me, 'xs');
+      $('#adminTop').hidden = !isAdmin;
       refreshBadge();
       await (VIEWS[r.page] || VIEWS.home)(ctx, r);
+      if (!ctx.stale()) syncTabbar(r);
+      syncNotifications(false);
     } catch (e) {
       if (ctx.stale() || !Api.user) return;
       setTheme(me && me.theme);
@@ -284,9 +313,27 @@
   }
   function refreshBadge() {
     Api.get('wl_friendships', 'select=requester&status=eq.pending&addressee=eq.' + me.id).then(function (rows) {
-      var b = $('#reqBadge'); b.textContent = rows.length; b.hidden = !rows.length;
+      [$('#reqBadge'), $('#tabReq')].forEach(function (b) { b.textContent = rows.length; b.hidden = !rows.length; });
     }).catch(function () {});
   }
+
+  // ---------- Menueleiste unten (App) ----------
+  // Das "+" passt sich der Seite an: in der eigenen Liste ein neuer Wunsch, in der Liste eines Freundes ein Vorschlag,
+  // sonst eine neue Liste
+  function plusTarget() {
+    if (route().page !== 'liste') return null;
+    return $('[data-act="add-item"]', app) || $('[data-act="suggest"]', app);
+  }
+  function syncTabbar() {
+    var t = plusTarget(), b = $('#tabPlus');
+    var label = t ? (t.dataset.act === 'add-item' ? 'Wunsch hinzufügen' : 'Vorschlag machen') : 'Neue Liste';
+    b.setAttribute('aria-label', label); b.title = label;
+  }
+  $('#tabPlus').addEventListener('click', function () {
+    if (!Api.user || !me) return;
+    var t = plusTarget();
+    if (t) t.click(); else listDialog(null);
+  });
 
   // ---------- Daten ----------
   async function loadFriends() {
@@ -613,7 +660,9 @@
       (d !== null && d >= 0 ? '<div class="lh-cd"><b>' + d + '</b><span>' + (d === 1 ? 'Tag' : 'Tage') + (l.occasion ? ' bis ' + esc(l.occasion) : '') + '</span></div>' : '') + '</div>' +
       '<div class="lh-bar">' + (st.owner
         ? '<span class="pill" title="Wer diese Liste sehen kann">' + vis + '</span><span class="sp"></span><button type="button" class="btn ghost" data-act="share">🔗 Teilen</button><button type="button" class="btn ghost" data-act="edit-list">⚙ Liste bearbeiten</button><button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>'
-        : '<a class="owner-chip" href="./?seite=freund&id=' + l.owner.id + '">' + avatar(l.owner, 'sm') + '<span>Liste von <b>' + esc(l.owner.name) + '</b></span></a><span class="sp"></span><span class="pill">' + free + ' von ' + st.items.length + ' Wünschen noch frei</span>' + (st.canSuggest ? '<button type="button" class="btn" data-act="suggest">💡 Vorschlag machen</button>' : '')) + '</div>' +
+        : '<a class="owner-chip" href="./?seite=freund&id=' + l.owner.id + '">' + avatar(l.owner, 'sm') + '<span>Liste von <b>' + esc(l.owner.name) + '</b></span></a><span class="sp"></span><span class="pill">' + free + ' von ' + st.items.length + ' Wünschen noch frei</span>' +
+          (NATIVE ? (isMuted(l.id) ? '<button type="button" class="btn ghost bell off" data-act="mute" aria-pressed="true" title="Erinnerungen für diese Liste wieder einschalten">🔕 Stumm</button>'
+            : '<button type="button" class="btn ghost bell" data-act="mute" aria-pressed="false" title="Keine Erinnerungen mehr für diese Liste">🔔 Erinnerungen an</button>') : '') + (st.canSuggest ? '<button type="button" class="btn" data-act="suggest">💡 Vorschlag machen</button>' : '')) + '</div>' +
       (st.owner ? '<p class="surprise">🙈 <b>Überraschungsschutz:</b> Was reserviert wurde, siehst du auf deinen eigenen Listen nicht.</p>' : '') +
       '</header>' +
       (st.owner && st.sugg && st.sugg.length ? '<section class="sugg panel"><h2>💡 Vorschläge von Freunden <small class="muted">' + st.sugg.length + '</small></h2>' +
@@ -651,6 +700,13 @@
     if (act === 'edit-list') return listDialog(st.list);
     if (act === 'share') return shareDialog(st);
     if (act === 'suggest') return itemDialog(st, null, { suggest: true });
+    if (act === 'mute') {
+      var off = !isMuted(st.list.id);
+      setMuted(st.list.id, off);
+      FX.toast(off ? '🔕 Keine Erinnerungen mehr für diese Liste' : '🔔 Erinnerungen für diese Liste sind wieder an');
+      syncNotifications(true);
+      return paintList(st, true);
+    }
     if (act === 'cat') { st.f.cat = b.dataset.cat === st.f.cat ? '' : b.dataset.cat; return paintList(st, true); }
     if (act === 'reset-filters') { st.f = { q: '', cat: '', prio: '', price: '', only: false }; return paintList(st, true); }
     try {
@@ -1474,7 +1530,99 @@
     go('./?liste=' + id, true);
   }
 
-  var VIEWS = { teilen: redeemPage, einladung: invitePage, home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage };
+  // ---------- Anlaesse: Listen mit demselben Datum gehoeren zusammen (z. B. alle Listen fuer Weihnachten) ----------
+  var THEME_COLORS = { polarlicht: '#5b85ff', geschenkpapier: '#c0392b', pixel: '#3ddc84', kaufhaus: '#222222', magazin: '#e63946', weihnacht: '#c0392b',
+    ostern: '#f49ac1', herbst: '#d35400', winter: '#5dade2', gold: '#d4af37', sommer: '#f39c12', barbie: '#ff2d95' };
+  function isoDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function mostCommon(arr) {
+    var n = {}, best = null;
+    arr.forEach(function (x) { if (!x) return; n[x] = (n[x] || 0) + 1; if (!best || n[x] > n[best]) best = x; });
+    return best;
+  }
+  // Name, Design und Symbol eines Anlasses aus seinen Listen
+  function eventInfo(date, lists) {
+    var md = date.slice(5), name = mostCommon(lists.map(function (l) { return (l.occasion || '').trim(); }));
+    if (!name) name = md >= '12-24' && md <= '12-26' ? 'Weihnachten' : md === '12-31' ? 'Silvester' : md === '12-06' ? 'Nikolaus' : lists.length === 1 ? lists[0].title : 'Anlass am ' + fmtDate(date);
+    // Persoenlicher Anlass einer einzelnen Person: "Geburtstag von Oma"
+    else if (lists.length === 1 && lists[0].owner && lists[0].owner.name && !/weihnacht|ostern|silvester|nikolaus|advent/i.test(name)) name += ' von ' + lists[0].owner.name;
+    var theme = /weihnacht|christmas|xmas|advent|nikolaus/i.test(name) ? 'weihnacht' : /ostern|easter/i.test(name) ? 'ostern'
+      : mostCommon(lists.map(function (l) { return l.theme; })) || (me && me.theme) || 'polarlicht';
+    var emoji = theme === 'weihnacht' ? '🎄' : theme === 'ostern' ? '🐣' : /geburtstag|birthday/i.test(name) ? '🎂' : (lists[0] && lists[0].emoji) || '🎁';
+    return { date: date, name: name, theme: theme, emoji: emoji, color: THEME_COLORS[theme] || '#ffcb05' };
+  }
+
+  // ---------- Benachrichtigungen (Android-App) ----------
+  // Die Webseite stellt zusammen, woran erinnert werden soll; die App plant daraus die Benachrichtigungen,
+  // auch wenn sie geschlossen ist. Aktualisiert wird bei jedem Oeffnen und Seitenwechsel (hoechstens jede Minute).
+  var lastSync = 0, syncing = false;
+  function sendNotify(data) {
+    if (window.__wlApp && window.__wlApp.notify) { window.__wlApp.notify(data); return true; }
+    return false;
+  }
+  window.addEventListener('wlapp-ready', function () { lastSync = 0; if (Api.user && me) syncNotifications(true); });
+  async function syncNotifications(force) {
+    if (!NATIVE || !Api.user || !me || syncing) return;
+    if (!force && Date.now() - lastSync < 60000) return;
+    syncing = true;
+    try {
+      var t = isoDate(today());
+      var res = await Promise.all([
+        Api.get('wl_lists', 'owner=neq.' + me.id + '&archived=is.false&event_date=gte.' + t + '&select=id,title,emoji,theme,occasion,event_date,owner:wl_profiles!wl_lists_owner_fkey(name)&order=event_date.asc'),
+        Api.rpc('wl_my_reservations')
+      ]);
+      var open = res[1].filter(function (g) { return !g.purchased && !g.received; });
+      setTabCount(open.length);
+      var byDate = {}, undated = 0;
+      function slot(d) { return byDate[d] = byDate[d] || { lists: [], gifts: [] }; }
+      res[0].forEach(function (l) { if (!isMuted(l.id)) slot(l.event_date).lists.push(l); });
+      open.forEach(function (g) {
+        if (isMuted(g.list_id)) return;
+        if (!g.event_date) undated++;
+        else if (g.event_date >= t) slot(g.event_date).gifts.push(g);
+      });
+      var groups = Object.keys(byDate).sort().filter(function (d) { return daysUntil(d) <= 60; }).map(function (d) {
+        var s = byDate[d], info = eventInfo(d, s.lists.length ? s.lists : s.gifts.map(function (g) { return { title: g.list_title, emoji: g.list_emoji }; }));
+        info.lists = s.lists.map(function (l) { return { title: l.title, emoji: l.emoji, owner: l.owner ? l.owner.name : '' }; });
+        info.open = s.gifts.length;
+        info.gifts = s.gifts.slice(0, 8).map(function (g) { return { title: g.title, owner: g.owner_name }; });
+        return info;
+      });
+      if (sendNotify({ v: 1, user: me.id, today: t, groups: groups, undated: undated })) lastSync = Date.now();
+    } catch (e) { /* naechster Versuch beim naechsten Seitenwechsel */ }
+    finally { syncing = false; }
+  }
+  function setTabCount(n) { var b = $('#tabBuy'); b.textContent = n; b.hidden = !n; }
+
+  // ---------- Anlass-Seite: alle Listen eines Datums im Design des Anlasses (Ziel der Benachrichtigung) ----------
+  async function eventPage(ctx, r) {
+    var date = /^\d{4}-\d{2}-\d{2}$/.test(r.id || '') ? r.id : null;
+    if (!date) return go('./', true);
+    var res = await Promise.all([
+      Api.get('wl_lists', 'archived=is.false&event_date=eq.' + date + '&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,avatar,color),wl_items(count)&order=created_at'),
+      Api.rpc('wl_my_reservations')
+    ]);
+    var lists = res[0], others = lists.filter(function (l) { return l.owner.id !== me.id; }), mine = lists.filter(function (l) { return l.owner.id === me.id; });
+    var gifts = res[1].filter(function (g) { return g.event_date === date && !g.received; });
+    var todo = gifts.filter(function (g) { return !g.purchased; });
+    var info = eventInfo(date, others.length ? others : lists), d = daysUntil(date);
+    setTheme(info.theme);
+    view(ctx,
+      '<header class="list-head ev-head" data-theme="' + info.theme + '">' +
+      '<p class="back"><a href="./"><span class="arr">←</span> Übersicht</a></p>' +
+      '<div class="lh-main"><span class="lh-emoji">' + esc(info.emoji) + '</span><div>' +
+      '<p class="eyebrow">' + esc(asDate(date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })) + '</p>' +
+      '<h1>' + esc(info.name) + '</h1><p class="lead">' + plural(lists.length, 'Liste', 'Listen') + (todo.length ? ' · noch ' + plural(todo.length, 'Geschenk', 'Geschenke') + ' zu besorgen' : gifts.length ? ' · alle Geschenke besorgt 🎉' : '') + '</p></div>' +
+      (d >= 0 ? '<div class="lh-cd"><b>' + d + '</b><span>' + (d === 0 ? 'Heute!' : d === 1 ? 'Tag' : 'Tage') + '</span></div>' : '') + '</div></header>' +
+      (todo.length ? '<section class="panel ev-todo"><h2>🛒 Noch zu besorgen</h2><ul class="plist">' + todo.map(function (g) {
+        return '<li>' + avatar({ avatar: g.owner_avatar, color: g.owner_color }, 'sm') + '<span><b>' + esc(g.title) + '</b><small>für ' + esc(g.owner_name) + ' · ' + esc(g.list_title) +
+          (g.price != null && !g.group_gift ? ' · ' + esc(money(g.price * g.quantity, g.currency)) : '') + '</small></span><span class="sp"></span><a class="btn small ghost" href="./?seite=geschenke">Abhaken</a></li>';
+      }).join('') + '</ul></section>' : '') +
+      (others.length ? '<section><div class="sec-head"><h2>Listen deiner Freunde</h2></div><div class="lgrid">' + others.map(function (l) { return listCard(l, 'owner'); }).join('') + '</div></section>' : '') +
+      (mine.length ? '<section><div class="sec-head"><h2>Deine Listen</h2></div><div class="lgrid">' + mine.map(function (l) { return listCard(l, 'mine'); }).join('') + '</div></section>' : '') +
+      (lists.length ? '' : emptyBox('🗓️', 'Keine Listen an diesem Tag', 'Für dieses Datum ist gerade keine Liste für dich sichtbar.', '<a class="btn" href="./">Zur Übersicht</a>')));
+  }
+
+  var VIEWS = { teilen: redeemPage, einladung: invitePage, home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage, anlass: eventPage };
 
   // ---------- Startseite fuer Abgemeldete ----------
   var DEMO = [

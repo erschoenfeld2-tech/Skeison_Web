@@ -30,7 +30,9 @@ wait_for() {
   log "FEHLER  $1: \"$2\" nicht gefunden"; shot "$1"; FAIL=1; return 1
 }
 alive() {
-  if adb shell pidof $PKG >/dev/null 2>&1; then log "OK      $1: App laeuft"; else log "FEHLER  $1: App laeuft nicht mehr"; FAIL=1; fi
+  if adb shell pidof $PKG >/dev/null 2>&1; then log "OK      $1: App laeuft"
+  elif adb logcat -d 2>/dev/null | grep -q "Killing [0-9]*:$PKG.*dying proc"; then log "HINWEIS $1: App vom System beendet (Google-Dienste starteten neu), kein Absturz"
+  else log "FEHLER  $1: App laeuft nicht mehr"; FAIL=1; fi
 }
 net() { adb shell svc wifi "$1"; adb shell svc data "$1"; }
 
@@ -90,6 +92,7 @@ if crashed "$OUT/logcat-release.txt"; then log "FEHLER  Absturz im Protokoll (lo
 #    die sich per Chrome-DevTools-Protokoll fernsteuern laesst
 adb uninstall $PKG >/dev/null 2>&1
 adb install -r "$DEBUG_APK" >/dev/null || { log "FEHLER  Installation Debug-Version"; FAIL=1; }
+adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS >/dev/null 2>&1
 adb logcat -c
 # Nach einer Installation startet Android im Emulator gelegentlich Google-Dienste neu und beendet dabei
 # frisch gestartete Apps. Deshalb kurz warten und den Start notfalls einmal wiederholen.
