@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kleines Symbol fuer Benachrichtigungen (einfarbig): das Geschenk aus dem App-Symbol -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="56" android:viewportHeight="56">
+    <group android:translateX="-26" android:translateY="-28">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M30,46a2,2 0,0 1,2 -2h19v10h-21z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M57,44h19a2,2 0,0 1,2 2v8h-21z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M33,57h18v23h-16a2,2 0,0 1,-2 -2z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M57,57h18v21a2,2 0,0 1,-2 2h-16z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M53,43C47,32 36,32 38.5,39C40,43 46,43.5 53,43z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M55,43C61,32 72,32 69.5,39C68,43 62,43.5 55,43z" />
+    </group>
+</vector>

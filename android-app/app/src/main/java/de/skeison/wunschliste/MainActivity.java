@@ -90,7 +90,8 @@ public class MainActivity extends Activity {
     static final String RELEASE_API = "https://api.github.com/repos/" + REPO + "/releases/tags/app-latest";
     static final String APK_URL = "https://github.com/" + REPO + "/releases/download/app-latest/Wunschliste.apk";
 
-    static final int REQ_FILE = 1, REQ_CAMERA = 2;
+    static final int REQ_FILE = 1, REQ_CAMERA = 2, REQ_NOTIFY = 3;
+    static final String PERM_NOTIFY = "android.permission.POST_NOTIFICATIONS";
     static final long SOFT_REFRESH_MS = 60_000L, FULL_RELOAD_MS = 30 * 60_000L, UPDATE_CHECK_MS = 6 * 3600_000L;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -373,6 +374,10 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        if (requestCode == REQ_NOTIFY) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) Notifier.schedule(this, true);
+            return;
+        }
         if (requestCode == REQ_CAMERA && pendingPermission != null) {
             if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
                 pendingPermission.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
@@ -458,9 +463,27 @@ public class MainActivity extends Activity {
                 case "save": save(m.optString("name", "download"), m.optString("mime", "application/octet-stream"), m.optString("data")); break;
                 case "state": applyState(m); break;
                 case "toast": toast(m.optString("text")); break;
+                case "notify-data": onNotifyData(m.optJSONObject("data")); break;
                 default: break;
             }
         } catch (Exception ignored) { }
+    }
+
+    // Erinnerungen: Daten von der Webseite merken und planen (null = abgemeldet)
+    private void onNotifyData(JSONObject data) {
+        if (data == null) { Notifier.clear(this); return; }
+        Notifier.saveSnapshot(this, data);
+        Notifier.ensureChannels(this);
+        Notifier.schedule(this, true);
+        askNotificationPermissionOnce();
+    }
+
+    private void askNotificationPermissionOnce() {
+        if (Build.VERSION.SDK_INT < 33 || checkSelfPermission(PERM_NOTIFY) == PackageManager.PERMISSION_GRANTED) return;
+        SharedPreferences p = getSharedPreferences("app", MODE_PRIVATE);
+        if (p.getBoolean("askedNotify", false)) return;
+        p.edit().putBoolean("askedNotify", true).apply();
+        requestPermissions(new String[]{PERM_NOTIFY}, REQ_NOTIFY);
     }
 
     private void share(String title, String text, String url) {

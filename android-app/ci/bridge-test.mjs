@@ -82,5 +82,22 @@ await sleep(1500);
 shot('7-design-geschenkpapier');
 await run("document.body.removeAttribute('data-theme'); true");
 
+// Erinnerungen: Daten wie aus syncNotifications() in app.js, ein Anlass heute mit zwei Listen und zwei offenen Geschenken
+ok('Erinnerungs-Schnittstelle vorhanden', (await run('typeof window.__wlApp.notify')) === 'function');
+const today = await run("(() => { const t = new Date(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); })()");
+await run(`window.__wlApp.notify({ v: 1, user: 'ci-test', today: '${today}', undated: 0, groups: [{ date: '${today}', name: 'Testanlass', theme: 'weihnacht',
+  emoji: '🎄', color: '#c0392b', open: 2, lists: [{ title: 'Annas Wünsche', emoji: '🎀', owner: 'Anna' }, { title: 'Ben unterm Baum', emoji: '🎮', owner: 'Ben' }],
+  gifts: [{ title: 'Kopfhörer', owner: 'Anna' }, { title: 'Konsole', owner: 'Ben' }] }] }); true`);
+let shown = false;
+for (let i = 0; i < 45 && !shown; i++) { await sleep(1000); shown = adb('shell dumpsys notification --noredact').includes('Testanlass'); }
+ok('Gebündelte Benachrichtigung zum Anlass erscheint', shown);
+const dump = adb('shell dumpsys notification --noredact');
+ok('Benachrichtigung nennt beide Listen', dump.includes('Anna') && dump.includes('Ben unterm Baum'));
+adb('shell cmd statusbar expand-notifications');
+await sleep(2500);
+shot('8-benachrichtigung');
+adb('shell cmd statusbar collapse');
+await sleep(1000);
+
 ws.close();
 process.exit(failed ? 1 : 0);

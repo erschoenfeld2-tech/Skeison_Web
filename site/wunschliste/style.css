@@ -350,7 +350,7 @@ body.is-locked .nav-app, body.is-locked .menu-btn { display: none !important; }
 .support { flex: 1 1 320px; font-size: .88rem; }
 /* Hinweise auf die App nur im Browser; in der Android-App (Klasse in-app) und als installierte Web-App ausblenden */
 .app-hint { margin: 14px 0 0; font-size: .92rem; } .app-hint a { text-decoration: none; }
-.in-app .web-only { display: none !important; }
+.in-app .web-only, .app-mode .web-only { display: none !important; }
 @media (display-mode: standalone) { .web-only { display: none !important; } }
 
 /* Seite "Wunschliste als App" (app.html) */
@@ -687,3 +687,42 @@ body[data-theme="barbie"] .deco::before { inset: 0; content: "💖        ✨   
   [data-theme="geschenkpapier"] .wish:hover { transform: rotate(0) translateY(-4px); }
   [data-theme="kaufhaus"] .wish:hover .wish-media img { transform: scale(1.06); }
 }
+
+/* ---------- App-Modus: Menueleiste unten wie in Social-Media-Apps (nur angemeldet) ---------- */
+.tabbar, .nav-admin { display: none; }
+.app-mode body.is-in:not(.is-locked) .tabbar { display: grid; }
+.app-mode body.is-in .menu-btn, .app-mode body.is-in .links { display: none !important; }
+.app-mode body.is-in .nav-admin:not([hidden]) { display: inline-flex; margin-left: auto; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); font-size: .85rem; text-decoration: none; }
+.app-mode body.is-in:not(.is-locked) { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+.app-mode body.is-in .toast { bottom: calc(96px + env(safe-area-inset-bottom)); }
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; grid-template-columns: repeat(5, 1fr); align-items: end;
+  padding: 4px 6px calc(6px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 90%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.tabbar a { position: relative; display: grid; justify-items: center; align-content: end; gap: 3px; min-height: 56px; padding: 6px 0 4px;
+  color: var(--muted); font-size: .7rem; font-weight: 700; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.tabbar a:hover { color: var(--text); }
+.tabbar a svg { width: 25px; height: 25px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s var(--ease); }
+.tabbar a.on { color: var(--text); }
+.tabbar a.on svg { stroke: var(--accent); fill: color-mix(in srgb, var(--accent) 22%, transparent); }
+.tabbar a:active svg { transform: scale(.9); }
+.tb-plus { justify-self: center; align-self: center; display: grid; place-items: center; width: 54px; height: 44px; margin-bottom: 6px; padding: 0; cursor: pointer;
+  border: 0; border-radius: 14px; color: var(--on-accent); background: var(--accent); box-shadow: 0 6px 16px var(--shadow), inset 0 -3px 0 rgba(0,0,0,.18);
+  -webkit-tap-highlight-color: transparent; transition: transform .15s var(--ease); }
+.tb-plus svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+.tb-plus:active { transform: scale(.92); }
+.tb-badge { position: absolute; top: 3px; left: calc(50% + 6px); display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; font-size: .66rem; color: #fff; background: var(--bad); }
+.tb-av { display: grid; place-items: center; height: 25px; }
+.tb-av .av { width: 25px; height: 25px; font-size: .8rem; }
+.tabbar a.on .tb-av .av { box-shadow: 0 0 0 2px var(--accent); }
+@media (min-width: 900px) { .tabbar { left: 50%; right: auto; width: 560px; transform: translateX(-50%); border: 1px solid var(--line); border-bottom: 0; border-radius: 18px 18px 0 0; } }
+
+/* Erinnerungen fuer eine Liste aus- und einschalten */
+.bell.off { opacity: .75; border-style: dashed; }
+
+/* Anlass-Seite */
+.ev-todo { margin-top: 18px; }
+.ev-todo h2 { margin-bottom: 10px; }
+
+/* Lange Woerter in Listentiteln umbrechen statt abschneiden */
+.list-head h1 { overflow-wrap: anywhere; hyphens: auto; }

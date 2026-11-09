@@ -152,6 +152,11 @@
       if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
       if (full) location.reload();
       else window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }));
-    }
+    },
+    // Erinnerungen: die Webseite uebergibt Anlaesse und offene Geschenke (null = abgemeldet)
+    notify: function (data) { post({ t: 'notify-data', data: data || null }); },
+    version: 2
   };
+  // Die Seite kann schon geladen sein, bevor die Bruecke da ist: Bescheid geben
+  try { window.dispatchEvent(new Event('wlapp-ready')); } catch (e) {}
 })();

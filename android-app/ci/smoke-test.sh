@@ -90,6 +90,7 @@ if crashed "$OUT/logcat-release.txt"; then log "FEHLER  Absturz im Protokoll (lo
 #    die sich per Chrome-DevTools-Protokoll fernsteuern laesst
 adb uninstall $PKG >/dev/null 2>&1
 adb install -r "$DEBUG_APK" >/dev/null || { log "FEHLER  Installation Debug-Version"; FAIL=1; }
+adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS >/dev/null 2>&1
 adb logcat -c
 # Nach einer Installation startet Android im Emulator gelegentlich Google-Dienste neu und beendet dabei
 # frisch gestartete Apps. Deshalb kurz warten und den Start notfalls einmal wiederholen.
