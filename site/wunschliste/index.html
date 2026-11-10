@@ -16,15 +16,19 @@
 <meta name="apple-mobile-web-app-title" content="Wunschliste">
 <link rel="stylesheet" href="../assets/fx.css">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="themes.css">
+<script src="mode.js"></script>
 </head>
 <body>
 <a class="skip" href="#inhalt">Zum Inhalt springen</a>
 <div class="fx-bg" aria-hidden="true"><i></i><i></i><i></i><canvas></canvas></div>
-<div class="deco" aria-hidden="true"></div>
+<!-- Dekoration der Designs: die <i> sind einzelne Schneeflocken, Blaetter, Lichter ... (style.css) -->
+<div class="deco" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 
 <div class="nav-bar">
   <nav class="nav wrap" aria-label="Hauptnavigation">
-    <a class="brand" href="../"><span class="brand-mark" aria-hidden="true"></span>Skeison</a>
+    <!-- Die Marke fuehrt zur Wunschliste-Uebersicht, nicht zur Hauptseite: niemand faellt versehentlich hinaus -->
+    <a class="brand" href="./" aria-label="Wunschliste: zur Übersicht"><span class="brand-mark" aria-hidden="true"></span>Wunschliste</a>
     <a class="nav-admin" id="adminTop" href="./?seite=admin" hidden>🛠 Admin</a>
     <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
     <div class="links" id="navLinks">
@@ -44,7 +48,6 @@
   <header class="hero wrap">
     <div class="hero-grid">
       <div data-stagger>
-        <p class="back"><a href="../"><span class="arr">←</span> Skeison Web</a></p>
         <span class="tag">Für Freunde &amp; Familie</span>
         <h1>Wünsche teilen, <em>Überraschungen behalten.</em></h1>
         <p class="lead">Stell dir Wunschlisten mit Bild, Preis und Einsatzzweck zusammen, gib sie nur den Menschen frei, die sie sehen sollen, und lass sie Geschenke reservieren, damit nichts doppelt unterm Baum liegt.</p>
@@ -121,7 +124,7 @@
     <span class="muted">Wunschliste · Skeison</span>
     <span class="support muted">Fragen oder Probleme? Im <a href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Discord</a> der Rolle <b>@Admin</b> oder Skeison direkt schreiben.</span>
     <a class="web-only" href="app.html">📱 Als App</a>
-    <a href="../">← Zurück zu Skeison</a>
+    <a class="exit" href="../">Zur Skeison-Hauptseite <span class="arr">↗</span></a>
   </div>
 </footer>
 
@@ -135,6 +138,8 @@
 </nav>
 
 <dialog id="dlg" class="dlg"></dialog>
+<!-- Swipe-Ansicht: Wuensche einzeln im Vollbild (steht nach #dlg, damit die App-Bruecke zuerst den Dialog schliesst) -->
+<dialog id="feed" class="feed" aria-label="Wünsche durchblättern"></dialog>
 
 <script src="../assets/fx.js"></script>
 <script src="qrcode.js"></script>

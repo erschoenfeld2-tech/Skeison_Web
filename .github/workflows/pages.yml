@@ -4,7 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: '17 */6 * * *'   # alle 6 Stunden Steam-Daten aktualisieren
+    - cron: '17 */6 * * *'   # alle 6 Stunden Steam- und Valorant-Daten aktualisieren
 permissions:
   contents: read
   pages: write
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,6 +40,27 @@ jobs:
         with:
           path: .steam-cache
           key: steam-${{ github.run_id }}
+      # Valorant: Rang und Statistik (README, Abschnitt Valorant). Ohne Riot-ID oder Schluessel schreibt das Skript
+      # nur einen Platzhalter; der letzte erfolgreiche Stand bleibt wie bei Steam zwischen den Laeufen erhalten.
+      - name: Letzten Valorant-Stand laden
+        uses: actions/cache/restore@v4
+        with:
+          path: .valorant-cache
+          key: valorant-${{ github.run_id }}
+          restore-keys: valorant-
+      - name: Valorant-Daten abrufen
+        continue-on-error: true   # ein Fehler hier darf die Seite nie am Veroeffentlichen hindern
+        run: node tools/fetch-valorant.js
+        env:
+          VALORANT_RIOT_ID: ${{ vars.VALORANT_RIOT_ID }}
+          VALORANT_REGION: ${{ vars.VALORANT_REGION }}
+          HENRIK_API_KEY: ${{ secrets.HENRIK_API_KEY }}
+      - name: Valorant-Stand zwischenspeichern
+        if: hashFiles('.valorant-cache/valorant.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .valorant-cache
+          key: valorant-${{ github.run_id }}
       # Versionsnummern: haengt den Commit an alle lokalen CSS- und JS-Links (z. B. main.css?v=4dbe144).
       # GitHub Pages laesst Browser Dateien 10 Minuten zwischenspeichern; ohne Nummer mischten sie nach einem
       # Update neues HTML mit alten Skripten. Externe Links (http...) bleiben unveraendert.
@@ -52,5 +73,16 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+      # Gelegentlich meldet GitHub direkt nach dem Hochladen "Found 0 artifact(s)" (Lauf #96, ein Aussetzer auf GitHubs Seite;
+      # das Artefakt war hochgeladen). Dann nach kurzer Pause ein zweiter Versuch, statt das ganze Deployment scheitern zu lassen.
       - id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Kurz warten, dann erneut veroeffentlichen
+        if: steps.deployment.outcome == 'failure'
+        run: |
+          echo "::warning::Veroeffentlichen ist beim ersten Versuch fehlgeschlagen (meist ein Aussetzer bei GitHub), zweiter Versuch in 30 s"
+          sleep 30
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
