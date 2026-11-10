@@ -225,6 +225,7 @@
     not_friend: 'Vorschläge können nur Freunde machen, nicht Bekannte.', too_many_sizes: 'Mehr als 12 Größen sind nicht möglich.', too_many: 'Du hast hier schon 10 offene Vorschläge.',
     no_profile: 'Dein Profil wurde nicht gefunden. Bitte melde dich ab und wieder an.',
     not_admin: 'Dafür brauchst du Admin-Rechte.', self: 'Dein eigenes Konto kannst du hier nicht löschen.', is_admin: 'Admin-Konten können hier nicht gelöscht oder zurückgesetzt werden.',
+    same_list: 'Quelle und Ziel sind dieselbe Liste.', too_short: 'Bitte schreib ein paar Worte mehr.', rate_limited: 'Das waren heute schon viele Nachrichten. Bitte morgen wieder.',
     over_email_send_rate_limit: 'Zu viele Versuche. Bitte später erneut probieren.', same_password: 'Das ist schon dein aktuelles Passwort.'
   };
   function errText(e) {
@@ -258,6 +259,10 @@
     syncChrome();
   }
   document.addEventListener('wl:mode', syncChrome);
+  // Wahl ueber den Knopf in der Navigation: Umschalter im Profil (falls gerade offen) nachziehen
+  document.addEventListener('wl:modepref', function () {
+    $$('.mode-seg button').forEach(function (x) { var on = x.dataset.mode === modePref(); x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+  });
   // Meldungen bleiben sichtbar, wenn ein Dialog oder die Swipe-Ansicht offen ist (die liegen ueber der Seite)
   var fxToast = FX.toast;
   FX.toast = function (text) {
@@ -304,7 +309,23 @@
         if (depth && (history.state || {}).dlg === depth) { ignorePop++; history.back(); }
       }, 0);
     });
-    el.addEventListener('click', function (e) { if (e.target === el || e.target.closest('[data-close]')) el.close(); });
+    // Klick neben den Dialog schliesst ihn nur, wenn der Klick dort auch begonnen hat (nicht beim Markieren von Text,
+    // das ueber den Rand hinausrutscht, und nicht auf der Scrollleiste des Dialogs). Dialoge mit Eingabefeldern
+    // (Wunsch, Liste, Feedback ...) schliessen so gar nicht: dort gingen sonst Eingaben verloren. Sie schliessen
+    // ueber ✕, "Abbrechen", Escape oder (am Handy) Herunterwischen.
+    var downOut = false;
+    function outside(e) { var r = el.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; }
+    el.addEventListener('pointerdown', function (e) { downOut = e.target === el && outside(e); });
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-close]')) return el.close();
+      var out = e.target === el && downOut && outside(e); downOut = false;
+      if (!out) return;
+      if ($('input:not([type=radio]):not([type=checkbox]):not([type=hidden]), textarea', el)) {
+        el.classList.remove('nudge'); void el.offsetWidth; el.classList.add('nudge');   // kurzes Wackeln: "ich bleibe offen"
+        return;
+      }
+      el.close();
+    });
   });
   function openDlg(html, cls) {
     dlg.className = 'dlg ' + (cls || '');
@@ -357,7 +378,7 @@
   })();
 
   // ---------- Navigation ----------
-  var navSeq = 0, guardOn = !!(history.state && history.state.g), exitAt = 0, curPage = '', lastSearch = location.search, scrollMem = {};
+  var navSeq = 0, guardOn = !!(history.state && history.state.g), exitAt = 0, curPage = '', prevPage = '', lastSearch = location.search, scrollMem = {};
   try { history.scrollRestoration = 'manual'; } catch (e) {}
   function route() {
     var q = new URLSearchParams(location.search);
@@ -423,12 +444,15 @@
     var r = route();
     if (r.page === 'teilen' || r.page === 'einladung') return;
     guardOn = true;
-    var url = location.pathname + location.search, k = st.k, deep = r.page !== 'home';
+    var url = location.pathname + location.search, k = st.k, deep = r.page !== 'home', y0 = window.scrollY;
     if (!NATIVE) { history.replaceState({ guard: 1 }, '', './'); history.pushState(navState(), '', './'); }
     else if (deep) history.replaceState(navState(), '', './');
     if (deep) history.pushState(navState(), '', url);
     else if (NATIVE) history.replaceState(navState(), '', url);
     if (k && history.state) scrollMem[history.state.k] = scrollMem[k];
+    // Der Waechter wird beim ersten Loslassen angelegt, auch nach dem Ziehen der Scrollleiste: die Seite bleibt, wo sie ist
+    if (window.scrollY !== y0) window.scrollTo(0, y0);
+    requestAnimationFrame(function () { if (Math.abs(window.scrollY - y0) > 2 && !layers.length && curPage === r.page) window.scrollTo(0, y0); });
   }
   ['pointerup', 'keydown', 'touchend'].forEach(function (ev) { document.addEventListener(ev, armGuard, { passive: true, capture: true }); });
   function onGuard() {
@@ -466,6 +490,7 @@
     document.body.classList.toggle('is-in', signedIn);
     if (!signedIn) document.body.classList.remove('is-locked');
     var r = route(), preview = !signedIn && (r.page === 'teilen' || r.page === 'einladung');
+    if (curPage && curPage !== r.page) prevPage = curPage;
     curPage = r.page;
     document.body.classList.toggle('is-preview', preview);
     if (authEl.parentNode !== authHome) authHome.appendChild(authEl);
@@ -475,7 +500,7 @@
       var on = a.getAttribute('data-nav') === r.page || (r.page === 'freund' && a.getAttribute('data-nav') === 'freunde');
       a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
-    var tab = { freund: 'freunde', freunde: 'freunde', geschenke: 'geschenke', profil: 'profil' }[r.page] || 'home';
+    var tab = { freund: 'freunde', freunde: 'freunde', geschenke: 'geschenke', profil: 'profil', feedback: 'profil' }[r.page] || 'home';
     $$('#tabbar [data-tab]').forEach(function (a) {
       var on = a.getAttribute('data-tab') === tab;
       a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -710,6 +735,23 @@
     return '<div class="cpick">' + COLORS.map(function (c) { return '<label style="--c:' + c + '"><input type="radio" name="' + name + '" value="' + c + '"' + (c === current ? ' checked' : '') + ' aria-label="Farbe ' + c + '"><span></span></label>'; }).join('') + '</div>';
   }
   function emptyBox(ico, title, text, action) { return '<div class="empty"><span class="e-ico">' + ico + '</span><h3>' + title + '</h3><p>' + text + '</p>' + (action || '') + '</div>'; }
+
+  // Gliederung nach Wichtigkeit (vom Besitzer pro Liste einschaltbar): Herzenswuensche, "Wuensche ich mir" und "Waere nett"
+  // stehen in eigenen, farblich abgesetzten Abschnitten; Erhaltenes sammelt sich am Ende.
+  var PRIO_SEC = { 3: ['Herzenswünsche', 'Das wünsche ich mir am meisten'], 2: ['Wünsche ich mir', 'Darüber freue ich mich sehr'],
+    1: ['Wäre nett', 'Kleinigkeiten und Ideen'], 0: ['Schon erhalten', 'Bereits erfüllt, danke!'] };
+  function wishSections(items, card) {
+    var g = { 3: [], 2: [], 1: [], 0: [] };
+    items.forEach(function (it) { g[it.received ? 0 : it.priority].push(it); });
+    return [3, 2, 1, 0].filter(function (k) { return g[k].length; }).map(function (k) {
+      var sum = k ? fmtSums(sumCur(g[k], function (it) { return it.price == null ? 0 : it.price * it.quantity; })) : '';
+      return '<div class="prio-sec ps' + k + '" role="group" aria-label="' + PRIO_SEC[k][0] + '"><header class="ps-head">' +
+        '<span class="ps-mark" aria-hidden="true">' + (k ? '●●●'.slice(0, k) + '<i>' + '●●●'.slice(k) + '</i>' : '✓') + '</span>' +
+        '<div><h2>' + PRIO_SEC[k][0] + '</h2><p>' + PRIO_SEC[k][1] + '</p></div>' +
+        '<span class="ps-count">' + plural(g[k].length, 'Wunsch', 'Wünsche') + (sum ? ' · ca. ' + esc(sum) : '') + '</span></header>' +
+        '<div class="wishes" data-stagger>' + g[k].map(card).join('') + '</div></div>';
+    }).join('');
+  }
 
   // ---------- Uebersicht ----------
   async function home(ctx) {
@@ -983,7 +1025,8 @@
       az: function (a, b) { return a.title.localeCompare(b.title, 'de'); },
       new: function (a, b) { return a.created_at < b.created_at ? 1 : -1; }
     }[st.sort];
-    items.sort(function (a, b) { return (a.received - b.received) || cmp(a, b); });
+    var sec = !!st.list.prio_sections;   // Abschnitte nach Wichtigkeit: erst die Wichtigkeit, darin die gewaehlte Sortierung
+    items.sort(function (a, b) { return (a.received - b.received) || (sec ? b.priority - a.priority : 0) || cmp(a, b); });
     var F = st.f, qq = F.q.trim().toLowerCase();
     var filtered = !!(qq || F.cat || F.prio || F.price || F.only);
     items = items.filter(function (it) {
@@ -1005,7 +1048,8 @@
   }
   function listResults(st, v) {
     var l = st.list;
-    return v.items.length ? '<div class="wishes" data-stagger>' + v.items.map(function (it) { return wishCard(it, { owner: st.owner, res: st.res[it.id], emoji: l.emoji, links: linksOf(st, it) }); }).join('') + '</div>'
+    var card = function (it) { return wishCard(it, { owner: st.owner, res: st.res[it.id], emoji: l.emoji, links: linksOf(st, it) }); };
+    return v.items.length ? (l.prio_sections ? wishSections(v.items, card) : '<div class="wishes" data-stagger>' + v.items.map(card).join('') + '</div>')
       : st.items.length ? (v.filtered ? emptyBox('🔎', 'Nichts gefunden', 'Mit diesen Filtern passt gerade kein Wunsch.', '<button type="button" class="btn ghost" data-act="reset-filters">Filter zurücksetzen</button>') : emptyBox('🎉', 'Alles vergeben', 'Mit diesem Filter ist gerade nichts übrig.'))
         : st.owner ? emptyBox('✨', 'Füge deinen ersten Wunsch hinzu', 'Produktlink einfügen genügt: Bild, Titel und Preis werden automatisch übernommen.', '<button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>')
           : emptyBox('🕊️', 'Noch leer', esc(l.owner.name) + ' hat hier noch keine Wünsche eingetragen.');
@@ -1041,9 +1085,9 @@
       '<h1>' + esc(l.title) + '</h1>' + (l.description ? '<p class="lead">' + esc(l.description) + '</p>' : '') + '</div>' +
       (d !== null && d >= 0 ? '<div class="lh-cd"><b>' + d + '</b><span>' + (d === 1 ? 'Tag' : 'Tage') + (l.occasion ? ' bis ' + esc(l.occasion) : '') + '</span></div>' : '') + '</div>' +
       '<div class="lh-bar">' + (st.owner
-        ? '<span class="pill" title="Wer diese Liste sehen kann">' + vis + '</span><span class="sp"></span>' + hideBtn(l) + '<button type="button" class="btn ghost" data-act="share">🔗 Teilen</button><button type="button" class="btn ghost" data-act="edit-list">⚙ Liste bearbeiten</button><button type="button" class="btn lh-add" data-act="add-item">+ Wunsch hinzufügen</button>'
+        ? '<span class="pill" title="Wer diese Liste sehen kann">' + vis + '</span><span class="sp"></span>' + hideBtn(l) + '<button type="button" class="btn ghost" data-act="share">🔗 Teilen</button><button type="button" class="btn ghost" data-act="clone" title="Ganze Liste klonen oder alle Wünsche in eine andere Liste kopieren">⧉ Kopieren</button><button type="button" class="btn ghost" data-act="edit-list">⚙ Liste bearbeiten</button><button type="button" class="btn lh-add" data-act="add-item">+ Wunsch hinzufügen</button>'
         : '<a class="owner-chip" href="./?seite=freund&id=' + l.owner.id + '">' + avatar(l.owner, 'sm') + '<span>Liste von <b>' + esc(l.owner.name) + '</b></span></a><span class="sp"></span><span class="pill">' + free + ' von ' + st.items.length + ' Wünschen noch frei</span>' +
-          hideBtn(l) + (st.canSuggest ? '<button type="button" class="btn lh-add" data-act="suggest">💡 Vorschlag machen</button>' : '')) + '</div>' +
+          hideBtn(l) + (st.items.length ? '<button type="button" class="btn ghost" data-act="clone" title="Alle Wünsche als eigene Liste oder in eine deiner Listen übernehmen">⧉ Übernehmen</button>' : '') + (st.canSuggest ? '<button type="button" class="btn lh-add" data-act="suggest">💡 Vorschlag machen</button>' : '')) + '</div>' +
       (st.owner ? '<p class="surprise">🙈 <b>Überraschungsschutz:</b> Was reserviert wurde, siehst du auf deinen eigenen Listen nicht.</p>' : '') +
       '</header>' +
       (nDup ? '<button type="button" class="banner dup" data-act="dups"><span>🔗</span><b>' + plural(nDup, 'Wunsch steht', 'Wünsche stehen') + ' auch auf einer anderen Liste <small>Verknüpfen, damit nichts doppelt geschenkt wird</small></b><span class="arr">→</span></button>' : '') +
@@ -1120,6 +1164,7 @@
     if (act === 'dups') return dupDialog(st);
     if (act === 'links') return it && linkDialog2(st, it);
     if (act === 'copy-item') return copyDialog(st, it);
+    if (act === 'clone') return cloneDialog(st);
     if (act === 'auto-cat') return autoCategorize(st);
     if (act === 'edit-item') return itemDialog(st, it);
     if (act === 'edit-list') return listDialog(st.list);
@@ -1314,6 +1359,54 @@
     });
   }
 
+  // Ganze Liste klonen oder nur ihren Inhalt vollstaendig in eine andere eigene Liste kopieren (auch von der Liste eines Freundes:
+  // dann wie beim einzelnen Uebernehmen ohne dessen Notizen und nie verknuepft). Laeuft in der Datenbank in einem Schritt
+  // (wl_clone_list / wl_copy_list_items): alle Wuensche oder keiner. Reservierungen werden nie mitkopiert.
+  async function cloneDialog(st) {
+    var l = st.list, own = st.owner, n = st.items.length, lists;
+    try { lists = await Api.get('wl_lists', 'owner=eq.' + me.id + '&select=id,title,emoji,archived&order=archived.asc,created_at.desc'); } catch (e) { return FX.toast(errText(e)); }
+    lists = lists.filter(function (x) { return x.id !== l.id; });
+    var canLink = own && LINKS && n > 0, canItems = n > 0 && lists.length > 0, wishes = plural(n, 'Wunsch', 'Wünsche');
+    openDlg(dlgHead(own ? '⧉ Liste kopieren' : '⧉ Liste übernehmen') + '<form class="form" novalidate>' +
+      '<p class="muted">' + (own ? 'Das Original bleibt unverändert. Reservierungen werden nicht mitkopiert.'
+        : esc(l.owner.name) + ' erfährt davon nichts. Übernommen werden Titel, Bild, Preis und Kategorie der Wünsche, nicht die Notizen „Wofür“ und keine Reservierungen.') + '</p>' +
+      '<fieldset class="vis"><legend>Was möchtest du kopieren?</legend>' +
+      '<label class="vopt"><input type="radio" name="mode" value="clone" checked><span><b>📑 Ganze Liste klonen</b><small>Neue eigene Liste mit Design, Anlass, Datum und ' + (n === 1 ? 'dem einen Wunsch' : 'allen ' + wishes.replace('Wünsche', 'Wünschen')) + '.</small></span></label>' +
+      '<label class="vopt' + (canItems ? '' : ' off') + '"><input type="radio" name="mode" value="items"' + (canItems ? '' : ' disabled') + '><span><b>📥 Nur den Inhalt kopieren</b><small>' +
+        (canItems ? 'Alle ' + wishes + ' in eine deiner bestehenden Listen legen.' : n ? 'Dafür brauchst du eine weitere eigene Liste.' : 'Diese Liste hat noch keine Wünsche.') + '</small></span></label></fieldset>' +
+      '<div class="when-clone"><label>Name der neuen Liste<input name="title" required maxlength="60" value="' + esc((l.title + ' (Kopie)').slice(0, 60)) + '"></label>' +
+      (own && l.visibility !== 'private' ? '<label class="check"><input type="checkbox" name="share" checked> Freigabe übernehmen <small class="muted">gleiche Sichtbarkeit wie das Original; ohne Haken ist der Klon zunächst privat</small></label>'
+        : '<p class="muted small">🔒 Die neue Liste ist zunächst privat. Die Freigabe stellst du danach unter „Liste bearbeiten“ ein.</p>') + '</div>' +
+      '<div class="when-items" hidden><label>In welche Liste?<select name="to">' + lists.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.emoji + ' ' + x.title) + (x.archived ? ' (archiviert)' : '') + '</option>'; }).join('') + '</select></label></div>' +
+      (canLink ? '<fieldset class="vis link-pick"><legend>Sind es dieselben Wünsche?</legend>' +
+        '<label class="vopt"><input type="radio" name="link" value="1" checked><span><b>🔗 Ja, verknüpfen <em>empfohlen</em></b><small>Du möchtest jeden Wunsch nur einmal bekommen. Wird er auf einer Liste reserviert, gilt er auf beiden als vergeben.</small></span></label>' +
+        '<label class="vopt"><input type="radio" name="link" value="0"><span><b>Nein, eigenständige Kopien</b><small>Jede Liste zählt für sich, z. B. als Vorlage fürs nächste Jahr. „Erhalten“ wird dabei zurückgesetzt.</small></span></label></fieldset>' : '') +
+      '<p class="msg"></p><div class="dlg-actions"><button type="button" class="btn ghost" data-close>Abbrechen</button><button type="submit" class="btn">Liste klonen</button></div></form>', 'small');
+    var f = $('form', dlg), sub = $('[type=submit]', f);
+    f.addEventListener('change', function () {
+      var items = vals(f).mode === 'items';
+      $('.when-clone', f).hidden = items; $('.when-items', f).hidden = !items;
+      sub.textContent = items ? 'Inhalt kopieren' : 'Liste klonen';
+    });
+    f.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var v = vals(f), m = $('.msg', f), link = canLink && v.link !== '0';
+      try {
+        if (v.mode === 'items') {
+          var cnt = await busy(sub, function () { return Api.rpc('wl_copy_list_items', { p_from: l.id, p_to: v.to, p_link: link }); });
+          dlg.close();
+          FX.toast(cnt ? plural(cnt, 'Wunsch', 'Wünsche') + ' kopiert' + (link ? ' und verknüpft 🔗' : ' ✨') : 'Dort stehen schon alle Wünsche (verknüpft) 🔗');
+          go('./?liste=' + v.to);
+        } else {
+          if (!v.title) return say(m, 'Bitte gib der neuen Liste einen Namen.', false);
+          var id = await busy(sub, function () { return Api.rpc('wl_clone_list', { p_list: l.id, p_title: v.title, p_link: link, p_share: !!v.share }); });
+          dlg.close(); FX.toast('Liste geklont 🎉' + (link ? ' Die Wünsche sind verknüpft.' : ''));
+          go('./?liste=' + id);
+        }
+      } catch (err) { say(m, err.code === 'too_many' ? 'Das wären zu viele Wünsche bzw. Listen. Bitte räum vorher etwas auf.' : errText(err), false); }
+    });
+  }
+
   // Grobe Vorkategorisierung fuer bestehende Wuensche ohne Kategorie (nur eigene Listen)
   async function autoCategorize(st) {
     var todo = st.items.filter(function (it) { return !it.category; }).map(function (it) { return { it: it, cat: guessCategory(it.title, it.url) }; })
@@ -1439,7 +1532,7 @@
     if (!res) return;
     var friends = res[0].friends, groups = res[1];
     var gSel = res[2].map(function (x) { return x.group_id; }), pSel = res[3].map(function (x) { return x.person; });
-    var x = l || { title: '', description: '', emoji: '🎁', theme: me.theme, occasion: '', event_date: null, visibility: 'friends', archived: false };
+    var x = l || { title: '', description: '', emoji: '🎁', theme: me.theme, occasion: '', event_date: null, visibility: 'friends', archived: false, prio_sections: false };
     openDlg(dlgHead(l ? 'Liste bearbeiten' : 'Neue Wunschliste') +
       '<form class="form" novalidate>' +
       '<div class="row2 wide-first"><label>Titel<input name="title" required maxlength="60" value="' + esc(x.title) + '" placeholder="z. B. Mein 30. Geburtstag" autofocus></label>' +
@@ -1450,6 +1543,8 @@
       '<label>Beschreibung <small class="muted">optional</small><textarea name="description" rows="2" maxlength="500" placeholder="Ein paar Worte an alle, die schenken wollen">' + esc(x.description) + '</textarea></label>' +
       '<fieldset><legend>Symbol</legend>' + richPicker('emoji', x.emoji, { glyphs: false, start: 'party' }) + '</fieldset>' +
       '<fieldset><legend>Design</legend>' + themePicker('theme', x.theme) + '</fieldset>' +
+      '<fieldset><legend>Gliederung</legend><label class="check"><input type="checkbox" name="prio_sections"' + (x.prio_sections ? ' checked' : '') + '> ●●● Nach Wichtigkeit gliedern ' +
+      '<small class="muted">Herzenswünsche, „Wünsche ich mir“ und „Wäre nett“ stehen dann für alle in eigenen, farblich abgesetzten Abschnitten</small></label></fieldset>' +
       '<fieldset class="vis"><legend>Wer darf die Liste sehen und reservieren?</legend>' +
       [['private', '🔒 Nur ich', 'Entwurf, für niemanden sichtbar'], ['friends', '👥 Alle Freunde', 'Jeder Freund (nicht nur Bekannte)'], ['custom', '🎯 Ausgewählte', 'Nur bestimmte Gruppen und Personen']].map(function (o) {
         return '<label class="vopt"><input type="radio" name="visibility" value="' + o[0] + '"' + (x.visibility === o[0] ? ' checked' : '') + '><span><b>' + o[1] + '</b><small>' + o[2] + '</small></span></label>';
@@ -1474,7 +1569,7 @@
       e.preventDefault();
       var v = vals(f), m = $('.msg', f);
       if (!v.title) return say(m, 'Bitte gib der Liste einen Titel.', false);
-      var row = { title: v.title, occasion: v.occasion, event_date: v.event_date || null, description: v.description, emoji: v.emoji || '🎁', theme: v.theme || 'polarlicht', visibility: v.visibility || 'private', archived: !!v.archived };
+      var row = { title: v.title, occasion: v.occasion, event_date: v.event_date || null, description: v.description, emoji: v.emoji || '🎁', theme: v.theme || 'polarlicht', visibility: v.visibility || 'private', archived: !!v.archived, prio_sections: !!v.prio_sections };
       try {
         var saved = await busy($('[type=submit]', f), async function () {
           var out = l ? await Api.update('wl_lists', 'id=eq.' + l.id, row) : await Api.insert('wl_lists', row);
@@ -1789,6 +1884,7 @@
         return '<button type="button" data-mode="' + o[0] + '" class="' + (modePref() === o[0] ? 'on' : '') + '" aria-pressed="' + (modePref() === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
       '<label class="check"><input type="checkbox" data-act="still"' + (FX.still ? ' checked' : '') + '> Animationen pausieren <small class="muted">Schnee, Blätter und Lichter stehen still</small></label></div>' +
       '<div class="panel account more-links"><h3>Mehr</h3>' +
+      '<a href="./?seite=feedback">💡 Feedback geben</a>' +
       '<a class="web-only" href="app.html">📱 Wunschliste als App</a>' +
       '<a href="' + DISCORD + '" target="_blank" rel="noopener">💬 Hilfe im Discord</a>' +
       '<a class="exit" href="../">Zur Skeison-Hauptseite <span class="arr">↗</span></a></div></aside></div>');
@@ -1874,10 +1970,69 @@
     app.onclick = function (e) { if (e.target.closest('[data-act="logout"]')) Api.signOut(); };
   }
 
+  // ---------- Feedback ----------
+  // Verbesserungsvorschlaege, Fehler und Lob landen in der Tabelle wl_feedback (supabase/wunschliste_clone_prio_feedback.sql).
+  // Jeder sieht hier sein eigenes Feedback samt Status und Antwort; Admins bearbeiten alles auf der Admin-Seite.
+  var FB_KINDS = [['idee', '💡', 'Idee', 'Was fehlt dir? Was wäre praktisch?'], ['fehler', '🐞', 'Fehler', 'Was ist passiert, und wo? Was hattest du erwartet?'],
+    ['lob', '❤️', 'Lob', 'Was gefällt dir besonders?'], ['sonstiges', '💬', 'Sonstiges', 'Alles andere, was du loswerden möchtest.']];
+  var FB_STATUS = { neu: ['📬', 'Angekommen'], geplant: ['🛠', 'Geplant'], erledigt: ['✅', 'Umgesetzt'], abgelehnt: ['🚫', 'Nicht geplant'] };
+  var PAGE_NAMES = { home: 'Übersicht', liste: 'Liste', freunde: 'Freunde', freund: 'Freundesprofil', geschenke: 'Meine Geschenke', profil: 'Profil', admin: 'Admin', anlass: 'Anlass' };
+  function fbKind(k) { return FB_KINDS.filter(function (x) { return x[0] === k; })[0] || FB_KINDS[3]; }
+  function fbWhen(t) { return new Date(t).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }); }
+  function fbItem(x, admin) {
+    var k = fbKind(x.kind), stt = FB_STATUS[x.status] || FB_STATUS.neu;
+    return '<li class="fb-item fb-' + esc(x.status) + '" data-fid="' + esc(x.id) + '"><div class="fb-meta"><span class="tagchip">' + k[1] + ' ' + k[2] + '</span>' +
+      '<span class="fb-status">' + stt[0] + ' ' + stt[1] + '</span><small>' + (admin ? esc(x.user_name || 'gelöschtes Konto') + ' · ' : '') + fbWhen(x.created_at) +
+      (admin && x.page ? ' · Seite: ' + esc(PAGE_NAMES[x.page] || x.page) : '') + '</small></div>' +
+      '<p class="fb-text">' + esc(x.message) + '</p>' +
+      (admin ? '<small class="muted fb-device">' + esc(x.device) + '</small><div class="fb-admin"><select name="status" aria-label="Status">' + Object.keys(FB_STATUS).map(function (s) {
+        return '<option value="' + s + '"' + (x.status === s ? ' selected' : '') + '>' + FB_STATUS[s][0] + ' ' + FB_STATUS[s][1] + '</option>'; }).join('') + '</select>' +
+        '<input name="reply" maxlength="1000" value="' + esc(x.reply) + '" placeholder="Antwort (optional, sieht nur die Person)" aria-label="Antwort"><button type="button" class="btn small" data-act="fb-save">Speichern</button>' +
+        '<button type="button" class="icon-btn" data-act="fb-del" aria-label="Feedback löschen" title="Löschen">🗑</button></div>'
+        : (x.reply ? '<p class="fb-reply"><b>Antwort von Skeison:</b> ' + esc(x.reply) + '</p>' : '') +
+          (x.status === 'neu' ? '<button type="button" class="link-btn" data-act="fb-del">Zurückziehen</button>' : '')) + '</li>';
+  }
+  async function feedbackPage(ctx) {
+    setTheme(me.theme);
+    var from = prevPage && prevPage !== 'feedback' ? prevPage : '';
+    var rows = await Api.get('wl_feedback', 'user_id=eq.' + me.id + '&order=created_at.desc&limit=50').catch(function () { return null; });
+    if (!view(ctx,
+      '<header class="page-head"><p class="eyebrow">Deine Meinung zählt</p><h1>Feedback</h1><p class="lead">Dir fehlt etwas, etwas hakt oder gefällt dir besonders gut? Schreib es hier auf. Alles landet direkt bei Skeison und fließt in die nächsten Verbesserungen ein.</p></header>' +
+      (rows === null ? emptyBox('🛠', 'Feedback ist noch nicht eingerichtet', 'Schreib bis dahin gern im <a href="' + DISCORD + '" target="_blank" rel="noopener">Discord</a>.')
+        : '<div class="fb-grid"><form class="panel form" id="fbForm" novalidate>' +
+        '<fieldset><legend>Worum geht es?</legend><div class="fb-kinds">' + FB_KINDS.map(function (k, i) {
+          return '<label class="vopt"><input type="radio" name="kind" value="' + k[0] + '"' + (i ? '' : ' checked') + '><span><b>' + k[1] + ' ' + k[2] + '</b></span></label>'; }).join('') + '</div></fieldset>' +
+        '<label>Deine Nachricht<textarea name="message" rows="6" maxlength="2000" required placeholder="' + esc(FB_KINDS[0][3]) + '"></textarea></label>' +
+        '<p class="muted small">Mitgeschickt werden dein Anzeigename' + (from ? ', die zuletzt besuchte Seite (' + esc(PAGE_NAMES[from] || from) + ')' : '') + ' und dein Gerät/Browser, damit sich Fehler nachstellen lassen. Sonst nichts.</p>' +
+        '<p class="msg" role="status"></p><div class="dlg-actions"><button type="submit" class="btn">Feedback senden</button></div></form>' +
+        '<section class="fb-mine"><h2>Dein bisheriges Feedback</h2>' + (rows.length ? '<ul class="fb-list">' + rows.map(function (x) { return fbItem(x, false); }).join('') + '</ul>'
+          : '<p class="muted">Noch nichts gesendet. Jede Rückmeldung hilft, auch eine kurze.</p>') + '</section></div>'))) return;
+    var f = $('#fbForm'); if (!f) return;
+    app.onchange = function (e) { if (e.target.name === 'kind') f.message.placeholder = fbKind(e.target.value)[3]; };
+    app.onsubmit = async function (e) {
+      e.preventDefault();
+      var v = vals(f), m = $('.msg', f);
+      if (v.message.length < 5) return say(m, ERR.too_short, false);
+      var device = [navigator.userAgent.slice(0, 180), window.innerWidth + 'x' + window.innerHeight, NATIVE ? 'App' : APP_MODE ? 'Web-App' : 'Browser',
+        (window.WLMode ? WLMode.current() : '') + (modePref() === 'auto' ? ' (auto)' : ''), 'Design ' + me.theme].join(' | ');
+      try {
+        await busy($('[type=submit]', f), function () { return Api.rpc('wl_send_feedback', { p_kind: v.kind, p_message: v.message, p_page: from, p_device: device }); });
+        FX.toast('Danke für dein Feedback! 💛'); render();
+      } catch (err) { say(m, errText(err), false); }
+    };
+    app.onclick = async function (e) {
+      var b = e.target.closest('[data-act="fb-del"]'); if (!b) return;
+      if (!(await confirmDlg('Dieses Feedback zurückziehen?', 'Zurückziehen'))) return;
+      try { await Api.remove('wl_feedback', 'id=eq.' + b.closest('[data-fid]').dataset.fid); FX.toast('Zurückgezogen'); render(); } catch (err) { FX.toast(errText(err)); }
+    };
+  }
+
   // ---------- Admin ----------
   async function adminPage(ctx) {
     if (!isAdmin) return go('./', true);
     var users = await Api.rpc('wl_admin_users'), q = '';
+    var fb = await Api.get('wl_feedback', 'order=created_at.desc&limit=200').catch(function () { return []; });
+    var fbOpen = fb.filter(function (x) { return x.status === 'neu'; }).length;
     setTheme(me.theme);
     var byId = {}; users.forEach(function (u) { byId[u.id] = u; });
     function sum(k) { return users.reduce(function (s, u) { return s + Number(u[k]); }, 0); }
@@ -1900,11 +2055,21 @@
         return '<div class="tile"><b>' + t[0] + '</b><span>' + t[1] + '</span></div>';
       }).join('') + '</div>' +
       '<section><div class="sec-head"><h2>Konten</h2><div class="filters"><input type="search" name="q" placeholder="Name, Code oder E-Mail …" aria-label="Konten suchen"></div></div>' +
-      '<ul class="ulist" id="ulist"></ul></section>');
+      '<ul class="ulist" id="ulist"></ul></section>' +
+      '<section id="fbAdmin"><div class="sec-head"><h2>Feedback' + (fbOpen ? ' <b class="badge">' + fbOpen + ' neu</b>' : '') + '</h2></div>' +
+      (fb.length ? '<ul class="fb-list">' + fb.map(function (x) { return fbItem(x, true); }).join('') + '</ul>' : '<p class="muted">Noch kein Feedback eingegangen.</p>') + '</section>');
     paintRows();
     app.oninput = function (e) { if (e.target.name === 'q') { q = e.target.value.trim().toLowerCase(); paintRows(); } };
     app.onclick = async function (e) {
       var b = e.target.closest('[data-act]'); if (!b) return;
+      var fi = b.closest('[data-fid]');
+      if (fi) {   // Feedback: Status/Antwort speichern oder loeschen
+        try {
+          if (b.dataset.act === 'fb-save') { await busy(b, function () { return Api.rpc('wl_feedback_update', { p_id: fi.dataset.fid, p_status: $('[name=status]', fi).value, p_reply: $('[name=reply]', fi).value.trim() }); }); FX.toast('Gespeichert'); }
+          else if (b.dataset.act === 'fb-del') { if (!(await confirmDlg('Dieses Feedback endgültig löschen?', 'Löschen'))) return; await Api.remove('wl_feedback', 'id=eq.' + fi.dataset.fid); FX.toast('Gelöscht'); render(); }
+        } catch (err) { FX.toast(errText(err)); }
+        return;
+      }
       var u = byId[b.closest('[data-id]').getAttribute('data-id')];
       if (b.dataset.act === 'reset') return resetDialog(u);
       if (b.dataset.act === 'delete') {
@@ -2094,7 +2259,8 @@
       (dd !== null && dd >= 0 ? '<div class="lh-cd"><b>' + dd + '</b><span>' + (dd === 1 ? 'Tag' : 'Tage') + '</span></div>' : '') + '</div>' +
       '<div class="lh-bar"><span class="owner-chip">' + avatar(o, 'sm') + '<span>Liste von <b>' + esc(o.name) + '</b></span></span><span class="sp"></span><span class="pill">👀 Vorschau</span></div>' +
       '<p class="surprise">🔒 Das ist nur eine Vorschau. <b>Melde dich an oder erstelle ein Konto</b>, um Wünsche zu reservieren. ' + esc(o.name) + ' wird dann für dich als Bekannte/r hinterlegt.</p></header>' +
-      (items.length ? '<div class="wishes">' + items.map(function (it) { return wishCard(it, { preview: true, emoji: l.emoji }); }).join('') + '</div>'
+      (items.length ? (l.prio_sections ? wishSections(items.slice().sort(function (a, b) { return (a.received - b.received) || (b.priority - a.priority); }), function (it) { return wishCard(it, { preview: true, emoji: l.emoji }); }).replace(/ data-stagger/g, '')
+        : '<div class="wishes">' + items.map(function (it) { return wishCard(it, { preview: true, emoji: l.emoji }); }).join('') + '</div>')
         : emptyBox('🕊️', 'Noch leer', esc(o.name) + ' hat hier noch keine Wünsche eingetragen.')) +
       '<div id="authSlot"></div>';
     $('#authSlot', app).appendChild(authEl);
@@ -2204,7 +2370,7 @@
       (lists.length ? '' : emptyBox('🗓️', 'Keine Listen an diesem Tag', 'Für dieses Datum ist gerade keine Liste für dich sichtbar.', '<a class="btn" href="./">Zur Übersicht</a>')));
   }
 
-  var VIEWS = { teilen: redeemPage, einladung: invitePage, home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage, anlass: eventPage };
+  var VIEWS = { teilen: redeemPage, einladung: invitePage, home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage, anlass: eventPage, feedback: feedbackPage };
 
   // ---------- Startseite fuer Abgemeldete ----------
   var DEMO = [
@@ -2223,14 +2389,21 @@
   function setTab(tab) {
     $$('.auth-tabs button').forEach(function (b) { var on = b.dataset.tab === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
     $('#loginForm').hidden = tab !== 'login'; $('#registerForm').hidden = tab !== 'register';
+    $('#authTitle').textContent = tab === 'login' ? 'Schön, dass du da bist' : 'Konto erstellen';
   }
   $$('.auth-tabs button').forEach(function (b) { b.addEventListener('click', function () { setTab(b.dataset.tab); }); });
+  // Abgemeldet: Die Anmelde-Klappe sitzt direkt unter der Navigation und klappt bei ./?login bzw. ./?registrieren auf.
+  // Niemand muss dafuer ans Seitenende scrollen; ohne diese Adressen bleibt sie zu.
+  var drawer = $('#authDrawer'), fold = $('.auth-fold', drawer);
   function landing() {
-    var q = location.search;
-    if (/registrieren|login/.test(q)) {
-      setTab(/registrieren/.test(q) ? 'register' : 'login');
-      requestAnimationFrame(function () { $('#auth').scrollIntoView({ behavior: FX.reduced ? 'auto' : 'smooth', block: 'center' }); });
-    }
+    var q = location.search, want = /registrieren|login/.test(q), was = drawer.classList.contains('open');
+    if (want) setTab(/registrieren/.test(q) ? 'register' : 'login');
+    drawer.classList.toggle('open', want);
+    fold.inert = !want;
+    if (!want || was) return;
+    window.scrollTo(0, 0);
+    var first = $('form:not([hidden]) input', authEl);
+    if (first) try { first.focus({ preventScroll: true }); } catch (e) { first.focus(); }
   }
   $('#loginForm').addEventListener('submit', async function (e) {
     e.preventDefault();

@@ -6,11 +6,10 @@
   --accent: #ffcb05; --accent2: #d6d4cc; --pink: var(--accent); --on-pink: #141410; --ok: #3ddc84; --bad: #ff6b6b; --shadow: rgba(0,0,0,.5);
   --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
 }
-@media (prefers-color-scheme: light) {
-  :root { --bg: #f5f4f0; --panel: #ffffff; --panel2: #eeede8; --line: #d9d7cf; --text: #151513; --muted: #5d5c56;
-    --accent: #f2bd00; --accent2: #2a2a27; --on-pink: #151513; --ok: #13804a; --bad: #c62f2f; --shadow: rgba(0,0,0,.12); }
-  /* Gelb als Schrift ist auf Hell zu blass: dort dunkles Ocker */
-  .cd b, .srv.soon, .wl-st.res { color: #7a5c00; }
+html[data-mode="light"] { --bg: #f5f4f0; --panel: #ffffff; --panel2: #eeede8; --line: #d9d7cf; --text: #151513; --muted: #5d5c56;
+  --accent: #f2bd00; --accent2: #2a2a27; --on-pink: #151513; --ok: #13804a; --bad: #c62f2f; --shadow: rgba(0,0,0,.12); }
+/* Gelb als Schrift ist auf Hell zu blass: dort dunkles Ocker */
+html[data-mode="light"] :is(.cd b, .srv.soon, .wl-st.res) { color: #7a5c00; }
 }
 
 /* Keine Farbschleier im Hintergrund */
@@ -118,15 +117,13 @@ main#inhalt > section { margin: 0; padding: clamp(48px, 7vw, 88px) 0; border-top
   --b-font: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif; --b-head: "Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
   --b-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace; --b-tag: #1d211c; --b-on-tag: #969c90; --b-good: #3e9c60;
 }
-@media (prefers-color-scheme: light) {
-  .look[data-look="wl"], .look[data-look="gm"], .look[data-look="cb"] {
+html[data-mode="light"] :is(.look[data-look="wl"], .look[data-look="gm"], .look[data-look="cb"]) {
     --b-bg: #f3f5fc; --b-surface: #ffffff; --b-raised: #eef2ff; --b-line: #d6ddf5; --b-ink: #141a33; --b-muted: #5a6692; --b-link: #2f5cf0; --b-hi: #8a6300; }
-  .look[data-look="wl"] { --b-tag: #c8245a; --b-on-tag: #fff; --b-check: #c8245a; }
-  .look[data-look="kl"] {
+html[data-mode="light"] .look[data-look="wl"] { --b-tag: #c8245a; --b-on-tag: #fff; --b-check: #c8245a; }
+html[data-mode="light"] .look[data-look="kl"] {
     --b-bg: #f5f5f2; --b-surface: #ffffff; --b-raised: #fafaf7; --b-line: #dcded6; --b-ink: #191c18; --b-muted: #5a6058;
     --b-btn: #2f55c4; --b-on-btn: #fff; --b-link: #1e3d99; --b-hi: #1e3d99; --b-tag: #eceee7; --b-on-tag: #5a6058; --b-good: #1e7f4a; }
   /* Das Raumbuchungssystem hat kein helles Design und bleibt dunkel */
-}
 
 /* Gemeinsame Umsetzung: Flaeche, Kante, Schrift, Knoepfe, Schilder des Projekts */
 .look[data-look] { background: var(--b-surface); color: var(--b-ink); border: 1px solid var(--b-line); border-radius: var(--b-radius); font-family: var(--b-font); }

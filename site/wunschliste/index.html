@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="../assets/fx.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="themes.css">
-<script src="mode.js"></script>
+<script src="../assets/mode.js"></script>
 </head>
 <body>
 <a class="skip" href="#inhalt">Zum Inhalt springen</a>
@@ -35,7 +35,7 @@
       <span class="nav-ind" aria-hidden="true"></span>
       <span class="out-only"><a href="./?login">Anmelden</a></span>
       <span class="in-only nav-app">
-        <a href="./" data-nav="home">Übersicht</a><a href="./?seite=freunde" data-nav="freunde">Freunde <b class="badge" id="reqBadge" hidden></b></a><a href="./?seite=geschenke" data-nav="geschenke">Meine Geschenke</a><a href="./?seite=admin" data-nav="admin" id="adminLink" hidden>Admin</a><a href="./?seite=profil" data-nav="profil" class="me-link" id="meLink">Profil</a>
+        <a href="./" data-nav="home">Übersicht</a><a href="./?seite=freunde" data-nav="freunde">Freunde <b class="badge" id="reqBadge" hidden></b></a><a href="./?seite=geschenke" data-nav="geschenke">Meine Geschenke</a><a href="./?seite=feedback" data-nav="feedback">Feedback</a><a href="./?seite=admin" data-nav="admin" id="adminLink" hidden>Admin</a><a href="./?seite=profil" data-nav="profil" class="me-link" id="meLink">Profil</a>
       </span>
       <a class="nav-cta out-only" href="./?registrieren">Konto erstellen <span class="arr">→</span></a>
     </div>
@@ -45,6 +45,39 @@
 
 <!-- Startseite fuer Abgemeldete -->
 <div id="landing" class="out-only">
+  <!-- Anmelden/Registrieren: klappt direkt unter der Navigation auf (Klick auf "Anmelden" oder "Konto erstellen"),
+       niemand muss dafuer ans Seitenende scrollen. app.js oeffnet die Klappe bei ./?login und ./?registrieren -->
+  <div class="auth-drawer" id="authDrawer"><div class="auth-fold">
+    <section id="auth" class="auth-sec wrap" aria-label="Anmelden oder Konto erstellen">
+      <div class="auth-card">
+        <div class="auth-top"><h2 id="authTitle">Schön, dass du da bist</h2><a class="x auth-x" href="./" aria-label="Schließen">✕</a></div>
+        <div class="seg auth-tabs" role="tablist" aria-label="Anmelden oder registrieren">
+          <button type="button" class="on" data-tab="login" role="tab" aria-selected="true">Anmelden</button>
+          <button type="button" data-tab="register" role="tab" aria-selected="false">Neues Konto</button>
+        </div>
+        <form id="loginForm" class="form" novalidate>
+          <label>E-Mail<input name="email" type="email" autocomplete="username" required maxlength="200"></label>
+          <label>Passwort<input name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="72"></label>
+          <p class="msg" role="status"></p>
+          <button class="btn wide" type="submit">Anmelden</button>
+          <details class="help"><summary>Passwort vergessen?</summary>
+            <p>Komm in den <a href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Skeison-Discord</a> und schreib der Rolle <b>@Admin</b> oder Skeison direkt. Du bekommst ein Einmal-Passwort und legst beim Anmelden ein neues fest.</p>
+          </details>
+        </form>
+        <form id="registerForm" class="form" novalidate hidden>
+          <label>Anzeigename <small class="muted">so finden dich Freunde, dazu kommt dein Code</small><input name="name" required minlength="2" maxlength="24" autocomplete="nickname"></label>
+          <label>E-Mail<input name="email" type="email" autocomplete="email" required maxlength="200"></label>
+          <label>Passwort <small class="muted">mindestens 8 Zeichen</small><input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="72"></label>
+          <label>Passwort wiederholen<input name="password2" type="password" autocomplete="new-password" required minlength="8" maxlength="72"></label>
+          <label class="invite" hidden>Einladungscode<input name="invite" autocomplete="off"></label>
+          <p class="msg" role="status"></p>
+          <button class="btn wide" type="submit">Konto erstellen</button>
+          <p class="fine muted">🔒 Dein Passwort wird nur verschlüsselt bei unserem Anmeldedienst (Supabase) gespeichert, nie im Code oder auf GitHub.</p>
+        </form>
+      </div>
+    </section>
+  </div></div>
+
   <header class="hero wrap">
     <div class="hero-grid">
       <div data-stagger>
@@ -52,8 +85,8 @@
         <h1>Wünsche teilen, <em>Überraschungen behalten.</em></h1>
         <p class="lead">Stell dir Wunschlisten mit Bild, Preis und Einsatzzweck zusammen, gib sie nur den Menschen frei, die sie sehen sollen, und lass sie Geschenke reservieren, damit nichts doppelt unterm Baum liegt.</p>
         <div class="cta-row">
-          <a class="btn" href="./?registrieren">Kostenlos Konto erstellen</a>
-          <a class="btn ghost" href="./?login">Ich habe schon ein Konto</a>
+          <a class="btn" href="./?login">Anmelden</a>
+          <a class="btn ghost" href="./?registrieren">Neu hier? Konto erstellen</a>
         </div>
         <p class="app-hint web-only"><a href="app.html">📱 Auch als App fürs Handy</a></p>
       </div>
@@ -85,34 +118,6 @@
       <div class="sec-head" data-reveal><h2>Zwölf Designs zur Auswahl</h2><p class="muted">Jede Liste und jede Profilkarte bekommt ihren eigenen Look.</p></div>
       <div class="theme-show" id="themeShow" data-stagger></div>
     </section>
-
-    <section id="auth" class="auth-sec">
-      <div class="auth-card" data-reveal>
-        <div class="seg auth-tabs" role="tablist" aria-label="Anmelden oder registrieren">
-          <button type="button" class="on" data-tab="login" role="tab" aria-selected="true">Anmelden</button>
-          <button type="button" data-tab="register" role="tab" aria-selected="false">Registrieren</button>
-        </div>
-        <form id="loginForm" class="form" novalidate>
-          <label>E-Mail<input name="email" type="email" autocomplete="username" required maxlength="200"></label>
-          <label>Passwort<input name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="72"></label>
-          <p class="msg" role="status"></p>
-          <button class="btn wide" type="submit">Anmelden</button>
-          <details class="help"><summary>Passwort vergessen?</summary>
-            <p>Komm in den <a href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Skeison-Discord</a> und schreib der Rolle <b>@Admin</b> oder Skeison direkt. Du bekommst ein Einmal-Passwort und legst beim Anmelden ein neues fest.</p>
-          </details>
-        </form>
-        <form id="registerForm" class="form" novalidate hidden>
-          <label>Anzeigename <small class="muted">so finden dich Freunde, dazu kommt dein Code</small><input name="name" required minlength="2" maxlength="24" autocomplete="nickname"></label>
-          <label>E-Mail<input name="email" type="email" autocomplete="email" required maxlength="200"></label>
-          <label>Passwort <small class="muted">mindestens 8 Zeichen</small><input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="72"></label>
-          <label>Passwort wiederholen<input name="password2" type="password" autocomplete="new-password" required minlength="8" maxlength="72"></label>
-          <label class="invite" hidden>Einladungscode<input name="invite" autocomplete="off"></label>
-          <p class="msg" role="status"></p>
-          <button class="btn wide" type="submit">Konto erstellen</button>
-          <p class="fine muted">🔒 Dein Passwort wird nur verschlüsselt bei unserem Anmeldedienst (Supabase) gespeichert, nie im Code oder auf GitHub.</p>
-        </form>
-      </div>
-    </section>
   </main>
 </div>
 
@@ -123,6 +128,7 @@
   <div class="wrap foot-in">
     <span class="muted">Wunschliste · Skeison</span>
     <span class="support muted">Fragen oder Probleme? Im <a href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Discord</a> der Rolle <b>@Admin</b> oder Skeison direkt schreiben.</span>
+    <a class="in-only" href="./?seite=feedback">💡 Feedback</a>
     <a class="web-only" href="app.html">📱 Als App</a>
     <a class="exit" href="../">Zur Skeison-Hauptseite <span class="arr">↗</span></a>
   </div>

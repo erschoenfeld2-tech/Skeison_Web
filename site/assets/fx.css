@@ -127,9 +127,21 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
 .motion-btn .mb-t { display: none; }
 .motion-btn .i-play, .motion-btn[aria-pressed="true"] .i-pause { display: none; }
 .motion-btn[aria-pressed="true"] .i-play { display: block; }
+/* Knopf "Hell/Dunkel": zeigt die Darstellung, zu der ein Klick wechselt (Sonne im Dunkeln, Mond im Hellen) */
+.mode-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; margin-left: 4px; padding: 0; cursor: pointer; border-radius: 8px;
+  border: 1px solid transparent; background: none; color: var(--muted); font: inherit; font-weight: 600; transition: color .2s, border-color .2s; }
+.mode-btn:hover { color: var(--accent); border-color: var(--line); }
+.mode-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; transition: transform .5s var(--ease); }
+.mode-btn:hover svg { transform: rotate(35deg); }
+.mode-btn .mb-t { display: none; }
+.mode-btn .i-moon, html[data-mode="light"] .mode-btn .i-sun { display: none; }
+html[data-mode="light"] .mode-btn .i-moon { display: block; }
+.mode-btn + .motion-btn { margin-left: 0; }
 @media (max-width: 760px) {
   .motion-btn { display: flex; justify-content: flex-start; align-items: center; gap: 10px; width: auto; height: auto; margin: 0; padding: 12px; font-size: 1rem; color: var(--muted); }
   .motion-btn .mb-t { display: inline; }
+  .mode-btn { display: flex; justify-content: flex-start; align-items: center; gap: 10px; width: auto; height: auto; margin: 0; padding: 12px; font-size: 1rem; }
+  .mode-btn .mb-t { display: inline; }
 }
 
 /* Pause-Knopf fuer Dauer-Animationen in Demo-Grafiken ([data-loops], siehe fx.js) */

@@ -3,8 +3,8 @@
   --text: #eef2ff; --muted: #9aa6cb; --accent: #ffcb05; --accent2: #5b85ff; --red: #ee1515;
   --gold: #ffcb05; --silver: #c5cbe0; --bronze: #e08a4a; --ok: #3ddc84; --shadow: rgba(0,0,0,.75);
 }
-:root[data-theme="light"] { --shadow: rgba(20,26,51,.2); --bg: #f2f5ff; --panel: #fff; --panel2: #eef2ff; --line: #d6ddf5; --text: #141a33; --muted: #5a6692; --accent: #d79a00; }
-@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --shadow: rgba(20,26,51,.2); --bg: #f2f5ff; --panel: #fff; --panel2: #eef2ff; --line: #d6ddf5; --text: #141a33; --muted: #5a6692; --accent: #d79a00; } }
+/* Hell/Dunkel: assets/mode.js setzt data-mode auf <html> (Geraet oder eigene Wahl ueber den Knopf in der Navigation) */
+html[data-mode="light"] { --shadow: rgba(20,26,51,.2); --bg: #f2f5ff; --panel: #fff; --panel2: #eef2ff; --line: #d6ddf5; --text: #141a33; --muted: #5a6692; --accent: #d79a00; }
 * { box-sizing: border-box; }
 /* Kein CSS-"smooth": das verzoegerte auch den Tastatur-Fokus. Mausklicks auf Sprungmarken scrollen sanft per fx.js */
 body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, "Segoe UI", Roboto, sans-serif; }
@@ -56,7 +56,7 @@ section { margin: 84px 0; }
 @keyframes row-in { from { opacity: 0; transform: translateX(-8px); } }
 .rows.still .row { animation: none; } /* Suche: beim Tippen keine Animation (app.js, rowsInto) */
 .row { transition: background-color .2s, transform .3s var(--ease); display: grid; grid-template-columns: 30px 34px 1fr auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,.03); }
-:root[data-theme="light"] .row, :root:not([data-theme="dark"]) .row { background: rgba(20,26,51,.04); }
+html[data-mode="light"] .row { background: rgba(20,26,51,.04); }
 .row .rank { font-weight: 800; color: var(--muted); text-align: center; }
 .row.r1 { background: linear-gradient(90deg, rgba(255,203,5,.22), transparent); }
 .row.r1 .rank { color: var(--gold); } .row.r2 .rank { color: var(--silver); } .row.r3 .rank { color: var(--bronze); }

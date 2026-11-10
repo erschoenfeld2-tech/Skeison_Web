@@ -1,6 +1,7 @@
 :root { --bg: #0b0f1c; --panel: #151b31; --panel2: #1c2443; --line: #2a3460; --text: #eef2ff; --muted: #9aa6cb; --accent: #ffcb05; --accent2: #5b85ff; --pink: #ff5f8f; --on-pink: #1f0612; --discord: #5865f2; --ok: #3ddc84; --bad: #ff6b6b; --shadow: rgba(0,0,0,.6); }
 /* --on-pink: Schrift auf pinker Flaeche, mindestens 4,5:1 Kontrast (Weiss auf #ff5f8f hatte nur 2,9:1) */
-@media (prefers-color-scheme: light) { :root { --bg: #f3f5fc; --panel: #fff; --panel2: #eef2ff; --line: #d6ddf5; --text: #141a33; --muted: #5a6692; --accent: #d79a00; --accent2: #2f5cf0; --pink: #c8245a; --on-pink: #fff; --ok: #16a35a; --bad: #d93a3a; --shadow: rgba(20,26,51,.18); } }
+/* Hell/Dunkel: assets/mode.js setzt data-mode auf <html> (Geraet oder eigene Wahl ueber den Knopf in der Navigation) */
+html[data-mode="light"] { --bg: #f3f5fc; --panel: #fff; --panel2: #eef2ff; --line: #d6ddf5; --text: #141a33; --muted: #5a6692; --accent: #d79a00; --accent2: #2f5cf0; --pink: #c8245a; --on-pink: #fff; --ok: #16a35a; --bad: #d93a3a; --shadow: rgba(20,26,51,.18); }
 * { box-sizing: border-box; }
 /* Kein CSS-"smooth": das verzoegerte auch den Tastatur-Fokus. Mausklicks auf Sprungmarken scrollen sanft per fx.js */
 body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, "Segoe UI", Roboto, sans-serif; }
