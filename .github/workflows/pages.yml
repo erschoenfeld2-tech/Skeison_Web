@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,6 +49,7 @@ jobs:
           key: valorant-${{ github.run_id }}
           restore-keys: valorant-
       - name: Valorant-Daten abrufen
+        continue-on-error: true   # ein Fehler hier darf die Seite nie am Veroeffentlichen hindern
         run: node tools/fetch-valorant.js
         env:
           VALORANT_RIOT_ID: ${{ vars.VALORANT_RIOT_ID }}
@@ -72,5 +73,16 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+      # Gelegentlich meldet GitHub direkt nach dem Hochladen "Found 0 artifact(s)" (Lauf #96, ein Aussetzer auf GitHubs Seite;
+      # das Artefakt war hochgeladen). Dann nach kurzer Pause ein zweiter Versuch, statt das ganze Deployment scheitern zu lassen.
       - id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Kurz warten, dann erneut veroeffentlichen
+        if: steps.deployment.outcome == 'failure'
+        run: |
+          echo "::warning::Veroeffentlichen ist beim ersten Versuch fehlgeschlagen (meist ein Aussetzer bei GitHub), zweiter Versuch in 30 s"
+          sleep 30
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
