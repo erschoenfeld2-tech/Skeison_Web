@@ -16,14 +16,36 @@
   // Benachrichtigungen gibt es nur in der Android-App (window.__wlApp kommt aus deren bridge.js)
   var NATIVE = /SkeisonWunschlisteApp\//.test(navigator.userAgent) || !!window.WL_FORCE_APP;
   document.documentElement.classList.toggle('app-mode', APP_MODE);
-  // Listen, zu denen man keine Erinnerungen moechte (nur auf diesem Geraet)
-  var MUTE_KEY = 'wl-muted-lists';
+  // Ausgeblendete Listen ("nicht mehr ankuendigen"): erscheinen nicht unter "Aktuelle Listen", "Bald anstehend" und in den
+  // Erinnerungen, bleiben aber ueber die Listen-Uebersichten erreichbar. Gespeichert im Konto (wl_hidden_lists);
+  // gibt es die Tabelle (noch) nicht, wie frueher nur auf diesem Geraet.
+  var MUTE_KEY = 'wl-muted-lists', hiddenIds = null;
   function mutedLists() { try { return JSON.parse(localStorage.getItem(MUTE_KEY)) || []; } catch (e) { return []; } }
-  function isMuted(id) { return mutedLists().indexOf(id) >= 0; }
-  function setMuted(id, on) {
+  function saveLocalMutes(m) { try { if (m.length) localStorage.setItem(MUTE_KEY, JSON.stringify(m)); else localStorage.removeItem(MUTE_KEY); } catch (e) {} }
+  function isMuted(id) { return hiddenIds ? hiddenIds.indexOf(id) >= 0 : mutedLists().indexOf(id) >= 0; }
+  async function loadHidden() {
+    try {
+      hiddenIds = (await Api.get('wl_hidden_lists', 'select=list_id')).map(function (x) { return x.list_id; });
+      // Einmalig: bisher nur auf dem Geraet stumm geschaltete Listen ins Konto uebernehmen
+      var local = mutedLists().filter(function (id) { return isId(id) && hiddenIds.indexOf(id) < 0; });
+      if (local.length) {
+        await Promise.all(local.map(function (id) {
+          return Api.insert('wl_hidden_lists', { list_id: id }).then(function () { hiddenIds.push(id); }, function () {});
+        }));
+      }
+      saveLocalMutes([]);
+    } catch (e) { hiddenIds = null; }
+  }
+  async function setMuted(id, on) {
+    if (hiddenIds) {
+      if (on) await Api.insert('wl_hidden_lists', { list_id: id }); else await Api.remove('wl_hidden_lists', 'list_id=eq.' + id);
+      hiddenIds = hiddenIds.filter(function (x) { return x !== id; });
+      if (on) hiddenIds.push(id);
+      return;
+    }
     var m = mutedLists().filter(function (x) { return x !== id; });
     if (on) m.push(id);
-    try { localStorage.setItem(MUTE_KEY, JSON.stringify(m)); } catch (e) {}
+    saveLocalMutes(m);
   }
 
   var THEMES = [
@@ -110,6 +132,16 @@
 
   // ---------- Helfer ----------
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // Geteilter Text aus Apps ("Echo Dot (5. Gen.) https://amzn.eu/d/abc"): Link herausziehen, Text davor als Titel-Vorschlag
+  function splitShared(text) {
+    text = String(text || '');
+    var m = text.match(/https?:\/\/[^\s<>"']+/i);
+    if (!m) return null;
+    var before = text.slice(0, m.index).replace(/\s+/g, ' ').trim()
+      .replace(/^(schau( dir)?( mal)?|sieh dir|guck( mal)?|check out|look at)[^:]{0,40}:\s*/i, '')
+      .replace(/[\s:|–-]+$/, '').replace(/^["„“'»«]+|["„“'»«]+$/g, '').trim();
+    return { url: m[0].replace(/[.,;!)\]]+$/, ''), title: before.length >= 3 ? before.slice(0, 120) : '' };
+  }
   function safeUrl(u) { return /^https?:\/\/[^\s]+$/i.test(u || '') ? u : ''; }
   function isId(s) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s || ''); }
   function money(v, cur) {
@@ -189,7 +221,8 @@
     if (/relation .* does not exist|Could not find/i.test(c)) return 'Die Wunschliste ist noch nicht eingerichtet.';
     return 'Das hat nicht geklappt. Bitte erneut versuchen.';
   }
-  function say(el, text, ok) { if (!el) return; el.textContent = text; el.className = 'msg ' + (text ? ok ? 'ok' : 'err' : ''); }
+  // Nur ok/err umschalten; weitere Klassen (z. B. fetch-msg) bleiben, damit das Feld wiedergefunden wird
+  function say(el, text, ok) { if (!el) return; el.textContent = text; el.classList.add('msg'); el.classList.toggle('ok', !!text && !!ok); el.classList.toggle('err', !!text && !ok); }
   async function busy(btn, fn) {
     if (btn) btn.disabled = true;
     try { return await fn(); } finally { if (btn) btn.disabled = false; }
@@ -292,7 +325,7 @@
           Api.get('wl_admins', 'select=user_id&user_id=eq.' + uid)]);
         if (!got[0].length) throw Object.assign(new Error('no_profile'), { code: 'no_profile' });
         me = got[0][0]; me.code = got[1] || ''; isAdmin = got[2].length > 0;
-        await loadMyExtras();
+        await Promise.all([loadMyExtras(), loadHidden()]);
       }
       if (ctx.stale()) return;
       $('#adminLink').hidden = !isAdmin;
@@ -390,7 +423,7 @@
     var n = l.wl_items && l.wl_items[0] ? l.wl_items[0].count : 0, d = l.event_date ? daysUntil(l.event_date) : null;
     return '<a class="lcard' + (l.archived ? ' archived' : '') + '" data-theme="' + esc(l.theme) + '" href="./?liste=' + l.id + '">' +
       '<span class="lc-emoji">' + esc(l.emoji) + '</span>' +
-      '<span class="lc-body"><b>' + esc(l.title) + '</b>' +
+      '<span class="lc-body"><b>' + esc(l.title) + (isMuted(l.id) ? ' <span class="lc-muted" title="Ausgeblendet: wird nicht angekündigt">🔕</span>' : '') + '</b>' +
       '<small>' + [l.occasion && esc(l.occasion), l.event_date && (d >= 0 ? fmtDate(l.event_date) + ' · ' + inDays(d) : fmtDate(l.event_date, true)), plural(n, 'Wunsch', 'Wünsche')].filter(Boolean).join(' · ') + '</small>' +
       (mode === 'owner' ? '<span class="lc-owner">' + avatar(l.owner, 'xs') + esc(l.owner.name) + '</span>' : mode === 'mine' ? '<span class="lc-vis">' + (l.archived ? '📦 Archiviert' : VIS[l.visibility]) + '</span>' : '') +
       '</span>' + (d !== null && d >= 0 && d <= 30 ? '<span class="lc-cd"><b>' + d + '</b>' + (d === 1 ? 'Tag' : 'Tage') + '</span>' : '') + '</a>';
@@ -518,18 +551,32 @@
       var b = nextBirthday(f.birthday);
       if (b.days <= 60) ev.push({ days: b.days, ico: f.avatar, color: f.color, title: esc(f.name) + ' hat Geburtstag', sub: fmtDate(b.date), href: './?seite=freund&id=' + f.id });
     });
-    others.concat(mine.filter(function (l) { return !l.archived; })).forEach(function (l) {
+    var active = others.concat(mine.filter(function (l) { return !l.archived; })).filter(function (l) { return !isMuted(l.id); });
+    active.forEach(function (l) {
       if (!l.event_date) return;
       var d = daysUntil(l.event_date);
       if (d >= 0 && d <= 90) ev.push({ days: d, ico: l.emoji, title: esc(l.title), sub: (l.owner && l.owner.name ? esc(l.owner.name) + ' · ' : 'Deine Liste · ') + fmtDate(l.event_date), href: './?liste=' + l.id });
     });
     ev.sort(function (a, b) { return a.days - b.days; });
 
+    // App: oben die Listen, die gerade wichtig sind (naechstes Datum zuerst), statt der Profilkarte (die steht unter "Profil").
+    // Ohne kommende Termine die zuletzt angelegten. Ausgeblendete und archivierte Listen fehlen hier bewusst.
+    var current = '';
+    if (APP_MODE) {
+      var soon = active.filter(function (l) { return l.event_date && daysUntil(l.event_date) >= 0; })
+        .sort(function (a, b) { return a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0; });
+      var pick = soon.length ? soon.slice(0, 6) : active.slice().sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; }).slice(0, 4);
+      current = '<section class="current"><div class="sec-head"><h2>' + (soon.length ? '📅 Aktuelle Listen' : '🆕 Zuletzt angelegt') + '</h2>' +
+        (active.length > pick.length ? '<a class="more-link" href="#meine">Alle Listen <span class="arr">→</span></a>' : '') + '</div>' +
+        (pick.length ? '<div class="lgrid" data-stagger>' + pick.map(function (l) { return listCard(l, l.owner && l.owner.id !== me.id ? 'owner' : 'mine'); }).join('') + '</div>'
+          : emptyBox('📝', 'Gerade nichts angekündigt', 'Leg eine Liste an oder schau bei deinen Freunden vorbei.', '<button type="button" class="btn" data-act="new-list">+ Neue Liste</button>')) + '</section>';
+    }
     var hello = new Date().getHours() < 11 ? 'Guten Morgen' : new Date().getHours() < 18 ? 'Hallo' : 'Guten Abend';
     view(ctx,
       '<header class="page-head"><p class="eyebrow">' + hello + ', ' + esc(me.name) + '</p><h1>Deine Wunschwelt</h1></header>' +
       (fr.incoming.length ? '<a class="banner" href="./?seite=freunde"><span>🤝</span><b>' + plural(fr.incoming.length, 'neue Freundschaftsanfrage', 'neue Freundschaftsanfragen') + '</b><span class="arr">→</span></a>' : '') +
-      '<div class="home-top" data-stagger>' + profileCard(me, { self: true, copy: true }) +
+      current +
+      '<div class="home-top' + (APP_MODE ? ' solo' : '') + '" data-stagger>' + (APP_MODE ? '' : profileCard(me, { self: true, copy: true })) +
       '<div class="tiles">' +
       '<a class="tile" href="#meine"><b>' + mine.length + '</b><span>' + (mine.length === 1 ? 'Liste' : 'Listen') + '</span></a>' +
       '<a class="tile" href="./?seite=freunde"><b>' + fr.friends.length + '</b><span>' + (fr.friends.length === 1 ? 'Freund' : 'Freunde') + '</span></a>' +
@@ -552,6 +599,34 @@
   }
 
   // ---------- Liste ----------
+  // Fehlende Bilder automatisch nachladen: Auf eigenen Listen fragt die Seite fuer Wuensche mit Link, aber ohne Bild,
+  // im Hintergrund die Link-Vorschau und traegt ein gefundenes Bild ein, nur wenn noch keins existiert.
+  // Hoechstens 6 pro Aufruf; was nichts liefert, wird auf diesem Geraet 3 Tage lang nicht erneut versucht.
+  var IMG_TRIED_KEY = 'wl-img-tried';
+  function triedImages() { try { return JSON.parse(localStorage.getItem(IMG_TRIED_KEY)) || {}; } catch (e) { return {}; } }
+  async function fillMissingImages(st) {
+    var tried = triedImages(), now = Date.now(), changed = 0;
+    Object.keys(tried).forEach(function (id) { if (now - tried[id] > 3 * 864e5) delete tried[id]; });
+    var todo = st.items.filter(function (it) { return !it.image_url && safeUrl(it.url) && !tried[it.id]; }).slice(0, 6);
+    for (var i = 0; i < todo.length; i++) {
+      if (st.ctx.stale()) break;
+      var it = todo[i];
+      try {
+        var p = await Api.fn('wl-link-preview', { url: it.url });
+        if (p && /^https:\/\//.test(p.image || '') && p.image.length <= 2000) {
+          var out = await Api.update('wl_items', 'id=eq.' + it.id + '&image_url=is.null', { image_url: p.image });
+          if (out && out.length) { it.image_url = p.image; changed++; continue; }
+        }
+      } catch (e) { /* zaehlt als Versuch, in 3 Tagen erneut */ }
+      tried[it.id] = now;
+    }
+    try { localStorage.setItem(IMG_TRIED_KEY, JSON.stringify(tried)); } catch (e) {}
+    if (changed && !st.ctx.stale()) {
+      paintResults(st);
+      FX.toast('🖼 ' + plural(changed, 'Bild', 'Bilder') + ' automatisch ergänzt');
+    }
+  }
+
   async function listPage(ctx, r) {
     if (!isId(r.id)) throw Object.assign(new Error('no_access'), { code: 'no_access' });
     var rows = await Api.get('wl_lists', 'id=eq.' + r.id + '&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,avatar,color,theme)');
@@ -560,6 +635,7 @@
     st.owner = st.list.owner.id === me.id;
     await loadListData(st);
     paintList(st, false);
+    if (st.owner) fillMissingImages(st);
     app.onclick = function (e) { listAction(e, st); };
     app.onchange = function (e) {
       var n = e.target.name;
@@ -659,10 +735,9 @@
       '<h1>' + esc(l.title) + '</h1>' + (l.description ? '<p class="lead">' + esc(l.description) + '</p>' : '') + '</div>' +
       (d !== null && d >= 0 ? '<div class="lh-cd"><b>' + d + '</b><span>' + (d === 1 ? 'Tag' : 'Tage') + (l.occasion ? ' bis ' + esc(l.occasion) : '') + '</span></div>' : '') + '</div>' +
       '<div class="lh-bar">' + (st.owner
-        ? '<span class="pill" title="Wer diese Liste sehen kann">' + vis + '</span><span class="sp"></span><button type="button" class="btn ghost" data-act="share">🔗 Teilen</button><button type="button" class="btn ghost" data-act="edit-list">⚙ Liste bearbeiten</button><button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>'
+        ? '<span class="pill" title="Wer diese Liste sehen kann">' + vis + '</span><span class="sp"></span>' + hideBtn(l) + '<button type="button" class="btn ghost" data-act="share">🔗 Teilen</button><button type="button" class="btn ghost" data-act="edit-list">⚙ Liste bearbeiten</button><button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>'
         : '<a class="owner-chip" href="./?seite=freund&id=' + l.owner.id + '">' + avatar(l.owner, 'sm') + '<span>Liste von <b>' + esc(l.owner.name) + '</b></span></a><span class="sp"></span><span class="pill">' + free + ' von ' + st.items.length + ' Wünschen noch frei</span>' +
-          (NATIVE ? (isMuted(l.id) ? '<button type="button" class="btn ghost bell off" data-act="mute" aria-pressed="true" title="Erinnerungen für diese Liste wieder einschalten">🔕 Stumm</button>'
-            : '<button type="button" class="btn ghost bell" data-act="mute" aria-pressed="false" title="Keine Erinnerungen mehr für diese Liste">🔔 Erinnerungen an</button>') : '') + (st.canSuggest ? '<button type="button" class="btn" data-act="suggest">💡 Vorschlag machen</button>' : '')) + '</div>' +
+          hideBtn(l) + (st.canSuggest ? '<button type="button" class="btn" data-act="suggest">💡 Vorschlag machen</button>' : '')) + '</div>' +
       (st.owner ? '<p class="surprise">🙈 <b>Überraschungsschutz:</b> Was reserviert wurde, siehst du auf deinen eigenen Listen nicht.</p>' : '') +
       '</header>' +
       (st.owner && st.sugg && st.sugg.length ? '<section class="sugg panel"><h2>💡 Vorschläge von Freunden <small class="muted">' + st.sugg.length + '</small></h2>' +
@@ -683,6 +758,12 @@
           cats.map(function (c) { return '<button type="button" class="cc' + (F.cat === c ? ' on' : '') + '" data-act="cat" data-cat="' + esc(c) + '">' + esc(c) + ' <small>' + catCount[c] + '</small></button>'; }).join('') : '') + autoBtn + '</div>' : '') : '') +
       '<div id="wishRes">' + listResults(st, v) + '</div>', quiet);
   }
+  // Ausblenden-Knopf: Liste wird nicht mehr angekuendigt, bleibt aber erreichbar
+  function hideBtn(l) {
+    return isMuted(l.id)
+      ? '<button type="button" class="btn ghost bell off" data-act="mute" aria-pressed="true" title="Wieder unter „Aktuelle Listen“, „Bald anstehend“ und in Erinnerungen zeigen">🔕 Ausgeblendet</button>'
+      : '<button type="button" class="btn ghost bell" data-act="mute" aria-pressed="false" title="Nicht mehr unter „Aktuelle Listen“, „Bald anstehend“ und in Erinnerungen zeigen">🙈 Ausblenden</button>';
+  }
   function isFree(it, res) {
     if (it.received) return false;
     if (it.group_gift) return true;
@@ -702,8 +783,9 @@
     if (act === 'suggest') return itemDialog(st, null, { suggest: true });
     if (act === 'mute') {
       var off = !isMuted(st.list.id);
-      setMuted(st.list.id, off);
-      FX.toast(off ? '🔕 Keine Erinnerungen mehr für diese Liste' : '🔔 Erinnerungen für diese Liste sind wieder an');
+      try { await busy(b, function () { return setMuted(st.list.id, off); }); } catch (err) { return FX.toast(errText(err)); }
+      FX.toast(off ? '🔕 Ausgeblendet: nicht mehr unter „Aktuelle Listen“ und „Bald anstehend“' + (NATIVE ? ', keine Erinnerungen' : '')
+        : '🔔 Wieder eingeblendet');
       syncNotifications(true);
       return paintList(st, true);
     }
@@ -825,6 +907,7 @@
     }
     function preview() { var d = data(); d.id = 'pv'; d.title = d.title || 'Dein Wunsch'; pv.innerHTML = wishCard(d, { demo: true, emoji: st.list.emoji }); }
     async function fetchPreview(btn) {
+      tidyUrl();
       var u = safeUrl(f.url.value.trim()), m = $('.fetch-msg', dlg);
       if (!u) return say(m, 'Bitte zuerst einen Link mit https:// einfügen.', false);
       say(m, 'Lese Produktseite …', true);
@@ -837,7 +920,8 @@
         if (p.price != null && (!f.price.value || btn)) { f.price.value = String(p.price).replace('.', ','); f.currency.value = ['EUR', 'USD', 'GBP', 'CHF'].indexOf(p.currency) >= 0 ? p.currency : 'EUR'; }
         if (p.description && !f.note.value) f.note.placeholder = p.description.slice(0, 120) + ' …';
         var got = [p.title && 'Titel', p.image && 'Bild', p.price != null && 'Preis'].filter(Boolean);
-        say(m, got.length ? '✓ Übernommen: ' + got.join(', ') + '. Prüf kurz und ergänze den Einsatzzweck.' : 'Der Shop gibt keine Vorschau heraus. Trag Titel, Preis und ggf. Bildadresse selbst ein.', !!got.length);
+        say(m, !got.length ? 'Der Shop gibt keine Vorschau heraus. Trag Titel, Preis und ggf. Bildadresse selbst ein.'
+          : '✓ Übernommen: ' + got.join(', ') + '.' + (p.partial ? ' Der Shop zeigt die Seite gerade nicht vollständig, bitte ' + (p.price == null ? 'Preis ' : '') + (f.title.value ? '' : 'und Titel ') + 'selbst ergänzen.' : ' Prüf kurz und ergänze den Einsatzzweck.'), true);
       } catch (err) { say(m, 'Der Shop lässt sich gerade nicht auslesen. Trag die Angaben einfach selbst ein.', false); }
       preview();
     }
@@ -847,7 +931,19 @@
       preview();
     });
     f.addEventListener('change', preview);
-    f.url.addEventListener('paste', function () { setTimeout(function () { if (safeUrl(f.url.value.trim())) fetchPreview(null); }, 0); });
+    // Link-Feld aufraeumen: steht geteilter Text drin, nur den Link behalten und den Text als Titel vorschlagen
+    function tidyUrl() {
+      var v = f.url.value.trim();
+      if (safeUrl(v)) return true;
+      var sh = splitShared(v);
+      if (!sh || !safeUrl(sh.url)) return false;
+      f.url.value = sh.url;
+      if (sh.title && !f.title.value.trim()) { f.title.value = sh.title; suggestCat(); }
+      preview();
+      return true;
+    }
+    f.url.addEventListener('paste', function () { setTimeout(function () { if (tidyUrl()) fetchPreview(null); }, 0); });
+    f.url.addEventListener('change', tidyUrl);
     $('[data-act="fetch"]', f).addEventListener('click', function (e) { fetchPreview(e.currentTarget); });
     f.addEventListener('submit', async function (e) {
       e.preventDefault();
