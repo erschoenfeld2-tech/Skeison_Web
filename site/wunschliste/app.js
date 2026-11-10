@@ -1784,7 +1784,7 @@
       '<label>Wiederholen<input name="pw2" type="password" autocomplete="new-password" minlength="8" maxlength="72"></label><p class="msg"></p>' +
       '<button type="submit" class="btn small ghost">Passwort ändern</button></form>' +
       '<button type="button" class="btn ghost wide" data-act="logout">Abmelden</button></div>' +
-      '<div class="panel account"><h3>Darstellung</h3><p class="muted small">Jedes Design gibt es hell und dunkel. „Automatisch“ folgt deinem Gerät.</p>' +
+      '<div class="panel account"><h3>Darstellung</h3><p class="muted small">Helle Designs wie Winter, Ostern oder Sommer haben eine dunkle Fassung. „Automatisch“ folgt deinem Gerät.</p>' +
       '<div class="mode-seg" role="group" aria-label="Hell oder dunkel">' + [['auto', 'Automatisch'], ['light', '☀️ Hell'], ['dark', '🌙 Dunkel']].map(function (o) {
         return '<button type="button" data-mode="' + o[0] + '" class="' + (modePref() === o[0] ? 'on' : '') + '" aria-pressed="' + (modePref() === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
       '<label class="check"><input type="checkbox" data-act="still"' + (FX.still ? ' checked' : '') + '> Animationen pausieren <small class="muted">Schnee, Blätter und Lichter stehen still</small></label></div>' +

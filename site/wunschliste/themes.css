@@ -434,6 +434,13 @@ body[data-theme="barbie"] .deco i { display: block; top: calc(var(--y) * 1vh); w
 .tshow[data-theme="barbie"] .ts-stage { background: linear-gradient(135deg, #f7b6d6, #fbe3ee 60%, #f490c4); }
 [data-mode="dark"] .tshow[data-theme="barbie"] .ts-stage { background: radial-gradient(70% 60% at 10% 0%, rgba(255,79,166,.4), transparent), #1f0a18; }
 
+/* Am Handy liegen Mond und Sonne sonst hinter der Ueberschrift: kleiner und blasser */
+@media (max-width: 760px) {
+  [data-mode="dark"] body:is([data-theme="winter"], [data-theme="sommer"]) .deco::before { width: 46px; height: 46px; top: 12px; right: 14px; opacity: .5; box-shadow: none; }
+  body[data-theme="sommer"] .deco::before { opacity: .7; }
+  body[data-theme="geschenkpapier"] .deco::before { display: none; }
+}
+
 /* Teilchen ruhen, wenn Bewegung reduziert ist: an ihrem Platz bleiben statt aus dem Bild zu springen */
 @media (prefers-reduced-motion: reduce) {
   .deco i { animation: none !important; top: calc(var(--y) * 1vh); opacity: .6; }

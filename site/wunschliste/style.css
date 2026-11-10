@@ -500,7 +500,7 @@ button, a, label, summary, .wish-media { touch-action: manipulation; -webkit-tap
 .banner.dup { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .banner.dup small { display: block; font-weight: 500; color: var(--muted); }
 .dup-ico { font-size: 1.2rem; }
-.dup-list li > span:nth-child(2) { flex: 1 1 180px; min-width: 0; }
+.dup-list li > span:nth-child(2) { flex: 1 1 130px; min-width: 0; }
 .state small { font-weight: 500; opacity: .85; }
 .cchip.has span { opacity: .6; border-style: dashed; }
 .link-pick em { font-style: normal; font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 1px 7px; margin-left: 6px; border-radius: 999px; color: var(--on-accent); background: var(--accent); vertical-align: 2px; }
@@ -563,7 +563,7 @@ button, a, label, summary, .wish-media { touch-action: manipulation; -webkit-tap
 .fs-meta { margin: 0; color: var(--muted); font-size: .95rem; } .fs-meta b { color: var(--accent); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .fs-prio { padding: 3px 10px; border-radius: 999px; font-weight: 800; font-size: .74rem; color: #fff; background: #e8466b; }
 .fslide.got .fs-stage, .fslide.taken .fs-stage { filter: grayscale(.85); opacity: .7; }
-.feed-hint { position: absolute; z-index: 3; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; padding: 8px 14px; border-radius: 999px; font-size: .8rem; font-weight: 700; white-space: nowrap;
+.feed-hint { position: absolute; z-index: 3; left: 50%; top: calc(84px + env(safe-area-inset-top)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 110px); margin: 0; padding: 8px 14px; border-radius: 18px; font-size: .8rem; font-weight: 700; text-align: center;
   color: var(--text); background: var(--card-solid, var(--panel)); border: 1px solid var(--line); box-shadow: 0 10px 24px -12px var(--shadow); pointer-events: none; animation: hint-bob 1.6s ease-in-out infinite; }
 @keyframes hint-bob { 50% { transform: translate(-50%, -6px); } }
 .burst { position: fixed; z-index: 5; margin: -2.6rem 0 0 -2.2rem; font-size: 4.5rem; pointer-events: none; animation: burst .8s var(--ease) forwards; }
@@ -599,3 +599,6 @@ button, a, label, summary, .wish-media { touch-action: manipulation; -webkit-tap
 .tabs .lh-bar .btn { flex: 1 1 auto; }
 .tabs .wish-act .btn { flex: 1 1 auto; min-height: 42px; }
 .tabs .page-head { padding-top: 12px; }
+.tabs .lh-main { gap: 12px 14px; } .tabs .lh-main > div:nth-child(2) { min-width: 0; flex: 1 1 60%; }
+.tabs .lh-cd { display: flex; align-items: baseline; gap: 8px; padding: 6px 14px; } .tabs .lh-cd b { font-size: 1.5rem; }
+.tabs .lh-bar { margin-top: 14px; }
