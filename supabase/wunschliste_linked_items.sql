@@ -3,7 +3,7 @@
 -- verknuepft (gleiche link_id), zaehlen sie beim Reservieren als EIN Wunsch: Wer ihn auf einer Liste reserviert,
 -- sperrt ihn auf allen. So wird nichts doppelt geschenkt. Ohne link_id verhaelt sich alles wie bisher.
 -- Abwaertskompatibel: die bisherige Seite funktioniert damit unveraendert weiter.
--- Zustand der Supabase-Datenbank (Projekt "skeison-whitelist"); zur Dokumentation, noch NICHT angewendet.
+-- Zustand der Supabase-Datenbank (Projekt "skeison-whitelist"); zur Dokumentation, am 10.11.2026 angewendet (Migration wunschliste_linked_items).
 
 -- 1) Verknuepfung: Wuensche mit derselben link_id UND demselben Listen-Besitzer gehoeren zusammen.
 --    Der Besitzer-Vergleich steckt in private.wl_linked, damit niemand seinen Wunsch an fremde haengen kann.
