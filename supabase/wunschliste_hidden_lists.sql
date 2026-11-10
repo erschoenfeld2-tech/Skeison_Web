@@ -1,7 +1,7 @@
 -- Wunschliste: Listen ausblenden ("nicht mehr ankuendigen"), pro Konto statt nur pro Geraet.
 -- Ausgeblendete Listen erscheinen nicht mehr unter "Aktuelle Listen", "Bald anstehend" und in den Erinnerungen der App,
 -- bleiben aber ganz normal ueber "Meine Listen", "Listen deiner Freunde" und das Freundesprofil erreichbar.
--- Zustand der Supabase-Datenbank (Projekt "skeison-whitelist"); zur Dokumentation.
+-- Zustand der Supabase-Datenbank (Projekt "skeison-whitelist"); zur Dokumentation, bereits angewendet.
 
 create table public.wl_hidden_lists (
   user_id uuid not null default auth.uid() references public.wl_profiles on delete cascade,
