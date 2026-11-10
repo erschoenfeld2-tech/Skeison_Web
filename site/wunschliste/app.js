@@ -599,6 +599,34 @@
   }
 
   // ---------- Liste ----------
+  // Fehlende Bilder automatisch nachladen: Auf eigenen Listen fragt die Seite fuer Wuensche mit Link, aber ohne Bild,
+  // im Hintergrund die Link-Vorschau und traegt ein gefundenes Bild ein, nur wenn noch keins existiert.
+  // Hoechstens 6 pro Aufruf; was nichts liefert, wird auf diesem Geraet 3 Tage lang nicht erneut versucht.
+  var IMG_TRIED_KEY = 'wl-img-tried';
+  function triedImages() { try { return JSON.parse(localStorage.getItem(IMG_TRIED_KEY)) || {}; } catch (e) { return {}; } }
+  async function fillMissingImages(st) {
+    var tried = triedImages(), now = Date.now(), changed = 0;
+    Object.keys(tried).forEach(function (id) { if (now - tried[id] > 3 * 864e5) delete tried[id]; });
+    var todo = st.items.filter(function (it) { return !it.image_url && safeUrl(it.url) && !tried[it.id]; }).slice(0, 6);
+    for (var i = 0; i < todo.length; i++) {
+      if (st.ctx.stale()) break;
+      var it = todo[i];
+      try {
+        var p = await Api.fn('wl-link-preview', { url: it.url });
+        if (p && /^https:\/\//.test(p.image || '') && p.image.length <= 2000) {
+          var out = await Api.update('wl_items', 'id=eq.' + it.id + '&image_url=is.null', { image_url: p.image });
+          if (out && out.length) { it.image_url = p.image; changed++; continue; }
+        }
+      } catch (e) { /* zaehlt als Versuch, in 3 Tagen erneut */ }
+      tried[it.id] = now;
+    }
+    try { localStorage.setItem(IMG_TRIED_KEY, JSON.stringify(tried)); } catch (e) {}
+    if (changed && !st.ctx.stale()) {
+      paintResults(st);
+      FX.toast('🖼 ' + plural(changed, 'Bild', 'Bilder') + ' automatisch ergänzt');
+    }
+  }
+
   async function listPage(ctx, r) {
     if (!isId(r.id)) throw Object.assign(new Error('no_access'), { code: 'no_access' });
     var rows = await Api.get('wl_lists', 'id=eq.' + r.id + '&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,avatar,color,theme)');
@@ -607,6 +635,7 @@
     st.owner = st.list.owner.id === me.id;
     await loadListData(st);
     paintList(st, false);
+    if (st.owner) fillMissingImages(st);
     app.onclick = function (e) { listAction(e, st); };
     app.onchange = function (e) {
       var n = e.target.name;
