@@ -110,6 +110,16 @@
 
   // ---------- Helfer ----------
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // Geteilter Text aus Apps ("Echo Dot (5. Gen.) https://amzn.eu/d/abc"): Link herausziehen, Text davor als Titel-Vorschlag
+  function splitShared(text) {
+    text = String(text || '');
+    var m = text.match(/https?:\/\/[^\s<>"']+/i);
+    if (!m) return null;
+    var before = text.slice(0, m.index).replace(/\s+/g, ' ').trim()
+      .replace(/^(schau( dir)?( mal)?|sieh dir|guck( mal)?|check out|look at)[^:]{0,40}:\s*/i, '')
+      .replace(/[\s:|–-]+$/, '').replace(/^["„“'»«]+|["„“'»«]+$/g, '').trim();
+    return { url: m[0].replace(/[.,;!)\]]+$/, ''), title: before.length >= 3 ? before.slice(0, 120) : '' };
+  }
   function safeUrl(u) { return /^https?:\/\/[^\s]+$/i.test(u || '') ? u : ''; }
   function isId(s) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s || ''); }
   function money(v, cur) {
@@ -189,7 +199,8 @@
     if (/relation .* does not exist|Could not find/i.test(c)) return 'Die Wunschliste ist noch nicht eingerichtet.';
     return 'Das hat nicht geklappt. Bitte erneut versuchen.';
   }
-  function say(el, text, ok) { if (!el) return; el.textContent = text; el.className = 'msg ' + (text ? ok ? 'ok' : 'err' : ''); }
+  // Nur ok/err umschalten; weitere Klassen (z. B. fetch-msg) bleiben, damit das Feld wiedergefunden wird
+  function say(el, text, ok) { if (!el) return; el.textContent = text; el.classList.add('msg'); el.classList.toggle('ok', !!text && !!ok); el.classList.toggle('err', !!text && !ok); }
   async function busy(btn, fn) {
     if (btn) btn.disabled = true;
     try { return await fn(); } finally { if (btn) btn.disabled = false; }
@@ -825,6 +836,7 @@
     }
     function preview() { var d = data(); d.id = 'pv'; d.title = d.title || 'Dein Wunsch'; pv.innerHTML = wishCard(d, { demo: true, emoji: st.list.emoji }); }
     async function fetchPreview(btn) {
+      tidyUrl();
       var u = safeUrl(f.url.value.trim()), m = $('.fetch-msg', dlg);
       if (!u) return say(m, 'Bitte zuerst einen Link mit https:// einfügen.', false);
       say(m, 'Lese Produktseite …', true);
@@ -837,7 +849,8 @@
         if (p.price != null && (!f.price.value || btn)) { f.price.value = String(p.price).replace('.', ','); f.currency.value = ['EUR', 'USD', 'GBP', 'CHF'].indexOf(p.currency) >= 0 ? p.currency : 'EUR'; }
         if (p.description && !f.note.value) f.note.placeholder = p.description.slice(0, 120) + ' …';
         var got = [p.title && 'Titel', p.image && 'Bild', p.price != null && 'Preis'].filter(Boolean);
-        say(m, got.length ? '✓ Übernommen: ' + got.join(', ') + '. Prüf kurz und ergänze den Einsatzzweck.' : 'Der Shop gibt keine Vorschau heraus. Trag Titel, Preis und ggf. Bildadresse selbst ein.', !!got.length);
+        say(m, !got.length ? 'Der Shop gibt keine Vorschau heraus. Trag Titel, Preis und ggf. Bildadresse selbst ein.'
+          : '✓ Übernommen: ' + got.join(', ') + '.' + (p.partial ? ' Der Shop zeigt die Seite gerade nicht vollständig, bitte ' + (p.price == null ? 'Preis ' : '') + (f.title.value ? '' : 'und Titel ') + 'selbst ergänzen.' : ' Prüf kurz und ergänze den Einsatzzweck.'), true);
       } catch (err) { say(m, 'Der Shop lässt sich gerade nicht auslesen. Trag die Angaben einfach selbst ein.', false); }
       preview();
     }
@@ -847,7 +860,19 @@
       preview();
     });
     f.addEventListener('change', preview);
-    f.url.addEventListener('paste', function () { setTimeout(function () { if (safeUrl(f.url.value.trim())) fetchPreview(null); }, 0); });
+    // Link-Feld aufraeumen: steht geteilter Text drin, nur den Link behalten und den Text als Titel vorschlagen
+    function tidyUrl() {
+      var v = f.url.value.trim();
+      if (safeUrl(v)) return true;
+      var sh = splitShared(v);
+      if (!sh || !safeUrl(sh.url)) return false;
+      f.url.value = sh.url;
+      if (sh.title && !f.title.value.trim()) { f.title.value = sh.title; suggestCat(); }
+      preview();
+      return true;
+    }
+    f.url.addEventListener('paste', function () { setTimeout(function () { if (tidyUrl()) fetchPreview(null); }, 0); });
+    f.url.addEventListener('change', tidyUrl);
     $('[data-act="fetch"]', f).addEventListener('click', function (e) { fetchPreview(e.currentTarget); });
     f.addEventListener('submit', async function (e) {
       e.preventDefault();

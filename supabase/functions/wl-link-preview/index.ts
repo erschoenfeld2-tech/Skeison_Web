@@ -1,4 +1,5 @@
-// Liest zu einem Produktlink Titel, Vorschaubild, Beschreibung und Preis (Open Graph, JSON-LD, Meta-Tags).
+// Liest zu einem Produktlink Titel, Vorschaubild, Beschreibung und Preis (Open Graph, JSON-LD, Meta-Tags,
+// Amazon-Hauptbild, sonst das erste brauchbare Bild der Seite; bei gesperrten Amazon-Seiten ueber die Artikelnummer).
 // Nur fuer angemeldete Nutzer der Wunschliste; private Adressen werden nicht abgerufen.
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -62,14 +63,13 @@ async function fetchPage(start: string) {
       },
     });
     if (r.status >= 300 && r.status < 400 && r.headers.get('location')) { url = new URL(r.headers.get('location')!, u).href; continue; }
-    if (!r.ok) throw new Error('status ' + r.status);
     // Hoechstens ~1,5 MB lesen
     const reader = r.body!.getReader(), chunks: Uint8Array[] = [];
     let size = 0;
     while (size < 1_500_000) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); size += value.length; }
     reader.cancel().catch(() => {});
     const buf = new Uint8Array(size); let o = 0; for (const c of chunks) { buf.set(c.subarray(0, size - o), o); o += c.length; }
-    return { html: decodeHtml(buf, r.headers.get('content-type')), url };
+    return { html: decodeHtml(buf, r.headers.get('content-type')), url, ok: r.ok };
   }
   throw new Error('redirects');
 }
@@ -99,11 +99,91 @@ function findProduct(node: any, depth = 0): any {
   return findProduct(node['@graph'], depth + 1) ?? findProduct(node.mainEntity, depth + 1);
 }
 
+// Attribute eines Tags lesen (beliebige Reihenfolge, mit oder ohne Anfuehrungszeichen)
+function attrs(tag: string) {
+  const a: Record<string, string> = {};
+  for (const m of tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) a[m[1].toLowerCase()] = m[2] ?? m[3] ?? m[4] ?? '';
+  return a;
+}
+
+// Sperr- oder Captcha-Seite statt Produktseite (Amazon, Cloudflare & Co.): dann nichts daraus uebernehmen
+function isBotWall(html: string) {
+  return html.length < 20000 && /captcha|robot check|api-services-support@amazon|validatecaptcha|just a moment\.\.\.|cf-chl-|access denied|tut uns leid/i.test(html);
+}
+
+// Amazon: Hauptbild der Produktseite. Amazon schreibt id="landingImage" HINTER src und data-old-hires,
+// deshalb das ganze Tag suchen und die Attribute einzeln lesen. Groesste Variante bevorzugen.
+function amazonImageFromHtml(html: string) {
+  const tag = html.match(/<img\b[^>]*\bid=["'](?:landingImage|imgBlkFront|ebooksImgBlkFront|main-image)["'][^>]*>/i)?.[0];
+  if (tag) {
+    const a = attrs(tag);
+    if (/^https?:\/\//.test(a['data-old-hires'] ?? '')) return a['data-old-hires'];
+    const dyn = a['data-a-dynamic-image'];
+    if (dyn) {
+      try {
+        const sizes = JSON.parse(decode(dyn)) as Record<string, number[]>;
+        const best = Object.entries(sizes).sort((x, y) => (y[1][0] * y[1][1]) - (x[1][0] * x[1][1]))[0]?.[0];
+        if (best) return best;
+      } catch { /* kaputtes JSON ueberspringen */ }
+    }
+    if (/^https?:\/\//.test(a.src ?? '')) return a.src;
+  }
+  const hi = html.match(/"hiRes"\s*:\s*"(https:[^"]+)"/)?.[1] ?? html.match(/"large"\s*:\s*"(https:\/\/[^"]*\/images\/I\/[^"]+)"/)?.[1];
+  if (hi) return hi;
+  return html.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[\w%+.-]+\.(?:jpe?g|png|webp)/)?.[0] ?? '';
+}
+
+// Allgemeiner Fallback: das erste brauchbare Bild im Seiteninhalt (keine Logos, Icons, Sprites, Tracking-Pixel)
+function firstImage(html: string) {
+  const start = html.search(/<body\b/i);
+  const body = start >= 0 ? html.slice(start) : html;
+  for (const tag of body.match(/<img\b[^>]*>/gi) ?? []) {
+    const a = attrs(tag);
+    const set = (a.srcset || a['data-srcset'] || '').split(',')[0].trim().split(/\s+/)[0];
+    const src = a['data-zoom-image'] || a['data-large_image'] || a['data-src'] || a['data-original'] || a['data-lazy-src'] || a.src || set;
+    if (!src || /^data:/i.test(src)) continue;
+    if (/\.svg(\?|#|$)|\.gif(\?|#|$)/i.test(src)) continue;
+    if (/(^|[\/_.-])(sprites?|logos?|icons?|favicon|pixel|spacer|blank|placeholder|loader|loading|tracking|badges?|flags?|avatars?|payment|rating|stars?)([\/_.-]|$)/i.test(src)) continue;
+    const w = parseInt(a.width ?? ''), h = parseInt(a.height ?? '');
+    if ((w && w < 100) || (h && h < 100)) continue;
+    return decode(src);
+  }
+  return '';
+}
+
+// Amazon-Artikelnummer (ASIN) aus einem Produktlink, auch nach Weiterleitung von amzn.eu / amzn.to
+function amazonAsin(link: string) {
+  try {
+    const u = new URL(link);
+    if (!/(^|\.)amazon\.[a-z.]{2,6}$/i.test(u.hostname)) return null;
+    const m = u.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d|exec\/obidos\/asin|o\/asin|product)\/([A-Z0-9]{10})(?=[/?#]|$)/i);
+    const asin = m?.[1] ?? u.searchParams.get('asin') ?? u.searchParams.get('ASIN') ?? '';
+    return /^[A-Z0-9]{10}$/i.test(asin) ? asin.toUpperCase() : null;
+  } catch { return null; }
+}
+// Viele Amazon-Links tragen den Produktnamen im Pfad: /Echo-Dot-5-Gen/dp/B09B8XJDW5
+function amazonTitleFromUrl(link: string) {
+  try {
+    const slug = new URL(link).pathname.match(/^\/([^/]{6,})\/(?:dp|gp\/product)\//)?.[1];
+    return slug ? decodeURIComponent(slug).replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) : '';
+  } catch { return ''; }
+}
+// Gibt Amazon die Seite nicht heraus, liefert das Bildarchiv ueber die ASIN oft trotzdem das Produktfoto.
+// Fuer manche Artikel kommt nur ein 1x1-Platzhalter (GIF, 43 Byte) zurueck; den erkennen wir an Typ und Groesse.
+async function amazonImageByAsin(asin: string) {
+  const url = `https://m.media-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX500_.jpg`;
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const type = r.headers.get('content-type') ?? '';
+    const size = (await r.arrayBuffer()).byteLength;
+    return r.ok && /^image\/(jpeg|png|webp)/.test(type) && size > 1000 ? url : '';
+  } catch { return ''; }
+}
+
 function extract(html: string, base: string) {
   const meta: Record<string, string> = {};
   for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
-    const a: Record<string, string> = {};
-    for (const m of tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) a[m[1].toLowerCase()] = m[2] ?? m[3] ?? m[4] ?? '';
+    const a = attrs(tag);
     const k = (a.property || a.name || a.itemprop || '').toLowerCase();
     if (k && a.content && !(k in meta)) meta[k] = decode(a.content);
   }
@@ -117,16 +197,22 @@ function extract(html: string, base: string) {
   const img = product ? [].concat(product.image ?? []).map((i: any) => typeof i === 'string' ? i : i?.url ?? i?.contentUrl)[0] : null;
 
   const title = decode(String(product?.name ?? '')) || meta['og:title'] || meta['twitter:title'] || decode(html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] ?? '');
+  // Reihenfolge: Produktdaten (JSON-LD) -> Vorschaubild (Open Graph/Twitter) -> Amazon-Hauptbild -> image_src -> erstes Bild der Seite
   let image = img || meta['og:image:secure_url'] || meta['og:image'] || meta['twitter:image'] || meta['twitter:image:src'] || meta['image']
+    || amazonImageFromHtml(html)
     || html.match(/<link[^>]+rel=["']image_src["'][^>]*href=["']([^"']+)/i)?.[1]
-    || html.match(/id=["']landingImage["'][^>]*(?:data-old-hires|src)=["']([^"']+)/i)?.[1] || '';
+    || firstImage(html) || '';
   const description = decode(String(product?.description ?? '')) || meta['og:description'] || meta['description'] || meta['twitter:description'] || '';
   const price = parsePrice(offer?.price ?? offer?.lowPrice) ?? parsePrice(meta['product:price:amount'] ?? meta['og:price:amount'] ?? meta['price'])
     ?? parsePrice(html.match(/"priceAmount"\s*:\s*([\d.]+)/)?.[1]) ?? parsePrice(html.match(/class="a-offscreen">([^<]+)</)?.[1]);
   const currency = String(offer?.priceCurrency ?? meta['product:price:currency'] ?? meta['og:price:currency'] ?? meta['pricecurrency'] ?? 'EUR').toUpperCase();
   if (image) { try { image = new URL(decode(image), base).href.replace(/^http:/, 'https:'); } catch { image = ''; } }
+  // Amazon haengt den Shopnamen an ("Amazon.de: Echo Dot …", "Harry Potter: Amazon.de: Bücher")
+  const clean = /(^|\.)amazon\./i.test(new URL(base).hostname)
+    ? title.replace(/^amazon\.[a-z.]+\s*:\s*/i, '').replace(/\s*:\s*amazon\.[a-z.]+(\s*:.*)?$/i, '').trim() || title
+    : title;
   return {
-    title: title.slice(0, 120),
+    title: clean.slice(0, 120),
     image: image && image.length <= 2000 ? image : null,
     description: description.slice(0, 400),
     price,
@@ -147,7 +233,16 @@ Deno.serve(async (req: Request) => {
   if (!/^https?:\/\//i.test(target) || target.length > 2000) return json({ error: 'url' }, 400);
   try {
     const page = await fetchPage(target);
-    return json(extract(page.html, page.url));
+    const blocked = !page.ok || isBotWall(page.html);
+    const out = blocked
+      ? { title: '', image: null as string | null, description: '', price: null as number | null, currency: 'EUR', site: new URL(page.url).hostname.replace(/^www\./, '') }
+      : extract(page.html, page.url);
+    // Amazon sperrt Abrufe aus Rechenzentren oft (503 oder Captcha). Bild und Titel dann ueber Artikelnummer und Link.
+    const asin = amazonAsin(page.url) ?? amazonAsin(target);
+    if (asin && !out.image) out.image = (await amazonImageByAsin(asin)) || null;
+    if (asin && !out.title) out.title = amazonTitleFromUrl(page.url) || amazonTitleFromUrl(target);
+    if (blocked && !out.image && !out.title) return json({ error: 'fetch', detail: 'blocked' }, 200);
+    return json({ ...out, partial: blocked });
   } catch (e) {
     return json({ error: 'fetch', detail: String((e as Error).message).slice(0, 80) }, 200);
   }
