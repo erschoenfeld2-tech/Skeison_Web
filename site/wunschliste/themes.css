@@ -1,0 +1,440 @@
+/* Wunschliste: die zwoelf Designs (data-theme). Jedes helle Design hat eine dunkle Fassung ([data-mode="dark"] auf <html>,
+   gesetzt von mode.js: folgt dem Geraet oder der Wahl im Profil). Niemand im Dunkelmodus wird von einer weissen Liste geblendet.
+   Aufbau je Design: Farben (Variablen), Seitenhintergrund, Dekoration (.deco, .deco i = einzelne Flocken/Blaetter/Lichter), Bausteine.
+   Neues Design: Block hier, Eintrag in THEMES (app.js) und in den check-Bedingungen (supabase/wunschliste.sql). */
+
+/* ---------- Dekoration: gemeinsame Grundlage ---------- */
+.deco { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.deco::before, .deco::after { content: ""; position: absolute; }
+/* Zwoelf Teilchen; Ort (--x/--y in %), Dauer (--t), Versatz (--w), Groesse (--z) und Drift (--dx) je Teilchen verschieden.
+   Welche Form sie haben und wie sie sich bewegen, legt das Design fest (sonst unsichtbar). */
+.deco i { position: absolute; display: none; left: calc(var(--x) * 1%); top: 0; font-style: normal; will-change: transform; }
+.deco i:nth-child(1)  { --x: 4;  --y: 12; --t: 19s; --w: -2s;  --z: 1;   --dx: 6vw;  --r: 240deg; }
+.deco i:nth-child(2)  { --x: 13; --y: 38; --t: 26s; --w: -11s; --z: .7;  --dx: -4vw; --r: -300deg; }
+.deco i:nth-child(3)  { --x: 22; --y: 7;  --t: 22s; --w: -17s; --z: 1.2; --dx: 8vw;  --r: 420deg; }
+.deco i:nth-child(4)  { --x: 31; --y: 52; --t: 30s; --w: -5s;  --z: .6;  --dx: -6vw; --r: -200deg; }
+.deco i:nth-child(5)  { --x: 40; --y: 21; --t: 18s; --w: -9s;  --z: .9;  --dx: 3vw;  --r: 320deg; }
+.deco i:nth-child(6)  { --x: 49; --y: 66; --t: 27s; --w: -21s; --z: 1.1; --dx: -8vw; --r: -380deg; }
+.deco i:nth-child(7)  { --x: 58; --y: 9;  --t: 21s; --w: -14s; --z: .7;  --dx: 5vw;  --r: 260deg; }
+.deco i:nth-child(8)  { --x: 67; --y: 44; --t: 29s; --w: -3s;  --z: 1;   --dx: -3vw; --r: -340deg; }
+.deco i:nth-child(9)  { --x: 76; --y: 17; --t: 20s; --w: -19s; --z: 1.3; --dx: 7vw;  --r: 300deg; }
+.deco i:nth-child(10) { --x: 85; --y: 58; --t: 25s; --w: -7s;  --z: .8;  --dx: -5vw; --r: -220deg; }
+.deco i:nth-child(11) { --x: 93; --y: 29; --t: 23s; --w: -13s; --z: .6;  --dx: 4vw;  --r: 360deg; }
+.deco i:nth-child(12) { --x: 97; --y: 72; --t: 31s; --w: -24s; --z: 1;   --dx: -7vw; --r: -280deg; }
+/* Fallen mit leichtem Pendeln (Schnee, Laub, Bluetenblaetter) */
+@keyframes wl-drop {
+  0% { transform: translate3d(0, -8vh, 0) rotate(0deg); }
+  25% { transform: translate3d(calc(var(--dx) * .7), 22vh, 0) rotate(calc(var(--r) * .25)); }
+  50% { transform: translate3d(calc(var(--dx) * -.3), 52vh, 0) rotate(calc(var(--r) * .5)); }
+  75% { transform: translate3d(calc(var(--dx) * .9), 82vh, 0) rotate(calc(var(--r) * .75)); }
+  100% { transform: translate3d(calc(var(--dx) * .2), 112vh, 0) rotate(var(--r)); }
+}
+/* Aufsteigen (Goldstaub) */
+@keyframes wl-rise { from { transform: translate3d(0, 108vh, 0); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } to { transform: translate3d(var(--dx), -10vh, 0); opacity: 0; } }
+/* Funkeln an festem Ort (Sterne, Gluehwuermchen, Glitzer) */
+@keyframes wl-twinkle { 0%, 100% { opacity: .15; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes wl-glow { from { opacity: .55; } to { opacity: 1; } }
+
+/* Gemeinsame Grundwerte, damit verschachtelte Designs (z. B. Listenkarten) nichts vom Seiten-Design erben */
+[data-theme] { --font: system-ui, "Segoe UI", Roboto, sans-serif; --font-head: var(--font); --blur: none; --card-solid: var(--panel); --ok: #3ddc84; --bad: #ff6b6b; --media: #fff; }
+[data-mode="dark"] [data-theme] { --media: #e9e7e3; }
+
+/* ========== 1 Polarlicht: Nachthimmel mit Nordlicht, Sternen und Glas-Karten ========== */
+[data-theme="polarlicht"] { --bg: #060b1a; --panel: #111a38; --panel2: rgba(255,255,255,.07); --line: rgba(170,205,255,.18); --text: #eaf2ff; --muted: #9fb2d8; --accent: #6ef7c8; --accent2: #a98bff;
+  --on-accent: #03261a; --shadow: rgba(0,0,0,.7); --radius: 18px; --card: linear-gradient(160deg, rgba(255,255,255,.1), rgba(255,255,255,.025)); --card-solid: linear-gradient(160deg, #1a2550, #0d1430); --blur: blur(14px);
+  --ok: #3ddc84; --bad: #ff6b6b; --media: #eef1f6; }
+body[data-theme="polarlicht"] { background-image: linear-gradient(180deg, #050917 0, #0a1330 55%, #0c1a33 100%); background-attachment: fixed; }
+body[data-theme="polarlicht"] .fx-bg i:nth-child(1) { --c: rgba(110,247,200,.16); }
+body[data-theme="polarlicht"] .fx-bg i:nth-child(2) { --c: rgba(169,139,255,.2); }
+body[data-theme="polarlicht"] .deco::before { inset: -20% -10% 40% -10%; filter: blur(30px); opacity: .9;
+  background: radial-gradient(40% 50% at 20% 40%, rgba(110,247,200,.35), transparent 70%), radial-gradient(35% 45% at 60% 30%, rgba(80,160,255,.28), transparent 70%), radial-gradient(30% 40% at 85% 50%, rgba(169,139,255,.35), transparent 70%);
+  animation: aurora 16s ease-in-out infinite alternate; }
+@keyframes aurora { from { transform: translateX(-6%) skewX(-8deg) scaleY(1); } to { transform: translateX(6%) skewX(8deg) scaleY(1.2); } }
+/* Bergkette am unteren Rand */
+body[data-theme="polarlicht"] .deco::after { left: 0; right: 0; bottom: 0; height: 22vh; opacity: .9;
+  background: linear-gradient(180deg, transparent, rgba(4,8,20,.9)), conic-gradient(from 150deg at 18% 100%, #0a1226 0 60deg, transparent 0), conic-gradient(from 150deg at 46% 100%, #0c1630 0 60deg, transparent 0), conic-gradient(from 150deg at 78% 100%, #0a1226 0 60deg, transparent 0);
+  -webkit-mask: linear-gradient(180deg, transparent, #000 60%); mask: linear-gradient(180deg, transparent, #000 60%); }
+body[data-theme="polarlicht"] .deco i { display: block; top: calc(var(--y) * .7vh); width: calc(3px * var(--z)); height: calc(3px * var(--z)); border-radius: 50%; background: #fff; box-shadow: 0 0 6px 1px rgba(190,220,255,.8);
+  animation: wl-twinkle calc(var(--t) / 4) ease-in-out var(--w) infinite; }
+[data-theme="polarlicht"] .wish:hover { box-shadow: 0 22px 50px -24px rgba(110,247,200,.45); }
+[data-theme="polarlicht"] .wish.p3 { border-color: rgba(110,247,200,.45); }
+[data-theme="polarlicht"] .lh-emoji { box-shadow: 0 0 0 1px rgba(110,247,200,.25), 0 20px 50px -20px rgba(110,247,200,.6); }
+.tshow[data-theme="polarlicht"] .ts-stage { background: radial-gradient(80% 60% at 30% 0%, rgba(110,247,200,.25), transparent), radial-gradient(70% 60% at 90% 10%, rgba(169,139,255,.3), transparent), #060b1a; }
+
+/* ========== 2 Geschenkpapier: Packpapier, Schleifenband, Wuensche als Anhaenger ========== */
+[data-theme="geschenkpapier"] { --bg: #c9a77e; --panel: #fbf6ea; --panel2: #f1e6cf; --line: #dcc79f; --text: #3a2a1a; --muted: #7d6448; --accent: #b83a2c; --accent2: #2e7d4f; --on-accent: #fff;
+  --shadow: rgba(70,40,10,.45); --radius: 6px; --font-head: Georgia, "Times New Roman", serif; --card: #fbf6ea; --card-solid: #fbf6ea; --ok: #2e7d4f; --bad: #b83a2c; --paper: #c9a77e; --hole: #e9dcc0; --ribbon: #b83a2c; }
+[data-mode="dark"] [data-theme="geschenkpapier"] { --bg: #2b2118; --panel: #3a2d20; --panel2: #473828; --line: #6a543b; --text: #f4e8d2; --muted: #c4ab86; --accent: #e2695d; --accent2: #7fc79a; --on-accent: #2b0d08;
+  --shadow: rgba(0,0,0,.6); --card: #3a2d20; --card-solid: #3a2d20; --ok: #7fc79a; --bad: #ff8a7a; --paper: #2b2118; --hole: #5a4732; --ribbon: #8e2f25; --media: #e6dccb; }
+body[data-theme="geschenkpapier"], .tshow[data-theme="geschenkpapier"] .ts-stage {
+  background-color: var(--paper); background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.06) 0 2px, transparent 2px 10px), radial-gradient(rgba(60,30,0,.1) 1px, transparent 1px),
+    radial-gradient(circle at 12px 12px, rgba(255,255,255,.16) 0 2px, transparent 3px); background-size: auto, 5px 5px, 46px 46px; }
+/* Schleifenband quer und laengs */
+body[data-theme="geschenkpapier"] .deco::after { left: 0; right: 0; top: 150px; height: 42px; opacity: .55; background: linear-gradient(color-mix(in srgb, var(--ribbon) 80%, #000), var(--ribbon) 40%, color-mix(in srgb, var(--ribbon) 80%, #000)); box-shadow: 0 3px 8px rgba(0,0,0,.2); }
+body[data-theme="geschenkpapier"] .deco::before { top: 0; bottom: 0; right: 9%; width: 42px; opacity: .4; background: linear-gradient(90deg, color-mix(in srgb, var(--ribbon) 80%, #000), var(--ribbon) 40%, color-mix(in srgb, var(--ribbon) 80%, #000)); }
+body[data-theme="geschenkpapier"] .fx-bg { color: #fff6; }
+body[data-theme="geschenkpapier"] .fx-bg i { display: none; }
+[data-theme="geschenkpapier"] h1 { font-style: italic; letter-spacing: -.01em; }
+[data-theme="geschenkpapier"] .wishes { gap: 34px 22px; padding-top: 18px; }
+[data-theme="geschenkpapier"] .wish { box-shadow: 0 10px 22px -12px var(--shadow); transform: rotate(-1.2deg); }
+[data-theme="geschenkpapier"] .wish:nth-child(2n) { transform: rotate(1.1deg); }
+[data-theme="geschenkpapier"] .wish:nth-child(3n) { transform: rotate(-.4deg); }
+[data-theme="geschenkpapier"] .wish::before { content: ""; position: absolute; z-index: 3; top: 9px; left: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--paper); box-shadow: inset 0 2px 3px rgba(0,0,0,.45), 0 0 0 3px var(--hole); }
+[data-theme="geschenkpapier"] .wish::after { content: ""; position: absolute; z-index: 2; top: -26px; left: 50%; width: 2px; height: 42px; margin-left: -1px; background: repeating-linear-gradient(#8b6b43 0 3px, #6e5232 3px 6px); }
+[data-theme="geschenkpapier"] .wish-media { margin: 30px 12px 0; border-radius: 4px; border: 1px solid var(--line); }
+[data-theme="geschenkpapier"] .price { border-radius: 2px; right: 0; bottom: 12px; padding: 4px 14px 4px 18px; clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%); }
+[data-theme="geschenkpapier"] .use span, [data-theme="geschenkpapier"] .wish-body h3 { font-family: var(--font-head); }
+[data-theme="geschenkpapier"] .lc-emoji, [data-theme="geschenkpapier"] .lh-emoji { border: 2px dashed var(--accent); }
+[data-theme="geschenkpapier"] .prio { background: var(--accent); border-radius: 3px; }
+[data-theme="geschenkpapier"] .pc-banner { background: repeating-linear-gradient(135deg, var(--accent) 0 14px, color-mix(in srgb, var(--accent) 80%, #fff) 14px 28px); }
+
+/* ========== 3 Pixel-Inventar (Retro wie ein Spiele-Inventar) ========== */
+@font-face { font-family: "Press Start 2P"; src: url("../assets/fonts/press-start-2p.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "VT323"; src: url("../assets/fonts/vt323.woff2") format("woff2"); font-display: swap; }
+/* --px-*: Flaeche, Lichtkante, Schattenkante, Vertiefung und Schrift der Inventar-Kacheln (dunkle Fassung: Nacht-Inventar) */
+[data-theme="pixel"] { --bg: #2a1f16; --panel: #c6c6c6; --panel2: #8b8b8b; --line: #000; --text: #fff; --muted: #d8d8d8; --accent: #5d9c32; --accent2: #3f76e4; --on-accent: #fff;
+  --shadow: rgba(0,0,0,.6); --radius: 0px; --font: "VT323", ui-monospace, Consolas, monospace; --font-head: "Press Start 2P", ui-monospace, monospace; --card: #c6c6c6; --card-solid: #c6c6c6; --ok: #3c8527; --bad: #b02e26;
+  --px-face: #c6c6c6; --px-hi: #fff; --px-lo: #555; --px-slot: #8b8b8b; --px-slot-hi: #fff; --px-slot-lo: #373737; --px-ink: #3f3f3f; --px-ink2: #555; --px-link: #2a5bc4; --media: #8b8b8b;
+  font-size-adjust: .58; }
+[data-mode="dark"] [data-theme="pixel"] { --bg: #17110c; --panel: #4a4a4a; --panel2: #333; --card: #4a4a4a; --card-solid: #4a4a4a; --ok: #6fc24a; --bad: #e0574e;
+  --px-face: #4a4a4a; --px-hi: #6e6e6e; --px-lo: #232323; --px-slot: #2e2e2e; --px-slot-hi: #5c5c5c; --px-slot-lo: #121212; --px-ink: #f1f1f1; --px-ink2: #c4c4c4; --px-link: #8fb4ff; --media: #2e2e2e; }
+[data-theme="pixel"] :is(h1, h2, h3, .btn, .price, .prio, .lh-cd b, .tile > b, .lc-cd, .eyebrow, .handle-big) { font-size-adjust: none; }
+/* Erdblock-Muster als Hintergrund, oben eine Grasnarbe */
+body[data-theme="pixel"], .tshow[data-theme="pixel"] .ts-stage { background: #2a1f16 repeating-conic-gradient(#3b2a1c 0 25%, #33251a 0 50%) 0 0 / 32px 32px; }
+[data-mode="dark"] body[data-theme="pixel"], [data-mode="dark"] .tshow[data-theme="pixel"] .ts-stage { background: #17110c repeating-conic-gradient(#21180f 0 25%, #1b130c 0 50%) 0 0 / 32px 32px; }
+body[data-theme="pixel"] .deco::before { left: 0; right: 0; top: 0; height: 16px; background: repeating-linear-gradient(90deg, #5d9c32 0 16px, #4f8a2a 16px 32px, #6aad3b 32px 48px); box-shadow: 0 4px 0 #2f5a16; opacity: .9; }
+[data-mode="dark"] body[data-theme="pixel"] .deco::before { opacity: .55; }
+body[data-theme="pixel"] .fx-bg { color: #b4ff4f; } body[data-theme="pixel"] .fx-bg i { display: none; }
+body[data-theme="pixel"] .nav-bar.scrolled { background: #1b140e; -webkit-backdrop-filter: none; backdrop-filter: none; border-bottom: 3px solid #000; }
+[data-theme="pixel"] h1 { font-size: clamp(1.3rem, 4vw, 2.3rem); line-height: 1.35; letter-spacing: 0; text-shadow: 4px 4px 0 #3f3f3f; }
+[data-theme="pixel"] h2 { font-size: clamp(.95rem, 2.4vw, 1.25rem); line-height: 1.4; text-shadow: 3px 3px 0 #3f3f3f; }
+[data-theme="pixel"] h3 { font-size: .72rem; line-height: 1.6; }
+[data-theme="pixel"] .eyebrow { font-family: var(--font-head); font-size: .58rem; color: #ffff55; text-shadow: 2px 2px 0 #3f3f00; letter-spacing: 0; }
+[data-theme="pixel"] .lead, [data-theme="pixel"] .back a { color: #e0e0e0; }
+/* Inventar-Flaechen: mit Lichtkante oben links und Schattenkante unten rechts */
+[data-theme="pixel"] :is(.panel, .wish, .lcard, .tile, .pcard2, .toolbar, .fcard, .gcard, .plist li, .gift-rows li, .ulist li, .empty, .lh-cd, .lh-emoji, .surprise, .pill, .banner, .tpick, .dlg, .sheet-item) {
+  --text: var(--px-ink); --muted: var(--px-ink2); color: var(--text); background: var(--px-face); border: 3px solid #000; border-radius: 0; -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: inset 3px 3px 0 var(--px-hi), inset -3px -3px 0 var(--px-lo); }
+[data-theme="pixel"] .dlg { --dlg-bg: var(--px-face); }
+[data-theme="pixel"] .dlg :is(h2, h3), [data-theme="pixel"] :is(.panel, .tile, .empty, .pcard2) :is(h2, h3) { text-shadow: none; }
+[data-theme="pixel"] .wish:hover, [data-theme="pixel"] .lcard:hover { transform: none; outline: 3px solid #fff; outline-offset: -3px; }
+[data-theme="pixel"] .lcard::after { display: none; }
+[data-theme="pixel"] .wish-media, [data-theme="pixel"] .lc-emoji, [data-theme="pixel"] .thumb, [data-theme="pixel"] .ev-ico { margin: 10px 10px 0; border-radius: 0; background: var(--px-slot); box-shadow: inset 3px 3px 0 var(--px-slot-lo), inset -3px -3px 0 var(--px-slot-hi); }
+[data-theme="pixel"] .lc-emoji, [data-theme="pixel"] .thumb, [data-theme="pixel"] .ev-ico { margin: 0; }
+[data-theme="pixel"] .wish-media img { padding: 14px; image-rendering: auto; mix-blend-mode: normal; }
+[data-theme="pixel"] .ph { background: transparent; } [data-theme="pixel"] .ph span { filter: none; }
+/* Herzenswuensche glitzern wie verzauberte Gegenstaende */
+[data-theme="pixel"] .wish.p3:not(.got) .wish-media::after { content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen;
+  background: linear-gradient(115deg, transparent 35%, rgba(160,80,255,.55) 45%, rgba(255,140,255,.45) 50%, transparent 62%) 0 0 / 300% 100%; animation: glint 3s linear infinite; }
+@keyframes glint { from { background-position: 100% 0; } to { background-position: -50% 0; } }
+[data-theme="pixel"] .prio { font-size: 0; border-radius: 0; padding: 6px 8px; background: #100010; border: 2px solid #3d0b8f; box-shadow: none; }
+[data-theme="pixel"] .prio::after { content: "Verzaubert"; font-family: var(--font-head); font-size: .5rem; color: #ff55ff; text-shadow: 2px 2px 0 #3f153f; }
+[data-theme="pixel"] .price { border-radius: 0; right: 14px; bottom: 14px; padding: 6px 8px; font-family: var(--font-head); font-size: .6rem; color: #ffaa00; text-shadow: 2px 2px 0 #3f2a00; background: #100010; border: 2px solid #3d0b8f; box-shadow: none; }
+[data-theme="pixel"] .qty { border-radius: 0; right: 14px; top: 14px; padding: 5px 7px; font-family: var(--font-head); font-size: .55rem; text-shadow: 2px 2px 0 #3f3f3f; background: #100010; border: 2px solid #3d0b8f; }
+[data-theme="pixel"] .wish-body h3 { font-size: .68rem; }
+[data-theme="pixel"] .wish-body h3 a { color: var(--text); }
+[data-theme="pixel"] .use, [data-theme="pixel"] .wish-meta { font-size: 1.05rem; }
+[data-theme="pixel"] .use span { color: var(--px-link); }
+[data-theme="pixel"] .dots { color: var(--bad); }
+[data-theme="pixel"] .shop, [data-theme="pixel"] .link-btn, [data-theme="pixel"] .link-tag { color: var(--px-link); }
+[data-theme="pixel"] .state { border-radius: 0; background: var(--px-slot); color: #fff; text-shadow: 1px 1px 0 #3f3f3f; }
+[data-theme="pixel"] .state.mine { background: #3c8527; color: #fff; }
+/* Knoepfe wie im Spielmenue */
+[data-theme="pixel"] .btn { border-radius: 0; border: 2px solid #000; font-family: var(--font-head); font-size: .6rem; font-weight: 400; line-height: 1.6; padding: 10px 14px; color: #fff; text-shadow: 2px 2px 0 #2b2b2b;
+  background: #6f6f6f; box-shadow: inset 2px 2px 0 #a8a8a8, inset -2px -3px 0 #464646; }
+[data-theme="pixel"] .btn:not(.ghost) { background: #5d9c32; box-shadow: inset 2px 2px 0 #8fd14f, inset -2px -3px 0 #2f5a16; }
+[data-theme="pixel"] .btn:hover { color: #ffffa0; filter: none; outline: 2px solid #fff; outline-offset: -4px; }
+[data-theme="pixel"] .btn.small { padding: 8px 10px; font-size: .52rem; }
+[data-theme="pixel"] .btn.danger { background: #b02e26; box-shadow: inset 2px 2px 0 #e35d55, inset -2px -3px 0 #5e1612; }
+[data-theme="pixel"] .icon-btn, [data-theme="pixel"] .x { border-radius: 0; border: 2px solid #000; background: #8b8b8b; color: #fff; }
+[data-theme="pixel"] :is(input, select, textarea) { border-radius: 0; border: 2px solid #a0a0a0; background: #000; color: #fff; font-size: 1.15rem; }
+[data-theme="pixel"] .av { border-radius: 0; box-shadow: inset 0 0 0 3px #000, inset 3px 3px 0 5px color-mix(in srgb, var(--c) 60%, #fff); }
+[data-theme="pixel"] .pc-banner { background: repeating-conic-gradient(#5d9c32 0 25%, #4f8a2a 0 50%) 0 0 / 16px 16px; border-bottom: 3px solid #000; }
+[data-theme="pixel"] .pc-banner i { display: none; }
+[data-theme="pixel"] .tagchip, [data-theme="pixel"] .cat-tag { border-radius: 0; color: #fff; background: #3f76e4; border-color: #000; text-shadow: 1px 1px 0 #1d3a73; }
+[data-theme="pixel"] .lc-cd, [data-theme="pixel"] .badge, [data-theme="pixel"] .cc, [data-theme="pixel"] .rail-btn span { border-radius: 0; }
+[data-theme="pixel"] .tile > b, [data-theme="pixel"] .lh-cd b { font-size: 1.3rem; color: var(--ok); }
+.tshow[data-theme="pixel"] figcaption { --text: var(--px-ink); --muted: var(--px-ink2); color: var(--text); background: var(--px-face); border-top: 3px solid #000; box-shadow: inset 3px 3px 0 var(--px-hi), inset -3px -3px 0 var(--px-lo); }
+.tshow[data-theme="pixel"] figcaption b { font-size: .7rem; }
+[data-theme="pixel"] .bar { border-radius: 0; background: #555; } [data-theme="pixel"] .bar i { border-radius: 0; background: #80ff20; }
+
+/* ========== 4 Concept Store (wie ein hochwertiger Online-Shop; dunkel: Boutique bei Nacht) ========== */
+[data-theme="kaufhaus"] { --bg: #fafaf8; --panel: #ffffff; --panel2: #f1f1ee; --line: #e2e2de; --text: #141414; --muted: #6c6c68; --accent: #141414; --accent2: #141414; --on-accent: #fff;
+  --shadow: rgba(0,0,0,.08); --radius: 0px; --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif; --card: #ffffff; --card-solid: #ffffff; --ok: #1a7f37; --bad: #c62828; --media: #f1f1ee; }
+[data-mode="dark"] [data-theme="kaufhaus"] { --bg: #0e0e0d; --panel: #161615; --panel2: #1e1e1c; --line: #30302d; --text: #f1f1ed; --muted: #9c9c96; --accent: #f1f1ed; --accent2: #f1f1ed; --on-accent: #111;
+  --shadow: rgba(0,0,0,.5); --card: #161615; --card-solid: #161615; --ok: #5fcf85; --bad: #ff7a70; --media: #dddcd6; }
+body[data-theme="kaufhaus"] .fx-bg { display: none; }
+body[data-theme="kaufhaus"] .nav-bar.scrolled { background: color-mix(in srgb, var(--bg) 96%, transparent); }
+/* feine Schaufenster-Linie oben */
+body[data-theme="kaufhaus"] .deco::before { left: 0; right: 0; top: 0; height: 3px; background: var(--text); }
+[data-theme="kaufhaus"] h1 { font-weight: 500; letter-spacing: -.04em; }
+[data-theme="kaufhaus"] h2 { font-weight: 500; letter-spacing: -.02em; }
+[data-theme="kaufhaus"] .eyebrow { color: var(--muted); font-weight: 600; letter-spacing: .2em; font-size: .7rem; }
+[data-theme="kaufhaus"] a { color: var(--text); }
+[data-theme="kaufhaus"] .btn { border-radius: 0; box-shadow: none; text-transform: uppercase; letter-spacing: .14em; font-size: .74rem; font-weight: 700; padding: 14px 22px; }
+[data-theme="kaufhaus"] .btn.small { padding: 10px 14px; font-size: .66rem; }
+[data-theme="kaufhaus"] .btn.ghost { border-color: var(--text); }
+[data-theme="kaufhaus"] .btn:hover { filter: none; opacity: .82; }
+[data-theme="kaufhaus"] :is(.panel, .tile, .toolbar, .fcard, .gcard, .plist li, .gift-rows li, .ulist li, .lcard, .pcard2, .lh-cd, .lh-emoji, .surprise, .pill, .empty, .cc, .sheet-item) { border-radius: 0; box-shadow: none; }
+[data-theme="kaufhaus"] .lcard::after, [data-theme="kaufhaus"] .pc-banner i { display: none; }
+[data-theme="kaufhaus"] .lcard:hover { transform: none; border-color: var(--text); box-shadow: none; }
+[data-theme="kaufhaus"] .pc-banner { height: 56px; background: var(--text); }
+[data-theme="kaufhaus"] .toolbar { border-left: 0; border-right: 0; padding: 12px 0; background: transparent; }
+[data-theme="kaufhaus"] .wishes { gap: 42px 20px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+[data-theme="kaufhaus"] .wish { border: 0; background: transparent; }
+[data-theme="kaufhaus"] .wish:hover { transform: none; box-shadow: none; }
+[data-theme="kaufhaus"] .wish-media { aspect-ratio: 4 / 5; border-radius: 0; }
+[data-theme="kaufhaus"] .wish-media img { padding: 14%; }
+[data-theme="kaufhaus"] .ph { background: var(--media); } [data-theme="kaufhaus"] .ph span { filter: grayscale(1); opacity: .5; }
+[data-theme="kaufhaus"] .price { display: none; }
+[data-theme="kaufhaus"] .price-line { display: block; margin: -4px 0 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+[data-theme="kaufhaus"] .prio { font-size: 0; border-radius: 0; padding: 5px 9px; background: #fff; box-shadow: none; }
+[data-theme="kaufhaus"] .prio::after { content: "Favorit"; font-size: .64rem; letter-spacing: .16em; text-transform: uppercase; color: #111; font-weight: 700; }
+[data-theme="kaufhaus"] .qty { border-radius: 0; background: #111; }
+[data-theme="kaufhaus"] .wish-body { padding: 14px 0 0; gap: 6px; }
+[data-theme="kaufhaus"] .wish-body h3 { font-size: .98rem; font-weight: 500; }
+[data-theme="kaufhaus"] .use span { color: var(--muted); }
+[data-theme="kaufhaus"] .dots { color: var(--text); }
+[data-theme="kaufhaus"] .wish-act .btn { flex: 1; }
+[data-theme="kaufhaus"] .state { border-radius: 0; }
+[data-theme="kaufhaus"] .wish.mine { box-shadow: none; } [data-theme="kaufhaus"] .wish.mine .wish-media { outline: 2px solid var(--ok); outline-offset: -2px; }
+[data-theme="kaufhaus"] .tagchip, [data-theme="kaufhaus"] .cat-tag { border-radius: 0; color: var(--text); background: var(--panel2); border-color: var(--line); }
+[data-theme="kaufhaus"] .av { box-shadow: inset 0 0 0 1px var(--text); background: var(--panel2); }
+[data-theme="kaufhaus"] .tile > b, [data-theme="kaufhaus"] .lh-cd b { font-weight: 500; }
+[data-theme="kaufhaus"] :is(input, select, textarea) { border-radius: 0; background: var(--panel); }
+.tshow[data-theme="kaufhaus"] .ts-stage { background: var(--bg); }
+
+/* ========== 5 Magazin (Hochglanz-Katalog; dunkel: Abendausgabe) ========== */
+[data-theme="magazin"] { --bg: #f1ece1; --panel: #fbf8f1; --panel2: #e8e1d2; --line: #1b1b1b; --text: #141414; --muted: #5d584f; --accent: #d7313f; --accent2: #1d3557; --on-accent: #fff;
+  --shadow: rgba(0,0,0,.25); --radius: 0px; --font-head: "Didot", "Bodoni 72", "Bodoni MT", "Playfair Display", Georgia, serif; --card: #fbf8f1; --card-solid: #fbf8f1; --ok: #2a7d4b; --bad: #c0392b; --media: #fff; --rule: #ddd5c4; }
+[data-mode="dark"] [data-theme="magazin"] { --bg: #151310; --panel: #1d1a16; --panel2: #29251f; --line: #cfc7b6; --text: #f2ecdf; --muted: #a59d8d; --accent: #ff5d68; --accent2: #a9c1e6; --on-accent: #1a0507;
+  --shadow: rgba(0,0,0,.6); --card: #1d1a16; --card-solid: #1d1a16; --ok: #6fcf97; --bad: #ff8a7a; --media: #e8e1d3; --rule: #3a352d; }
+body[data-theme="magazin"] .fx-bg { display: none; }
+/* Papierkorn und Heftkante */
+body[data-theme="magazin"] { background-image: radial-gradient(color-mix(in srgb, var(--text) 7%, transparent) 1px, transparent 1px); background-size: 4px 4px; }
+body[data-theme="magazin"] .deco::before { left: 0; right: 0; top: 0; height: 6px; background: var(--accent); }
+[data-theme="magazin"] h1 { font-weight: 400; font-style: italic; font-size: clamp(2.6rem, 7vw, 4.6rem); letter-spacing: -.02em; }
+[data-theme="magazin"] h2 { font-weight: 400; font-style: italic; }
+[data-theme="magazin"] .eyebrow { color: var(--text); letter-spacing: .25em; border-bottom: 1px solid var(--line); display: inline-block; padding-bottom: 2px; }
+[data-theme="magazin"] .list-head { border-bottom: 3px double var(--line); }
+[data-theme="magazin"] .wishes { gap: 30px 22px; }
+[data-theme="magazin"] .wish { border: 0; border-top: 3px solid var(--line); background: transparent; }
+[data-theme="magazin"] .wish:hover { box-shadow: none; }
+[data-theme="magazin"] .wish::before { counter-increment: wish; content: "Nr. " counter(wish, decimal-leading-zero); display: block; padding: 8px 0; font-family: var(--font-head); font-style: italic; font-size: 1.1rem; }
+[data-theme="magazin"] .wish.p3::before { content: "Nr. " counter(wish, decimal-leading-zero) "  ·  Titelstory"; color: var(--accent); }
+[data-theme="magazin"] .wish-media { border-radius: 0; border: 1px solid var(--rule); }
+[data-theme="magazin"] .wish-media img { filter: grayscale(.85) contrast(1.05); transition: filter .5s, transform .6s var(--ease); }
+[data-theme="magazin"] .wish:hover .wish-media img { filter: none; }
+[data-theme="magazin"] .wish-body { padding: 12px 0 0; }
+[data-theme="magazin"] .wish-body h3 { font-family: var(--font-head); font-size: 1.35rem; font-weight: 400; }
+[data-theme="magazin"] .price { border-radius: 0; right: auto; left: 0; bottom: 0; padding: 6px 12px; font-family: var(--font-head); font-size: 1.1rem; box-shadow: none; }
+[data-theme="magazin"] .prio { border-radius: 0; background: #141414; color: #fff; }
+@media (min-width: 900px) {
+  [data-theme="magazin"] .wishes > .wish:first-child:not(:only-child) { grid-column: span 2; }
+  [data-theme="magazin"] .wishes > .wish:first-child:not(:only-child) .wish-media { aspect-ratio: 16 / 9; }
+}
+[data-theme="magazin"] .ph { background: hsl(var(--h) 25% 82%); }
+[data-mode="dark"] [data-theme="magazin"] .ph { background: hsl(var(--h) 18% 34%); }
+[data-theme="magazin"] .btn { box-shadow: none; }
+[data-theme="magazin"] :is(.panel, .tile, .toolbar, .lcard, .pcard2, .plist li, .gift-rows li, .lh-cd, .lh-emoji, .pill, .cc, .sheet-item) { border-width: 1px; }
+[data-theme="magazin"] .pc-banner { background: repeating-linear-gradient(90deg, var(--text) 0 2px, transparent 2px 10px), var(--accent); }
+.tshow[data-theme="magazin"] .ts-stage { background: var(--bg); }
+
+/* ========== 6 Weihnachten: Tannengruen, Rot und Gold, Lichterkette und leiser Schnee ========== */
+[data-theme="weihnacht"] { --bg: #0e2419; --panel: #163a28; --panel2: rgba(255,240,210,.07); --line: rgba(244,201,93,.28); --text: #fff6e6; --muted: #dcc9a8; --accent: #e04a44; --accent2: #f4c95d; --on-accent: #fff;
+  --shadow: rgba(0,0,0,.6); --radius: 16px; --card: linear-gradient(165deg, #1c4732, #12301f); --card-solid: linear-gradient(165deg, #1c4732, #12301f); --font-head: Georgia, "Times New Roman", serif;
+  --ok: #7fdc9c; --bad: #ff8a80; --media: #f6efe2; }
+/* dezentes Karo wie Weihnachtspapier */
+body[data-theme="weihnacht"] { background-image: radial-gradient(70% 45% at 50% 0%, rgba(244,201,93,.12), transparent 70%),
+  repeating-linear-gradient(90deg, rgba(255,255,255,.022) 0 2px, transparent 2px 64px), repeating-linear-gradient(0deg, rgba(224,74,68,.05) 0 2px, transparent 2px 64px); background-attachment: fixed; }
+body[data-theme="weihnacht"] .fx-bg { display: none; }
+/* Lichterkette unter der Navigation */
+body[data-theme="weihnacht"] .deco::after { left: 0; right: 0; top: var(--nav-h); height: 34px; background-size: 208px 34px; filter: drop-shadow(0 0 7px rgba(255,214,140,.75));
+  background-image: radial-gradient(circle at 26px 20px, #ff5d57 0 5px, transparent 6px), radial-gradient(circle at 78px 26px, #ffd166 0 5px, transparent 6px), radial-gradient(circle at 130px 20px, #63d68f 0 5px, transparent 6px),
+    radial-gradient(circle at 182px 26px, #8fd0ff 0 5px, transparent 6px), linear-gradient(transparent 12px, rgba(255,255,255,.22) 12px 13px, transparent 13px);
+  animation: wl-glow 1.6s steps(2, jump-none) infinite alternate; }
+/* Tannenzweige in den oberen Ecken */
+body[data-theme="weihnacht"] .deco::before { inset: 0; opacity: .5;
+  background: radial-gradient(40% 26% at 0% 0%, rgba(46,125,79,.75), transparent 70%), radial-gradient(40% 26% at 100% 0%, rgba(46,125,79,.75), transparent 70%), radial-gradient(60% 30% at 50% 100%, rgba(224,74,68,.16), transparent 70%); }
+body[data-theme="weihnacht"] .deco i { display: block; width: calc(5px * var(--z)); height: calc(5px * var(--z)); border-radius: 50%; background: #fff; opacity: .75; box-shadow: 0 0 6px rgba(255,255,255,.6);
+  animation: wl-drop var(--t) linear var(--w) infinite; }
+[data-theme="weihnacht"] h1, [data-theme="weihnacht"] h2 { color: #fff; text-shadow: 0 2px 14px rgba(244,201,93,.35); }
+[data-theme="weihnacht"] .eyebrow { color: var(--accent2); }
+[data-theme="weihnacht"] .wish { border-color: rgba(244,201,93,.4); }
+/* Herzenswuensche tragen eine rote Schleife */
+[data-theme="weihnacht"] .wish.p3::before { content: ""; position: absolute; z-index: 2; inset: -1px -1px auto auto; width: 62px; height: 62px; border-radius: 0 var(--radius) 0 0; pointer-events: none;
+  background: linear-gradient(45deg, transparent 50%, #c53a35 50% 62%, #f4c95d 62% 66%, #c53a35 66% 78%, transparent 78%); }
+[data-theme="weihnacht"] .price { color: #2b1c00; background: linear-gradient(135deg, #f7dc8a, #e0b23f); }
+[data-theme="weihnacht"] .prio { background: #c53a35; color: #ffe9b0; }
+[data-theme="weihnacht"] .lh-emoji, [data-theme="weihnacht"] .lc-emoji { border-radius: 50%; border: 2px solid var(--accent2); background: radial-gradient(circle at 32% 28%, #f0625b, #a82a26 70%); box-shadow: 0 10px 24px -10px rgba(224,74,68,.8); }
+[data-theme="weihnacht"] .lc-cd, [data-theme="weihnacht"] .lh-cd b { font-family: var(--font-head); }
+[data-theme="weihnacht"] .pc-banner { background: repeating-linear-gradient(135deg, #c53a35 0 16px, #fff6e6 16px 24px, #2e7d4f 24px 40px, #fff6e6 40px 48px); }
+[data-theme="weihnacht"] .btn:not(.ghost):not(.danger) { background: linear-gradient(180deg, #e9554e, #c53a35); border-color: rgba(244,201,93,.6); }
+.tshow[data-theme="weihnacht"] .ts-stage { background: radial-gradient(60% 50% at 80% 0%, rgba(224,74,68,.3), transparent), radial-gradient(60% 50% at 10% 0%, rgba(244,201,93,.18), transparent), #0e2419; }
+
+/* ========== 7 Ostern: Pastell, gesprenkelte Eier, Wiese (dunkel: Fruehlingsabend) ========== */
+[data-theme="ostern"] { --bg: #f6f0e4; --panel: #fffdf8; --panel2: #f0e8f6; --line: #e2d5ea; --text: #3d2e4f; --muted: #7d6c93; --accent: #9a78d6; --accent2: #3fa57f; --on-accent: #fff;
+  --shadow: rgba(120,90,160,.25); --radius: 22px; --card: #fffdf8; --card-solid: #fffdf8; --ok: #2e9e6e; --bad: #d1527a; --media: #fff;
+  --egg1: #f7b8d0; --egg2: #a9d3f5; --egg3: #b5e6bd; --egg4: #f6e58d; --egg5: #cdb8f2; --grass: #8fcf8a; --grass2: #6dbb72; }
+[data-mode="dark"] [data-theme="ostern"] { --bg: #1c1929; --panel: #282339; --panel2: #332d48; --line: #4a4166; --text: #f2ecfb; --muted: #b3a7ce; --accent: #c4a4ff; --accent2: #7fdcb4; --on-accent: #1c1033;
+  --shadow: rgba(0,0,0,.55); --card: #282339; --card-solid: #282339; --ok: #7fdcb4; --bad: #ff9bb8; --media: #ebe6f0;
+  --egg1: #b8798f; --egg2: #6f96b8; --egg3: #6fa67a; --egg4: #b7a75a; --egg5: #8d78b8; --grass: #2f5a3b; --grass2: #244a30; }
+body[data-theme="ostern"] { background-image: radial-gradient(55% 38% at 8% 0%, color-mix(in srgb, var(--egg1) 45%, transparent) 0, transparent 70%), radial-gradient(50% 38% at 96% 6%, color-mix(in srgb, var(--egg3) 45%, transparent) 0, transparent 70%),
+  radial-gradient(color-mix(in srgb, var(--text) 9%, transparent) 1.2px, transparent 1.6px); background-size: auto, auto, 26px 26px; background-attachment: fixed; }
+body[data-theme="ostern"] .fx-bg { display: none; }
+/* Wiese am unteren Rand, davor bunte Eier */
+body[data-theme="ostern"] .deco::after { left: 0; right: 0; bottom: 0; height: 64px;
+  background: conic-gradient(from 165deg at 50% 0, var(--grass) 0 30deg, transparent 0) 0 100% / 22px 34px repeat-x, conic-gradient(from 165deg at 50% 0, var(--grass2) 0 30deg, transparent 0) 11px 100% / 26px 48px repeat-x, linear-gradient(transparent 70%, var(--grass2) 70%); }
+body[data-theme="ostern"] .deco::before { left: 0; right: 0; bottom: 8px; height: 46px; background-size: 310px 46px; background-repeat: repeat-x;
+  background-image: radial-gradient(ellipse 13px 17px at 40px 26px, var(--egg1) 97%, transparent), radial-gradient(ellipse 12px 16px at 118px 28px, var(--egg2) 97%, transparent),
+    radial-gradient(ellipse 14px 18px at 190px 25px, var(--egg4) 97%, transparent), radial-gradient(ellipse 12px 16px at 262px 28px, var(--egg5) 97%, transparent); }
+/* Bluetenblaetter treiben vorbei */
+body[data-theme="ostern"] .deco i:nth-child(3n) { display: block; width: calc(12px * var(--z)); height: calc(9px * var(--z)); border-radius: 70% 0 70% 0; background: var(--egg1); opacity: .7; animation: wl-drop calc(var(--t) * 1.3) linear var(--w) infinite; }
+[data-theme="ostern"] .wish { border-radius: 26px; border-top: 5px solid var(--egg1); }
+[data-theme="ostern"] .wish:nth-child(5n+2) { border-top-color: var(--egg2); } [data-theme="ostern"] .wish:nth-child(5n+3) { border-top-color: var(--egg3); }
+[data-theme="ostern"] .wish:nth-child(5n+4) { border-top-color: var(--egg4); } [data-theme="ostern"] .wish:nth-child(5n+5) { border-top-color: var(--egg5); }
+[data-theme="ostern"] .wish-media { border-radius: 20px 20px 40% 40% / 20px 20px 18% 18%; }
+[data-theme="ostern"] .lh-emoji, [data-theme="ostern"] .lc-emoji { border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: linear-gradient(180deg, color-mix(in srgb, var(--egg2) 55%, var(--panel)), color-mix(in srgb, var(--egg1) 55%, var(--panel))); border: 0; }
+[data-theme="ostern"] .btn:not(.ghost):not(.danger) { background: linear-gradient(135deg, #9a78d6, #e58bb7); color: #fff; }
+[data-theme="ostern"] .price { background: var(--egg4); color: #4a3d00; }
+[data-mode="dark"] [data-theme="ostern"] .price { background: #f1dd7c; }
+[data-theme="ostern"] .pc-banner { background: linear-gradient(90deg, var(--egg1), var(--egg2), var(--egg3), var(--egg4), var(--egg5)); }
+[data-theme="ostern"] .cc.on { color: #fff; }
+.tshow[data-theme="ostern"] .ts-stage { background: linear-gradient(180deg, color-mix(in srgb, var(--egg1) 40%, var(--bg)), color-mix(in srgb, var(--egg3) 40%, var(--bg)) 60%, color-mix(in srgb, var(--egg4) 40%, var(--bg))); }
+
+/* ========== 8 Herbst: warmes Laub, Abendlicht, einzelne fallende Blaetter ========== */
+[data-theme="herbst"] { --bg: #26170e; --panel: #3a2415; --panel2: rgba(255,200,140,.08); --line: rgba(230,160,90,.3); --text: #fbe9d0; --muted: #cfa77a; --accent: #f08a24; --accent2: #e0624a; --on-accent: #2b1204;
+  --shadow: rgba(0,0,0,.6); --radius: 14px; --card: linear-gradient(160deg, #4a2e1a, #34200f); --card-solid: linear-gradient(160deg, #4a2e1a, #34200f); --font-head: Georgia, "Times New Roman", serif;
+  --ok: #b7d36a; --bad: #ff8a70; --media: #f4eadb; }
+body[data-theme="herbst"] { background-image: radial-gradient(60% 40% at 80% 0%, rgba(240,138,36,.22), transparent 70%), linear-gradient(180deg, #2b1a10 0, #26170e 60%, #1f120a 100%); background-attachment: fixed; }
+body[data-theme="herbst"] .fx-bg { display: none; }
+body[data-theme="herbst"] .deco::before { inset: 0; background: radial-gradient(40% 30% at 15% 0%, rgba(240,138,36,.3), transparent 70%), radial-gradient(35% 30% at 90% 10%, rgba(200,65,43,.26), transparent 70%); }
+/* Laubhaufen am unteren Rand */
+body[data-theme="herbst"] .deco::after { left: 0; right: 0; bottom: 0; height: 70px; opacity: .8; background-size: 240px 70px; background-repeat: repeat-x;
+  background-image: radial-gradient(ellipse 60px 26px at 40px 74px, #b5521c 97%, transparent), radial-gradient(ellipse 70px 32px at 120px 78px, #8f3a17 97%, transparent), radial-gradient(ellipse 56px 24px at 200px 74px, #c9831f 97%, transparent); }
+body[data-theme="herbst"] .deco i { display: block; width: calc(18px * var(--z)); height: calc(18px * var(--z)); border-radius: 2px 70% 8px 70%; opacity: .8;
+  background: linear-gradient(135deg, #f0a13a, #c9541f); box-shadow: inset -2px -2px 0 rgba(0,0,0,.18); animation: wl-drop var(--t) linear var(--w) infinite; }
+body[data-theme="herbst"] .deco i:nth-child(3n+1) { background: linear-gradient(135deg, #e0624a, #9a2e1c); }
+body[data-theme="herbst"] .deco i:nth-child(3n+2) { background: linear-gradient(135deg, #f2c14e, #c9831f); border-radius: 60% 4px 60% 4px; }
+[data-theme="herbst"] .wish { border-color: rgba(240,138,36,.4); }
+[data-theme="herbst"] .wish.p3 { box-shadow: 0 0 0 1px rgba(240,138,36,.5), 0 18px 40px -22px rgba(240,138,36,.7); }
+[data-theme="herbst"] .price { background: linear-gradient(135deg, #f7b24a, #e37a1e); }
+[data-theme="herbst"] .prio { background: #b33a25; }
+[data-theme="herbst"] .lh-emoji, [data-theme="herbst"] .lc-emoji { background: radial-gradient(circle at 30% 25%, rgba(240,138,36,.45), rgba(200,65,43,.25)); border-color: rgba(240,138,36,.5); }
+[data-theme="herbst"] .pc-banner { background: linear-gradient(120deg, #c9541f, #f0a13a 50%, #9a2e1c); }
+.tshow[data-theme="herbst"] .ts-stage { background: radial-gradient(70% 50% at 20% 0%, rgba(240,138,36,.35), transparent), #26170e; }
+
+/* ========== 9 Verschneiter Winter (hell: Schneetag, gedaempft; dunkel: klare Winternacht) ========== */
+[data-theme="winter"] { --bg: #cfdbe7; --panel: #f3f7fb; --panel2: #e2eaf2; --line: #b3c6d8; --text: #1b3350; --muted: #557089; --accent: #2f79c2; --accent2: #5a9bd4; --on-accent: #fff;
+  --shadow: rgba(30,60,100,.3); --radius: 18px; --card: rgba(243,247,251,.82); --card-solid: #f3f7fb; --blur: blur(10px); --ok: #1f8f66; --bad: #c44d5a; --media: #fbfcfe;
+  --flake: #fff; --snow: #f4f8fc; --snow2: #e3ebf3; }
+[data-mode="dark"] [data-theme="winter"] { --bg: #0b1626; --panel: #152840; --panel2: rgba(170,210,255,.08); --line: rgba(160,200,240,.24); --text: #e6f0fb; --muted: #9bb3cd; --accent: #8fd0ff; --accent2: #c2e6ff; --on-accent: #062033;
+  --shadow: rgba(0,0,0,.6); --card: linear-gradient(165deg, rgba(170,210,255,.13), rgba(170,210,255,.05)); --card-solid: linear-gradient(165deg, #1a3150, #122339); --ok: #6fe0b2; --bad: #ff9aa5; --media: #e4ebf3;
+  --flake: #eaf4ff; --snow: #22364f; --snow2: #182a40; }
+body[data-theme="winter"] { background-image: linear-gradient(180deg, #b9cbdd 0, #cfdbe7 45%, #dfe8f0 100%); background-attachment: fixed; }
+[data-mode="dark"] body[data-theme="winter"] { background-image: radial-gradient(40% 30% at 82% 6%, rgba(190,225,255,.16), transparent 70%), linear-gradient(180deg, #081120 0, #0d1c30 55%, #13263d 100%); }
+body[data-theme="winter"] .fx-bg { display: none; }
+/* Mond (nur nachts sichtbar) */
+[data-mode="dark"] body[data-theme="winter"] .deco::before { width: 70px; height: 70px; top: 74px; right: 1.2%; border-radius: 50%; background: radial-gradient(circle at 38% 36%, #f6fbff, #cfe2f5 60%, #a9c6e3); box-shadow: 0 0 60px 18px rgba(190,225,255,.22); opacity: .85; }
+/* Schneehuegel */
+body[data-theme="winter"] .deco::after { left: -8%; right: -8%; bottom: -70px; height: 190px;
+  background: radial-gradient(62% 100% at 22% 100%, var(--snow) 99%, transparent), radial-gradient(70% 86% at 78% 100%, var(--snow2) 99%, transparent), radial-gradient(60% 70% at 50% 100%, var(--snow) 99%, transparent); filter: drop-shadow(0 -6px 18px rgba(60,100,150,.18)); }
+body[data-theme="winter"] .deco i { display: block; width: calc(7px * var(--z)); height: calc(7px * var(--z)); border-radius: 50%; background: var(--flake); opacity: .9; box-shadow: 0 0 5px rgba(70,120,180,.55);
+  animation: wl-drop var(--t) linear var(--w) infinite; }
+body:is([data-theme="winter"], [data-theme="weihnacht"]) .deco i::after { content: ""; position: absolute; left: 31vw; top: 46vh; width: 70%; height: 70%; border-radius: 50%; background: inherit; box-shadow: inherit; }
+body:is([data-theme="winter"], [data-theme="weihnacht"]) .deco i:nth-child(2n)::after { left: -27vw; top: 38vh; }
+[data-theme="winter"] .wish { border-color: var(--line); box-shadow: 0 10px 28px -16px var(--shadow); }
+/* Schneehaube auf jeder Karte */
+[data-theme="winter"] .wish::before { content: ""; position: absolute; z-index: 2; left: 6px; right: 6px; top: -8px; height: 20px; pointer-events: none;
+  background: radial-gradient(ellipse 20px 10px at 20px 8px, var(--flake) 96%, transparent) 0 0 / 40px 20px repeat-x, radial-gradient(ellipse 30px 8px at 30px 7px, var(--flake) 96%, transparent) 17px 0 / 67px 20px repeat-x;
+  filter: drop-shadow(0 2px 2px rgba(30,60,100,.22)); }
+[data-mode="dark"] [data-theme="winter"] .wish::before { opacity: .9; }
+[data-theme="winter"] .lh-emoji, [data-theme="winter"] .lc-emoji { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 22%, var(--panel)), var(--panel)); border: 1px solid var(--line); }
+[data-theme="winter"] .pc-banner { background: linear-gradient(120deg, #2f79c2, #8fc4ee 55%, #dcecf9); }
+[data-mode="dark"] [data-theme="winter"] .pc-banner { background: linear-gradient(120deg, #10233a, #2a5f8f 60%, #8fd0ff); }
+[data-mode="dark"] [data-theme="winter"] h1 { text-shadow: 0 2px 18px rgba(143,208,255,.3); }
+.tshow[data-theme="winter"] .ts-stage { background: linear-gradient(180deg, #b9cbdd, #dfe8f0); }
+[data-mode="dark"] .tshow[data-theme="winter"] .ts-stage { background: radial-gradient(60% 50% at 80% 0%, rgba(143,208,255,.25), transparent), linear-gradient(180deg, #081120, #13263d); }
+
+/* ========== 10 Schwarz & Gold: Art-Deco, feine Linien, aufsteigender Goldstaub ========== */
+[data-theme="gold"] { --bg: #0b0b0a; --panel: #151513; --panel2: rgba(212,175,55,.07); --line: rgba(212,175,55,.35); --text: #f3ead2; --muted: #a9987a; --accent: #d4af37; --accent2: #f0d77b; --on-accent: #1a1405;
+  --shadow: rgba(0,0,0,.8); --radius: 4px; --card: linear-gradient(160deg, #1b1b18, #0f0f0e); --card-solid: linear-gradient(160deg, #1b1b18, #0f0f0e); --font-head: "Didot", "Bodoni 72", "Playfair Display", Georgia, serif;
+  --ok: #9fd18b; --bad: #ff8a70; --media: #f1ece0; }
+/* Art-Deco-Faecher als feines Muster */
+body[data-theme="gold"] { background-image: radial-gradient(50% 35% at 50% 0%, rgba(212,175,55,.16), transparent 70%), repeating-radial-gradient(circle at 50% 100%, transparent 0 22px, rgba(212,175,55,.045) 22px 23px); background-size: auto, 92px 46px; background-attachment: fixed; }
+body[data-theme="gold"] .fx-bg { display: none; }
+body[data-theme="gold"] .deco::before { left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, transparent, #b8860b, #f7e08a, #b8860b, transparent); }
+body[data-theme="gold"] .deco i { display: block; width: calc(3px * var(--z)); height: calc(3px * var(--z)); border-radius: 50%; background: #f7e08a; box-shadow: 0 0 8px 1px rgba(247,224,138,.7); animation: wl-rise calc(var(--t) * 1.4) linear var(--w) infinite; }
+[data-theme="gold"] h1, [data-theme="gold"] h2 { font-weight: 400; letter-spacing: .02em; background: linear-gradient(90deg, #b8860b, #f7e08a, #d4af37, #f7e08a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+[data-theme="gold"] .dlg h2, [data-theme="gold"] .feed h2 { -webkit-text-fill-color: currentColor; background: none; }
+[data-theme="gold"] .eyebrow { letter-spacing: .3em; }
+[data-theme="gold"] .btn:not(.ghost):not(.danger) { background: linear-gradient(135deg, #b8860b, #f7e08a 50%, #c9a227); border: 0; box-shadow: 0 6px 20px -8px rgba(212,175,55,.6); }
+[data-theme="gold"] .btn.ghost { border-color: var(--accent); color: var(--accent); }
+/* doppelte Goldlinie wie ein Rahmen */
+[data-theme="gold"] .wish { border: 1px solid var(--line); outline: 1px solid rgba(212,175,55,.16); outline-offset: 4px; }
+[data-theme="gold"] .wish:hover { border-color: var(--accent); box-shadow: 0 20px 44px -22px rgba(212,175,55,.5); }
+[data-theme="gold"] .wish.p3 { border-color: var(--accent); }
+[data-theme="gold"] .price { background: #0b0b0a; color: var(--accent); border: 1px solid var(--accent); }
+[data-theme="gold"] .prio { background: linear-gradient(135deg, #b8860b, #f7e08a); color: #1a1405; }
+[data-theme="gold"] .lh-emoji, [data-theme="gold"] .lc-emoji { border: 1px solid var(--accent); background: #0b0b0a; box-shadow: inset 0 0 0 4px #0b0b0a, inset 0 0 0 5px rgba(212,175,55,.45); }
+[data-theme="gold"] .pc-banner { background: repeating-linear-gradient(60deg, #0b0b0a 0 14px, rgba(212,175,55,.5) 14px 15px), linear-gradient(120deg, #b8860b, #f7e08a); }
+.tshow[data-theme="gold"] .ts-stage { background: radial-gradient(70% 60% at 50% 0%, rgba(212,175,55,.25), transparent), #0b0b0a; }
+
+/* ========== 11 Sommer (hell: Strandtag in Sand und Tuerkis; dunkel: Sommernacht mit Gluehwuermchen) ========== */
+[data-theme="sommer"] { --bg: #f4ead2; --panel: #fffaf0; --panel2: #f6ecd2; --line: #ead7a8; --text: #123a4a; --muted: #55757f; --accent: #ee6c3b; --accent2: #0f97a8; --on-accent: #fff;
+  --shadow: rgba(40,90,110,.25); --radius: 20px; --card: #fffaf0; --card-solid: #fffaf0; --ok: #1b9e5a; --bad: #d1483b; --media: #fff; --sea1: #7fd3dc; --sea2: #4bb7c6; }
+[data-mode="dark"] [data-theme="sommer"] { --bg: #0d1f2b; --panel: #16303e; --panel2: rgba(255,214,150,.08); --line: rgba(255,200,130,.24); --text: #f6ecd8; --muted: #a8bcc2; --accent: #ffa552; --accent2: #5fd6dc; --on-accent: #2b1200;
+  --shadow: rgba(0,0,0,.6); --card: linear-gradient(165deg, #1a3747, #132a37); --card-solid: linear-gradient(165deg, #1a3747, #132a37); --ok: #7fe0a6; --bad: #ff9a85; --media: #ece4d4; --sea1: #1c5360; --sea2: #174552; }
+body[data-theme="sommer"] { background-image: linear-gradient(180deg, #bfe6ee 0, #e3f1e9 34%, #f4ead2 70%); background-attachment: fixed; }
+[data-mode="dark"] body[data-theme="sommer"] { background-image: radial-gradient(70% 34% at 50% 100%, rgba(255,140,90,.28), transparent 70%), linear-gradient(180deg, #091722 0, #0d1f2b 50%, #1b2a3a 100%); }
+body[data-theme="sommer"] .fx-bg { display: none; }
+/* Sonne (nachts: Mond im Dunst) */
+body[data-theme="sommer"] .deco::before { width: 230px; height: 230px; top: -70px; right: -50px; border-radius: 50%; background: radial-gradient(circle, #fff3b0 0, #ffcf5c 42%, rgba(255,207,92,0) 70%); animation: wl-sun 8s ease-in-out infinite alternate; }
+[data-mode="dark"] body[data-theme="sommer"] .deco::before { width: 84px; height: 84px; top: 70px; right: 1%; background: radial-gradient(circle, #fff6dc 0, #ffe2a8 45%, rgba(255,226,168,0) 72%); opacity: .7; }
+@keyframes wl-sun { from { transform: scale(1); } to { transform: scale(1.1); } }
+/* Wellen am unteren Rand */
+body[data-theme="sommer"] .deco::after { left: 0; right: 0; bottom: 0; height: 74px; opacity: .85;
+  background: radial-gradient(circle at 50% -18px, transparent 30px, var(--sea1) 31px) 0 0 / 76px 44px repeat-x, radial-gradient(circle at 50% -18px, transparent 30px, var(--sea2) 31px) 38px 22px / 76px 52px repeat-x, linear-gradient(transparent 44px, var(--sea2) 44px); }
+/* Gluehwuermchen in der Sommernacht */
+[data-mode="dark"] body[data-theme="sommer"] .deco i { display: block; top: calc(30vh + var(--y) * .6vh); width: 4px; height: 4px; border-radius: 50%; background: #ffe58a; box-shadow: 0 0 10px 3px rgba(255,220,120,.7); animation: wl-twinkle calc(var(--t) / 5) ease-in-out var(--w) infinite; }
+[data-theme="sommer"] .wish { border-color: var(--line); box-shadow: 0 12px 26px -16px var(--shadow); }
+[data-theme="sommer"] .wish.p3 { border-color: var(--accent); }
+[data-theme="sommer"] .btn:not(.ghost):not(.danger) { background: linear-gradient(135deg, #f28a3c, #ea5a4a); color: #fff; }
+[data-theme="sommer"] .price { background: var(--accent2); color: #fff; }
+[data-mode="dark"] [data-theme="sommer"] .price { color: #06262a; }
+[data-theme="sommer"] .lh-emoji, [data-theme="sommer"] .lc-emoji { background: linear-gradient(160deg, color-mix(in srgb, var(--accent2) 26%, var(--panel)), color-mix(in srgb, #ffcf5c 30%, var(--panel))); border: 0; }
+[data-theme="sommer"] .pc-banner { background: linear-gradient(180deg, #8fd6e2 0 55%, #f1dba0 55%); }
+[data-mode="dark"] [data-theme="sommer"] .pc-banner { background: linear-gradient(180deg, #132a3a 0 40%, #c9643f 78%, #ffb067); }
+.tshow[data-theme="sommer"] .ts-stage { background: linear-gradient(180deg, #bfe6ee, #f4ead2); }
+[data-mode="dark"] .tshow[data-theme="sommer"] .ts-stage { background: radial-gradient(80% 50% at 50% 100%, rgba(255,140,90,.35), transparent), linear-gradient(180deg, #091722, #1b2a3a); }
+
+/* ========== 12 Barbie-Pink (hell: zartes Rosa mit kraeftigen Akzenten; dunkel: Glamour bei Nacht) ========== */
+[data-theme="barbie"] { --bg: #fbe3ee; --panel: #fff7fb; --panel2: #fbd3e5; --line: #f3a9cd; --text: #56113a; --muted: #9c4a78; --accent: #d81b84; --accent2: #f25cab; --on-accent: #fff;
+  --shadow: rgba(216,27,132,.28); --radius: 24px; --card: #fff7fb; --card-solid: #fff7fb; --ok: #1b9e5a; --bad: #c2185b; --font-head: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; --media: #fff; --spark: #f25cab; }
+[data-mode="dark"] [data-theme="barbie"] { --bg: #1f0a18; --panel: #33122a; --panel2: #451a39; --line: #7a2d5f; --text: #ffe6f3; --muted: #d596b9; --accent: #ff4fa6; --accent2: #ff9bd2; --on-accent: #2b0018;
+  --shadow: rgba(0,0,0,.6); --card: linear-gradient(165deg, #3a1530, #2a0f22); --card-solid: linear-gradient(165deg, #3a1530, #2a0f22); --ok: #7fe0a6; --bad: #ff8fb0; --media: #f3e3ec; --spark: #ffd1ea; }
+body[data-theme="barbie"] { background-image: radial-gradient(50% 36% at 0% 0%, rgba(242,92,171,.3) 0, transparent 70%), radial-gradient(46% 36% at 100% 100%, rgba(242,92,171,.24) 0, transparent 70%),
+  radial-gradient(circle at 14px 14px, rgba(216,27,132,.1) 0 2px, transparent 3px); background-size: auto, auto, 34px 34px; background-attachment: fixed; }
+[data-mode="dark"] body[data-theme="barbie"] { background-image: radial-gradient(50% 36% at 0% 0%, rgba(255,79,166,.26) 0, transparent 70%), radial-gradient(46% 36% at 100% 100%, rgba(170,60,220,.22) 0, transparent 70%),
+  radial-gradient(circle at 14px 14px, rgba(255,155,210,.09) 0 2px, transparent 3px); }
+body[data-theme="barbie"] .fx-bg { display: none; }
+/* funkelnde Sterne */
+body[data-theme="barbie"] .deco i { display: block; top: calc(var(--y) * 1vh); width: calc(16px * var(--z)); height: calc(16px * var(--z)); background: var(--spark);
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); animation: wl-twinkle calc(var(--t) / 4) ease-in-out var(--w) infinite; }
+[data-theme="barbie"] h1, [data-theme="barbie"] h2 { color: var(--accent); font-weight: 800; text-shadow: 2px 2px 0 #fff; }
+[data-mode="dark"] [data-theme="barbie"] h1, [data-mode="dark"] [data-theme="barbie"] h2 { text-shadow: 0 0 22px rgba(255,79,166,.55); }
+[data-theme="barbie"] .wish { border: 2px solid var(--line); border-radius: 28px; }
+[data-theme="barbie"] .wish.p3 { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+[data-theme="barbie"] .wish-media { border-radius: 24px 24px 0 0; }
+[data-theme="barbie"] .btn { border-radius: 999px; }
+[data-theme="barbie"] .btn:not(.ghost):not(.danger) { background: linear-gradient(135deg, #d81b84, #f25cab); box-shadow: 0 8px 20px -8px var(--shadow); color: #fff; }
+[data-theme="barbie"] .prio { background: linear-gradient(135deg, #d81b84, #f25cab); }
+[data-theme="barbie"] .lh-emoji, [data-theme="barbie"] .lc-emoji { border-radius: 50%; background: linear-gradient(135deg, color-mix(in srgb, var(--accent2) 45%, var(--panel)), var(--panel)); border: 2px solid var(--accent2); }
+[data-theme="barbie"] .pc-banner { background: linear-gradient(120deg, #d81b84, #f25cab 55%, #ffc1e0); }
+.tshow[data-theme="barbie"] .ts-stage { background: linear-gradient(135deg, #f7b6d6, #fbe3ee 60%, #f490c4); }
+[data-mode="dark"] .tshow[data-theme="barbie"] .ts-stage { background: radial-gradient(70% 60% at 10% 0%, rgba(255,79,166,.4), transparent), #1f0a18; }
+
+/* Teilchen ruhen, wenn Bewegung reduziert ist: an ihrem Platz bleiben statt aus dem Bild zu springen */
+@media (prefers-reduced-motion: reduce) {
+  .deco i { animation: none !important; top: calc(var(--y) * 1vh); opacity: .6; }
+}

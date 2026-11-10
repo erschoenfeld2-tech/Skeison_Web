@@ -115,7 +115,7 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
 .fx-still *, .fx-still *::before, .fx-still *::after { animation-play-state: paused !important; }
 /* Einmalige Animationen laufen trotzdem zu Ende, sonst blieben sie bei Deckkraft 0 stehen: Einblendungen, Countdown-Ziffern,
    Ranglisten-Zeilen und Dialoge (z. B. in einem sichtbaren, aber nicht aktiven Fenster, unter Windows per Mausrad scrollbar) */
-:is(.fx-idle, .fx-still) :is([data-reveal].in, [data-stagger].in > :not(.ball), .cd b > span, .rows .row, .dlg),
+:is(.fx-idle, .fx-still) :is([data-reveal].in, [data-stagger].in > :not(.ball), .cd b > span, .rows .row, .dlg, .feed, .burst),
 :is(.fx-idle, .fx-still) .dlg::backdrop { animation-play-state: running !important; }
 
 /* Knopf "Animationen pausieren" in der Navigation aller Seiten (fx.js, setStill); die Wahl wird gespeichert */
