@@ -55,8 +55,12 @@ jobs:
           VALORANT_RIOT_ID: ${{ vars.VALORANT_RIOT_ID }}
           VALORANT_REGION: ${{ vars.VALORANT_REGION }}
           HENRIK_API_KEY: ${{ secrets.HENRIK_API_KEY }}
+      # Valorant-Skins: Namen aus site/gaming/meine-skins.json, Bilder und Seltenheit von valorant-api.com (README, Abschnitt Valorant)
+      - name: Valorant-Skins ergaenzen
+        continue-on-error: true
+        run: node tools/fetch-valorant-skins.js
       - name: Valorant-Stand zwischenspeichern
-        if: hashFiles('.valorant-cache/valorant.json') != ''
+        if: hashFiles('.valorant-cache/valorant.json') != '' || hashFiles('.valorant-cache/skins.json') != ''
         uses: actions/cache/save@v4
         with:
           path: .valorant-cache

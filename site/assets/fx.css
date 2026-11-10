@@ -117,6 +117,8 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
    Ranglisten-Zeilen und Dialoge (z. B. in einem sichtbaren, aber nicht aktiven Fenster, unter Windows per Mausrad scrollbar) */
 :is(.fx-idle, .fx-still) :is([data-reveal].in, [data-stagger].in > :not(.ball), .cd b > span, .rows .row, .dlg, .feed, .burst),
 :is(.fx-idle, .fx-still) .dlg::backdrop { animation-play-state: running !important; }
+/* Gaming-Buehne: Einflug der Figur und der Zahlen laeuft zu Ende (Laufschrift und Schweben bleiben angehalten) */
+:is(.fx-idle, .fx-still) .panel.on :is(.fig img, .fig .skin, .fig-name, .info-head, .subtabs, .pages, .page *, .skin-card) { animation-play-state: running !important; }
 
 /* Knopf "Animationen pausieren" in der Navigation aller Seiten (fx.js, setStill); die Wahl wird gespeichert */
 .motion-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; margin-left: 4px; padding: 0; cursor: pointer; border-radius: 8px;

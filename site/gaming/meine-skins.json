@@ -1,0 +1,4 @@
+{
+  "hinweis": "Hier die Namen deiner Valorant-Skins eintragen, wie sie im Spiel heissen (deutsch oder englisch), z. B. \"Prime Vandal\". Bilder und Seltenheit ergaenzt tools/fetch-valorant-skins.js beim naechsten Deploy. Leere Liste = der Reiter Skins bleibt ausgeblendet.",
+  "skins": []
+}
