@@ -256,7 +256,7 @@
   var lastLoad = 0, lastKey = '';
   function maybeLoad() {
     if (document.hidden) return;
-    if (stats && dailyDay && dailyDay !== berlinDay()) ensureStats().then(renderDaily, function () {}); // neuer Tag: neue Tagesstatistiken
+    if (stats && dailyDay && dailyDay !== berlinDay()) Promise.all([ensureStats(), loadDaily()]).then(renderDaily, function () {}); // neuer Tag: neue Tagesstatistiken
     if (Date.now() - lastHeadRetry >= 300000) { lastHeadRetry = Date.now(); retryHeads(); }
     if (Date.now() - lastLoad >= 55000) load();
   }
@@ -597,7 +597,8 @@
   $('stMore').addEventListener('click', function () { stLimit += 200; renderTable(); });
   $('stBack').addEventListener('click', function () { showPick(); });
 
-  // Statistiken des Tages: drei zufaellige, fuer alle Besucher gleiche Statistiken, die jeden Tag (0 Uhr deutscher Zeit) wechseln
+  // Statistiken des Tages. Ersatz, solange es keinen Vergleich zum Vortag gibt (siehe loadDaily):
+  // drei zufaellige, fuer alle Besucher gleiche Statistiken, die jeden Tag (0 Uhr deutscher Zeit) wechseln
   function berlinDay() { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' }); }
   function seeded(str) { // feste Zufallszahl 0..1 aus einem Text (xmur3 + mulberry32): gleicher Text = gleiche Zahl
     var h = 1779033703 ^ str.length; for (var i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = h << 13 | h >>> 19; }
@@ -624,32 +625,110 @@
     pool.forEach(function (x) { if (out.length < 3 && out.indexOf(x) < 0) out.push(x); });
     return out;
   }
+  // Veraenderung zum Vortag: data/daily.json (tools/daily-stats.js, vom Deploy alle 6 Stunden erzeugt) nennt die Statistiken,
+  // die sich seit gestern am staerksten veraendert haben. Gezeigt werden die drei vordersten aus verschiedenen Bereichen;
+  // sie wechseln damit von selbst jeden Tag. Fehlt die Datei oder ist sie aelter als zwei Tage: drei zufaellige (dailyPicks).
+  var dailyData = null;
+  function loadDaily() {
+    return getJson('data/daily.json').then(function (d) {
+      var age = d && d.day ? (Date.parse(berlinDay() + 'T12:00:00Z') - Date.parse(d.day + 'T12:00:00Z')) / DAY : 99;
+      dailyData = d && Array.isArray(d.changes) && d.changes.length && age <= 2 ? d : null;
+    }, function () { dailyData = null; });
+  }
+  function moverPicks() {
+    if (!dailyData) return [];
+    var out = [], used = {}, pool = dailyData.changes.map(function (c) { return { c: c, x: S[c.cat] && S[c.cat][c.key] }; }).filter(function (o) { return o.x && !BORING.test(o.c.key) && o.c.delta > 0; });
+    pool.forEach(function (o) { var g = groupOf(o.x); if (out.length < 3 && !used[g]) { used[g] = 1; out.push(o); } });
+    pool.forEach(function (o) { if (out.length < 3 && out.indexOf(o) < 0) out.push(o); });
+    return out;
+  }
+  function dayName(iso) { return new Date(iso + 'T12:00:00Z').toLocaleDateString('de-DE', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' }); }
   function renderDaily() {
-    var box = $('dailyList'), sec = $('daily'), picks = dailyPicks(); box.textContent = ''; dailyDay = berlinDay();
+    var box = $('dailyList'), sec = $('daily'), movers = moverPicks(), picks = movers.length ? movers : dailyPicks().map(function (x) { return { x: x }; });
+    box.textContent = ''; dailyDay = berlinDay();
     sec.hidden = !picks.length; if (!picks.length) return;
-    $('dailyDate').textContent = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: 'numeric', month: 'long' });
-    picks.forEach(function (x) {
-      var card = el('article', 'card'), head = el('header'), unit = unitOf(x.cat, x.key);
+    sec.classList.toggle('movers', !!movers.length);
+    $('dailyDate').textContent = movers.length ? 'Seit ' + dayName(dailyData.from) : dayName(dailyDay);
+    $('dailyTitle').textContent = movers.length ? 'Aufsteiger des Tages' : 'Statistiken des Tages';
+    $('dailyNote').textContent = movers.length ? 'Diese drei Statistiken haben sich seit gestern am stärksten verändert. Jeden Tag stehen hier andere. Ein Klick zeigt alle Spieler.'
+      : 'Jeden Tag drei andere, zufällig gewählte Statistiken aus dem ganzen Spiel. Ein Klick zeigt alle Spieler.';
+    picks.forEach(function (p, n) {
+      var x = p.x, c = p.c, card = el('article', 'card' + (c ? ' mover' : '')), head = el('header'), unit = unitOf(x.cat, x.key);
       card.tabIndex = 0; card.setAttribute('role', 'button'); card.setAttribute('aria-label', x.label + ' – Rangliste anzeigen');
       var open = function () { stPlayer = 'all'; $('stPlayer').value = 'all'; showSelectedHead(); openStats(function () { openStat(x); }); };
       card.addEventListener('click', open);
       card.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } });
       head.appendChild(el('div', 'ico', GROUP_ICON[groupOf(x)] || '📊'));
       var t = el('div'); t.appendChild(el('h3', '', x.label)); t.appendChild(el('p', '', x.catName)); head.appendChild(t); card.appendChild(head);
-      var ul = el('ul', 'rows');
-      x.list.slice(0, 3).forEach(function (e, i) {
-        var name = stats.players[e[0]] || '?', li = el('li', 'row r' + (i + 1)); li.style.setProperty('--i', i);
+      var ul = el('ul', 'rows'), rows = c ? c.top.slice(0, 3) : x.list.slice(0, 3).map(function (e) { return [stats.players[e[0]] || '?', e[1]]; });
+      if (c) {
+        // Zuwachs gross, darunter der Stand davor und danach und (wenn es einen Vorwert gab) das Plus in Prozent
+        var up = el('p', 'delta'); up.appendChild(el('b', '', '+' + fmtStat(c.delta, unit)));
+        var pct = c.before > 0 ? Math.round(c.delta / c.before * 100) : null;
+        up.appendChild(el('span', '', (pct === null ? 'neu dabei' : '+' + nf.format(pct) + ' %') + ' · jetzt ' + fmtStat(x.sum, unit)));
+        if (n === 0) up.appendChild(el('i', 'crown', '▲ stärkster Anstieg'));
+        card.appendChild(up);
+      }
+      rows.forEach(function (e, i) {
+        var name = e[0], li = el('li', 'row r' + (i + 1)); li.style.setProperty('--i', i);
         li.appendChild(el('span', 'rank', String(i + 1)));
         li.appendChild(avatar(name));
-        li.appendChild(el('span', 'name', name)); li.appendChild(el('span', 'val', fmtStat(e[1], unit)));
+        li.appendChild(el('span', 'name', name)); li.appendChild(el('span', 'val', (c ? '+' : '') + fmtStat(e[1], unit)));
         ul.appendChild(li);
       });
       card.appendChild(ul);
-      card.appendChild(el('p', 'more', x.list.length > 3 ? 'Alle ' + x.list.length + ' anzeigen →' : 'Details →'));
+      card.appendChild(el('p', 'more', c ? (c.players > 3 ? plural(c.players) + ' haben beigetragen · alle anzeigen →' : 'Rangliste anzeigen →') : x.list.length > 3 ? 'Alle ' + x.list.length + ' anzeigen →' : 'Details →'));
       box.appendChild(card);
     });
   }
-  ensureStats().then(renderDaily).catch(function (e) { if (window.console) console.warn('Statistiken des Tages:', e); }); // fehlt stats.json, bleibt der Bereich einfach ausgeblendet
+  function plural(n) { return n + ' Spieler'; }
+  Promise.all([ensureStats(), loadDaily()]).then(renderDaily).catch(function (e) { if (window.console) console.warn('Statistiken des Tages:', e); }); // fehlt stats.json, bleibt der Bereich einfach ausgeblendet
+
+  // ---------- Pokémon auf der Seite: eines laeuft unten im Kopfbereich durchs Gras, weitere schauen neben den Ueberschriften
+  // hervor; alle wechseln immer wieder (zufaellig aus MONS). Pixel-Sprites aus dem PokeAPI-Sprite-Archiv auf GitHub
+  // (animiert: Generation 5). Rein dekorativ: laedt ein Bild nicht, bleibt die Stelle leer. Bei "Animationen pausieren"
+  // oder "Bewegung reduzieren" stehen sie still (ruhendes Bild, kein Wechsel).
+  var SPRITES = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/';
+  var MONS = [1, 4, 7, 25, 35, 37, 39, 52, 54, 58, 63, 66, 77, 79, 92, 94, 104, 113, 129, 131, 133, 134, 135, 136, 143, 147, 149, 152, 155, 158, 172, 175, 179, 183, 196, 197, 246,
+    252, 255, 258, 280, 300, 359, 371, 387, 390, 393, 403, 417, 427, 447, 448, 470, 471, 495, 498, 501, 509, 570, 572, 587, 607, 613, 631, 633];
+  var monStill = function () { return !!(FX.reduced || FX.still); };
+  var lastMon = 0;
+  function randomMon() { var id; do { id = MONS[Math.floor(Math.random() * MONS.length)]; } while (id === lastMon); lastMon = id; return id; }
+  function monSrc(id, anim) { return SPRITES + (anim ? 'versions/generation-v/black-white/animated/' + id + '.gif' : id + '.png'); }
+  (function () {
+    var grass = $('grass'); if (!grass) return;
+    var w = el('img', 'walker'); w.alt = ''; w.decoding = 'async'; grass.appendChild(w);
+    var failed = 0;
+    function walk() {
+      var still = monStill(), id = randomMon(), right = Math.random() < 0.5;
+      w.classList.remove('go', 'stand'); w.style.visibility = 'hidden';
+      w.onload = function () {
+        failed = 0; w.style.visibility = '';
+        // Die Sprites schauen nach links: laeuft das Pokémon nach rechts, wird es gespiegelt
+        w.style.setProperty('--flip', right ? -1 : 1); w.style.setProperty('--from', right ? '-90px' : '100vw'); w.style.setProperty('--to', right ? '100vw' : '-90px');
+        w.style.setProperty('--dur', (16 + Math.random() * 12).toFixed(1) + 's');
+        void w.offsetWidth; w.classList.add(still ? 'stand' : 'go');
+      };
+      w.onerror = function () { if (++failed < 3) setTimeout(walk, 4000); };
+      w.src = monSrc(id, !still);
+    }
+    w.addEventListener('animationend', function (e) { if (e.animationName === 'mon-walk') setTimeout(walk, 1500 + Math.random() * 4000); });
+    document.addEventListener('fx:still', walk);
+    walk();
+    // Neben den Ueberschriften: ein kleines Pokémon, das alle paar Sekunden mit einem Huepfer wechselt (Klick: sofort)
+    var peeks = [];
+    Array.prototype.forEach.call(document.querySelectorAll('main section > h2, main section > .sec-head > h2'), function (h, i) {
+      var b = el('button', 'mon-peek'); b.type = 'button'; b.setAttribute('aria-label', 'Anderes Pokémon zeigen'); b.title = 'Ein wildes Pokémon! Klick für ein anderes';
+      var im = el('img'); im.alt = ''; im.loading = 'lazy'; im.onerror = function () { b.hidden = true; }; im.onload = function () { b.hidden = false; };
+      b.appendChild(im); h.appendChild(b);
+      var swap = function () { b.classList.remove('hop'); im.src = monSrc(randomMon(), false); void b.offsetWidth; b.classList.add('hop'); };
+      b.addEventListener('click', swap);
+      im.src = monSrc(randomMon(), false);
+      peeks.push(swap);
+    });
+    var turn = 0;
+    setInterval(function () { if (document.hidden || monStill() || !peeks.length) return; peeks[turn++ % peeks.length](); }, 7000);
+  })();
 
   fetchJson('announcements.json').then(renderNews).catch(function () { renderNews([]); });
   load(); setInterval(maybeLoad, 15000); document.addEventListener('visibilitychange', maybeLoad);

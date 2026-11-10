@@ -57,15 +57,17 @@
       </div>
     </div>
   </div>
+  <!-- Pixel-Gras am unteren Rand; app.js laesst darauf abwechselnd verschiedene Pokémon durchs Bild laufen -->
+  <div class="grass" id="grass" aria-hidden="true"></div>
 </header>
 
 <main class="wrap" id="inhalt">
   <section id="daily" hidden>
     <div class="sec-head" data-reveal>
-      <h2>Statistiken des Tages</h2>
+      <h2 id="dailyTitle">Statistiken des Tages</h2>
       <p class="muted" id="dailyDate"></p>
     </div>
-    <p class="muted daily-note" data-reveal>Jeden Tag drei andere, zufällig gewählte Statistiken aus dem ganzen Spiel. Ein Klick zeigt alle Spieler.</p>
+    <p class="muted daily-note" id="dailyNote" data-reveal>Jeden Tag drei andere Statistiken aus dem ganzen Spiel. Ein Klick zeigt alle Spieler.</p>
     <div id="dailyList" class="cards" data-stagger></div>
   </section>
 

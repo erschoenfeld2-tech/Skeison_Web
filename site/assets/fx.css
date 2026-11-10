@@ -117,6 +117,7 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
    Ranglisten-Zeilen und Dialoge (z. B. in einem sichtbaren, aber nicht aktiven Fenster, unter Windows per Mausrad scrollbar) */
 :is(.fx-idle, .fx-still) :is([data-reveal].in, [data-stagger].in > :not(.ball), .cd b > span, .rows .row, .dlg, .feed, .burst),
 :is(.fx-idle, .fx-still) .dlg::backdrop { animation-play-state: running !important; }
+:is(.fx-idle, .fx-still) .mon-peek.hop img { animation-play-state: running !important; }
 /* Gaming-Buehne: Einflug der Figur und der Zahlen laeuft zu Ende (Laufschrift und Schweben bleiben angehalten) */
 :is(.fx-idle, .fx-still) .panel.on :is(.fig img, .fig .skin, .fig-name, .info-head, .subtabs, .pages, .page *, .skin-card) { animation-play-state: running !important; }
 

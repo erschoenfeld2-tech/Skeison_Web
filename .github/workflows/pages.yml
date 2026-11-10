@@ -65,6 +65,23 @@ jobs:
         with:
           path: .valorant-cache
           key: valorant-${{ github.run_id }}
+      # Cobblemon, "Aufsteiger des Tages": vergleicht die Statistiken des Servers (Branch data) mit der Momentaufnahme des Vortags.
+      # Die Momentaufnahmen liegen in .stats-cache und bleiben zwischen den Laeufen erhalten (README, Abschnitt Statistiken).
+      - name: Letzte Statistik-Momentaufnahmen laden
+        uses: actions/cache/restore@v4
+        with:
+          path: .stats-cache
+          key: stats-${{ github.run_id }}
+          restore-keys: stats-
+      - name: Statistiken des Tages berechnen
+        continue-on-error: true
+        run: node tools/daily-stats.js
+      - name: Statistik-Momentaufnahmen zwischenspeichern
+        if: hashFiles('.stats-cache/*.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .stats-cache
+          key: stats-${{ github.run_id }}
       # Versionsnummern: haengt den Commit an alle lokalen CSS- und JS-Links (z. B. main.css?v=4dbe144).
       # GitHub Pages laesst Browser Dateien 10 Minuten zwischenspeichern; ohne Nummer mischten sie nach einem
       # Update neues HTML mit alten Skripten. Externe Links (http...) bleiben unveraendert.

@@ -228,3 +228,66 @@ body:has(.hero[data-phase="end"]) .fx-bg { color: #c49bff; } body:has(.hero[data
   .back a:hover .arr { transform: translateX(-4px); }
   .win-row:not(:disabled):hover .wr-go { transform: translateX(3px); }
 }
+
+/* ====================================================================================================================
+   Pixel-Look: mehr Cobblemon. Ueberschriften und Zahlen in Pixelschrift (Press Start 2P / VT323, OFL, assets/fonts),
+   eckige Kacheln mit harter Schattenkante wie in den alten Spielen, Pixel-Gras im Kopfbereich mit laufendem Pokémon,
+   kleine Pokémon neben den Ueberschriften. Farben, Aufbau und Inhalte der Seite bleiben wie zuvor.
+   ==================================================================================================================== */
+@font-face { font-family: "Press Start 2P"; src: url("../assets/fonts/press-start-2p.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "VT323"; src: url("../assets/fonts/vt323.woff2") format("woff2"); font-display: swap; }
+:root { --px-head: "Press Start 2P", ui-monospace, Consolas, monospace; --px-num: "VT323", ui-monospace, Consolas, monospace; --px-edge: #05070f; --px-drop: 4px 4px 0 var(--px-edge); }
+html[data-mode="light"] { --px-edge: #aab4d6; }
+h1, h2, .eyebrow, .cd-label, .dlg h2 { font-family: var(--px-head); letter-spacing: 0; }
+h1 { font-size: clamp(1.35rem, 4.3vw, 2.5rem); line-height: 1.45; text-shadow: 3px 3px 0 var(--px-edge), 6px 6px 0 color-mix(in srgb, var(--red) 55%, transparent); }
+h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; font-size: clamp(.95rem, 2.3vw, 1.3rem); line-height: 1.5; text-shadow: 2px 2px 0 var(--px-edge); }
+/* Pokéball aus Pixeln vor jeder Abschnitts-Ueberschrift */
+main h2::before { content: ""; flex: none; width: 20px; height: 20px; image-rendering: pixelated;
+  background: linear-gradient(var(--red) 0 40%, var(--px-edge) 40% 60%, #f4f6ff 60%); border: 3px solid var(--px-edge); box-shadow: inset 0 0 0 0 transparent, 2px 2px 0 color-mix(in srgb, var(--px-edge) 60%, transparent); }
+.eyebrow { font-size: .62rem; line-height: 1.8; } .cd-label { font-size: .68rem; }
+.dlg h2 { font-size: .95rem; } .dlg h2::before { display: none; }
+/* Zahlen in Pixelschrift */
+.cd b, .val, .row .rank, .ms-date, .card .delta b, .wk { font-family: var(--px-num); }
+.cd b { font-size: clamp(2.2rem, 6vw, 3.2rem); line-height: 1; } .val { font-size: 1.35rem; line-height: 1; font-weight: 400; } .row .rank { font-size: 1.3rem; line-height: 1; } .ms-date { font-size: 1.2rem; } .wk { font-size: 1.3rem; font-weight: 400; }
+/* Eckige Kacheln mit harter Kante */
+.card, .post, .win, .steps li, .ms, .cd div, .pill, .copy, .btn, .seg, .seg button, .seg-ind, .dlg, .empty-box, .back a, .ms-ico, .ico, .ms-state, .who, .tbl-wrap, .dlg input, .st-bar select, .st-bar input, .row, .badge, .skip { border-radius: 0; }
+.card, .post, .win, .steps li, .ms, .empty-box, .dlg { border-width: 3px; box-shadow: var(--px-drop); }
+.cd div { border-width: 3px; box-shadow: var(--px-drop); }
+.btn { border: 3px solid var(--px-edge); box-shadow: var(--px-drop); font-family: var(--px-head); font-size: .66rem; line-height: 1.6; padding: 10px 16px; text-transform: uppercase; }
+.btn.small { font-size: .58rem; padding: 7px 12px; } .btn.ghost { border-color: var(--line); box-shadow: 3px 3px 0 var(--px-edge); }
+.btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--px-edge); }
+.pill, .copy { border-width: 2px; box-shadow: 3px 3px 0 var(--px-edge); } .pill::before, .pill.on::after { border-radius: 0; }
+.seg { border-width: 2px; } .ico, .ms-ico { border-width: 2px; }
+.av, .av.sm { border-radius: 0; box-shadow: 2px 2px 0 var(--px-edge); }
+.card:hover, .win:hover { border-color: var(--accent); }
+.row.r1 { background: linear-gradient(90deg, rgba(255,203,5,.26), transparent 85%); box-shadow: inset 4px 0 0 var(--gold); } .row.r2 { box-shadow: inset 4px 0 0 var(--silver); } .row.r3 { box-shadow: inset 4px 0 0 var(--bronze); }
+.timeline::before { width: 4px; left: 42px; background: repeating-linear-gradient(var(--line) 0 6px, transparent 6px 12px); opacity: 1; }
+/* Kopfbereich: Pixelraster im Hintergrund und Gras am unteren Rand */
+.hero { padding-bottom: 92px; background-image: radial-gradient(900px 320px at 20% -10%, rgba(59,109,255,.22), transparent), radial-gradient(700px 280px at 90% 0%, rgba(238,21,21,.14), transparent),
+  linear-gradient(color-mix(in srgb, var(--text) 4%, transparent) 2px, transparent 2px), linear-gradient(90deg, color-mix(in srgb, var(--text) 4%, transparent) 2px, transparent 2px); background-size: auto, auto, 32px 32px, 32px 32px; }
+.hero[data-phase="nether"], .hero[data-phase="end"] { background-size: auto; }
+.grass { position: absolute; left: 0; right: 0; bottom: 0; height: 28px; z-index: 1; image-rendering: pixelated;
+  background: linear-gradient(transparent 0 8px, #2f7d32 8px 12px, #256428 12px 20px, #1c4c1f 20px),
+    repeating-linear-gradient(90deg, #3fa544 0 4px, transparent 4px 8px, #3fa544 8px 12px, transparent 12px 24px, #56c25b 24px 28px, transparent 28px 40px) 0 0 / 40px 8px no-repeat;
+  background-repeat: no-repeat, repeat-x; }
+.hero[data-phase="nether"] .grass { filter: hue-rotate(-105deg) saturate(1.5) brightness(.8); } .hero[data-phase="end"] .grass { filter: hue-rotate(150deg) saturate(.7) brightness(.9); }
+.walker { position: absolute; left: 0; bottom: 14px; height: 64px; width: auto; min-width: 40px; image-rendering: pixelated; opacity: 0; pointer-events: none; filter: drop-shadow(3px 3px 0 rgba(0,0,0,.35)); }
+.walker.go { opacity: 1; animation: mon-walk var(--dur, 20s) linear both; }
+.walker.stand { opacity: 1; transform: translateX(min(72vw, 900px)) scaleX(var(--flip, 1)); }
+@keyframes mon-walk { from { transform: translateX(var(--from)) scaleX(var(--flip, 1)); } to { transform: translateX(var(--to)) scaleX(var(--flip, 1)); } }
+/* Kleine Pokémon neben den Ueberschriften */
+.mon-peek { flex: none; width: 56px; height: 44px; margin: -14px 0 -6px auto; padding: 0; border: 0; background: none; cursor: pointer; overflow: visible; }
+.sec-head h2 .mon-peek { margin-left: 4px; }
+.mon-peek img { display: block; width: 72px; height: 72px; margin: -22px -8px 0; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.35)); transform-origin: 50% 85%; }
+.mon-peek.hop img { animation: mon-hop .6s steps(6); }
+.mon-peek:hover img { transform: scale(1.15) rotate(-6deg); }
+@keyframes mon-hop { 0% { transform: translateY(26px) scale(.6); opacity: 0; } 50% { transform: translateY(-12px); opacity: 1; } 75% { transform: translateY(0); } 88% { transform: translateY(-5px); } }
+/* Aufsteiger des Tages */
+.card .delta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 12px; padding: 8px 12px; border: 2px dashed color-mix(in srgb, var(--ok) 55%, var(--line)); background: color-mix(in srgb, var(--ok) 9%, transparent); }
+.card .delta b { font-size: 2.2rem; line-height: 1; font-weight: 400; color: var(--ok); } .card .delta span { color: var(--muted); font-size: .88rem; font-weight: 600; }
+.card .delta .crown { flex-basis: 100%; font-style: normal; font-family: var(--px-head); font-size: .56rem; line-height: 1.8; color: var(--accent); text-transform: uppercase; }
+.card.mover .val { color: var(--ok); }
+.foot { border-top: 0; background: linear-gradient(#2f7d32 0 4px, transparent 4px); } 
+@media (max-width: 520px) { .mon-peek { width: 44px; } .mon-peek img { width: 60px; height: 60px; margin-top: -16px; } .btn { font-size: .6rem; } .walker { height: 52px; } }
+@media (prefers-reduced-motion: reduce) { .walker.go { animation: none; transform: translateX(60vw); } }
+@media (max-width: 520px) { h2 { font-size: .8rem; gap: 8px; } main h2::before { width: 16px; height: 16px; } }
