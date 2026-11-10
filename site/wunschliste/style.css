@@ -719,6 +719,10 @@ body[data-theme="barbie"] .deco::before { inset: 0; content: "💖        ✨   
 
 /* Erinnerungen fuer eine Liste aus- und einschalten */
 .bell.off { opacity: .75; border-style: dashed; }
+/* Uebersicht in der App: "Aktuelle Listen" oben, Kacheln ohne Profilkarte */
+.home-top.solo { grid-template-columns: 1fr; }
+.current { margin-top: 4px; } .current .sec-head { margin-top: 0; }
+.lc-muted { font-size: .8em; opacity: .75; }
 
 /* Anlass-Seite */
 .ev-todo { margin-top: 18px; }

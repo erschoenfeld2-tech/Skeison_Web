@@ -133,23 +133,36 @@ function amazonImageFromHtml(html: string) {
   return html.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[\w%+.-]+\.(?:jpe?g|png|webp)/)?.[0] ?? '';
 }
 
-// Allgemeiner Fallback: das erste brauchbare Bild im Seiteninhalt (keine Logos, Icons, Sprites, Tracking-Pixel)
-function firstImage(html: string) {
+// Allgemeiner Fallback: ein Bild aus dem Seiteninhalt (keine Logos, Icons, Sprites, Tracking-Pixel, Werbe-Popups).
+// Unter den ersten 40 brauchbaren Bildern gewinnt das, dessen Beschreibung/Dateiname am besten zum Seitentitel passt
+// (z. B. "Vandal – Kuronami" statt eines Artikelbilds aus der Seitenleiste); passt keins, das erste.
+function firstImage(html: string, title = '') {
   const start = html.search(/<body\b/i);
   const body = start >= 0 ? html.slice(start) : html;
+  const words = [...new Set(norm(title).split(' ').filter((w) => w.length >= 4))];
+  let first = '', best = '', bestScore = 0, seen = 0;
   for (const tag of body.match(/<img\b[^>]*>/gi) ?? []) {
     const a = attrs(tag);
     const set = (a.srcset || a['data-srcset'] || '').split(',')[0].trim().split(/\s+/)[0];
     const src = a['data-zoom-image'] || a['data-large_image'] || a['data-src'] || a['data-original'] || a['data-lazy-src'] || a.src || set;
     if (!src || /^data:/i.test(src)) continue;
     if (/\.svg(\?|#|$)|\.gif(\?|#|$)/i.test(src)) continue;
-    if (/(^|[\/_.-])(sprites?|logos?|icons?|favicon|pixel|spacer|blank|placeholder|loader|loading|tracking|badges?|flags?|avatars?|payment|rating|stars?)([\/_.-]|$)/i.test(src)) continue;
+    if (/(^|[\/_.-])(sprites?|logos?|icons?|favicon|pixel|spacer|blank|placeholder|loader|loading|tracking|badges?|flags?|avatars?|payment|rating|stars?|popups?|spam|ads?|werbung)([\/_.-]|$)/i.test(src)) continue;
     const w = parseInt(a.width ?? ''), h = parseInt(a.height ?? '');
     if ((w && w < 100) || (h && h < 100)) continue;
-    return decode(src);
+    const url = decode(src);
+    if (!first) first = url;
+    if (words.length) {
+      const hay = norm((a.alt ?? '') + ' ' + (a.title ?? '') + ' ' + url);
+      const score = words.filter((w) => hay.includes(w)).length;
+      if (score > bestScore) { bestScore = score; best = url; }
+    }
+    if (++seen >= 40) break;
   }
-  return '';
+  return best || first;
 }
+// Fuer Vergleiche: klein, ohne Akzente, nur Buchstaben/Ziffern
+const norm = (s: string) => decode(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
 // Amazon-Artikelnummer (ASIN) aus einem Produktlink, auch nach Weiterleitung von amzn.eu / amzn.to
 function amazonAsin(link: string) {
@@ -201,7 +214,7 @@ function extract(html: string, base: string) {
   let image = img || meta['og:image:secure_url'] || meta['og:image'] || meta['twitter:image'] || meta['twitter:image:src'] || meta['image']
     || amazonImageFromHtml(html)
     || html.match(/<link[^>]+rel=["']image_src["'][^>]*href=["']([^"']+)/i)?.[1]
-    || firstImage(html) || '';
+    || firstImage(html, title) || '';
   const description = decode(String(product?.description ?? '')) || meta['og:description'] || meta['description'] || meta['twitter:description'] || '';
   const price = parsePrice(offer?.price ?? offer?.lowPrice) ?? parsePrice(meta['product:price:amount'] ?? meta['og:price:amount'] ?? meta['price'])
     ?? parsePrice(html.match(/"priceAmount"\s*:\s*([\d.]+)/)?.[1]) ?? parsePrice(html.match(/class="a-offscreen">([^<]+)</)?.[1]);

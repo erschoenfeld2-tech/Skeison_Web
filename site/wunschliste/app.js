@@ -16,14 +16,36 @@
   // Benachrichtigungen gibt es nur in der Android-App (window.__wlApp kommt aus deren bridge.js)
   var NATIVE = /SkeisonWunschlisteApp\//.test(navigator.userAgent) || !!window.WL_FORCE_APP;
   document.documentElement.classList.toggle('app-mode', APP_MODE);
-  // Listen, zu denen man keine Erinnerungen moechte (nur auf diesem Geraet)
-  var MUTE_KEY = 'wl-muted-lists';
+  // Ausgeblendete Listen ("nicht mehr ankuendigen"): erscheinen nicht unter "Aktuelle Listen", "Bald anstehend" und in den
+  // Erinnerungen, bleiben aber ueber die Listen-Uebersichten erreichbar. Gespeichert im Konto (wl_hidden_lists);
+  // gibt es die Tabelle (noch) nicht, wie frueher nur auf diesem Geraet.
+  var MUTE_KEY = 'wl-muted-lists', hiddenIds = null;
   function mutedLists() { try { return JSON.parse(localStorage.getItem(MUTE_KEY)) || []; } catch (e) { return []; } }
-  function isMuted(id) { return mutedLists().indexOf(id) >= 0; }
-  function setMuted(id, on) {
+  function saveLocalMutes(m) { try { if (m.length) localStorage.setItem(MUTE_KEY, JSON.stringify(m)); else localStorage.removeItem(MUTE_KEY); } catch (e) {} }
+  function isMuted(id) { return hiddenIds ? hiddenIds.indexOf(id) >= 0 : mutedLists().indexOf(id) >= 0; }
+  async function loadHidden() {
+    try {
+      hiddenIds = (await Api.get('wl_hidden_lists', 'select=list_id')).map(function (x) { return x.list_id; });
+      // Einmalig: bisher nur auf dem Geraet stumm geschaltete Listen ins Konto uebernehmen
+      var local = mutedLists().filter(function (id) { return isId(id) && hiddenIds.indexOf(id) < 0; });
+      if (local.length) {
+        await Promise.all(local.map(function (id) {
+          return Api.insert('wl_hidden_lists', { list_id: id }).then(function () { hiddenIds.push(id); }, function () {});
+        }));
+      }
+      saveLocalMutes([]);
+    } catch (e) { hiddenIds = null; }
+  }
+  async function setMuted(id, on) {
+    if (hiddenIds) {
+      if (on) await Api.insert('wl_hidden_lists', { list_id: id }); else await Api.remove('wl_hidden_lists', 'list_id=eq.' + id);
+      hiddenIds = hiddenIds.filter(function (x) { return x !== id; });
+      if (on) hiddenIds.push(id);
+      return;
+    }
     var m = mutedLists().filter(function (x) { return x !== id; });
     if (on) m.push(id);
-    try { localStorage.setItem(MUTE_KEY, JSON.stringify(m)); } catch (e) {}
+    saveLocalMutes(m);
   }
 
   var THEMES = [
@@ -303,7 +325,7 @@
           Api.get('wl_admins', 'select=user_id&user_id=eq.' + uid)]);
         if (!got[0].length) throw Object.assign(new Error('no_profile'), { code: 'no_profile' });
         me = got[0][0]; me.code = got[1] || ''; isAdmin = got[2].length > 0;
-        await loadMyExtras();
+        await Promise.all([loadMyExtras(), loadHidden()]);
       }
       if (ctx.stale()) return;
       $('#adminLink').hidden = !isAdmin;
@@ -401,7 +423,7 @@
     var n = l.wl_items && l.wl_items[0] ? l.wl_items[0].count : 0, d = l.event_date ? daysUntil(l.event_date) : null;
     return '<a class="lcard' + (l.archived ? ' archived' : '') + '" data-theme="' + esc(l.theme) + '" href="./?liste=' + l.id + '">' +
       '<span class="lc-emoji">' + esc(l.emoji) + '</span>' +
-      '<span class="lc-body"><b>' + esc(l.title) + '</b>' +
+      '<span class="lc-body"><b>' + esc(l.title) + (isMuted(l.id) ? ' <span class="lc-muted" title="Ausgeblendet: wird nicht angekündigt">🔕</span>' : '') + '</b>' +
       '<small>' + [l.occasion && esc(l.occasion), l.event_date && (d >= 0 ? fmtDate(l.event_date) + ' · ' + inDays(d) : fmtDate(l.event_date, true)), plural(n, 'Wunsch', 'Wünsche')].filter(Boolean).join(' · ') + '</small>' +
       (mode === 'owner' ? '<span class="lc-owner">' + avatar(l.owner, 'xs') + esc(l.owner.name) + '</span>' : mode === 'mine' ? '<span class="lc-vis">' + (l.archived ? '📦 Archiviert' : VIS[l.visibility]) + '</span>' : '') +
       '</span>' + (d !== null && d >= 0 && d <= 30 ? '<span class="lc-cd"><b>' + d + '</b>' + (d === 1 ? 'Tag' : 'Tage') + '</span>' : '') + '</a>';
@@ -529,18 +551,32 @@
       var b = nextBirthday(f.birthday);
       if (b.days <= 60) ev.push({ days: b.days, ico: f.avatar, color: f.color, title: esc(f.name) + ' hat Geburtstag', sub: fmtDate(b.date), href: './?seite=freund&id=' + f.id });
     });
-    others.concat(mine.filter(function (l) { return !l.archived; })).forEach(function (l) {
+    var active = others.concat(mine.filter(function (l) { return !l.archived; })).filter(function (l) { return !isMuted(l.id); });
+    active.forEach(function (l) {
       if (!l.event_date) return;
       var d = daysUntil(l.event_date);
       if (d >= 0 && d <= 90) ev.push({ days: d, ico: l.emoji, title: esc(l.title), sub: (l.owner && l.owner.name ? esc(l.owner.name) + ' · ' : 'Deine Liste · ') + fmtDate(l.event_date), href: './?liste=' + l.id });
     });
     ev.sort(function (a, b) { return a.days - b.days; });
 
+    // App: oben die Listen, die gerade wichtig sind (naechstes Datum zuerst), statt der Profilkarte (die steht unter "Profil").
+    // Ohne kommende Termine die zuletzt angelegten. Ausgeblendete und archivierte Listen fehlen hier bewusst.
+    var current = '';
+    if (APP_MODE) {
+      var soon = active.filter(function (l) { return l.event_date && daysUntil(l.event_date) >= 0; })
+        .sort(function (a, b) { return a.event_date < b.event_date ? -1 : a.event_date > b.event_date ? 1 : 0; });
+      var pick = soon.length ? soon.slice(0, 6) : active.slice().sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; }).slice(0, 4);
+      current = '<section class="current"><div class="sec-head"><h2>' + (soon.length ? '📅 Aktuelle Listen' : '🆕 Zuletzt angelegt') + '</h2>' +
+        (active.length > pick.length ? '<a class="more-link" href="#meine">Alle Listen <span class="arr">→</span></a>' : '') + '</div>' +
+        (pick.length ? '<div class="lgrid" data-stagger>' + pick.map(function (l) { return listCard(l, l.owner && l.owner.id !== me.id ? 'owner' : 'mine'); }).join('') + '</div>'
+          : emptyBox('📝', 'Gerade nichts angekündigt', 'Leg eine Liste an oder schau bei deinen Freunden vorbei.', '<button type="button" class="btn" data-act="new-list">+ Neue Liste</button>')) + '</section>';
+    }
     var hello = new Date().getHours() < 11 ? 'Guten Morgen' : new Date().getHours() < 18 ? 'Hallo' : 'Guten Abend';
     view(ctx,
       '<header class="page-head"><p class="eyebrow">' + hello + ', ' + esc(me.name) + '</p><h1>Deine Wunschwelt</h1></header>' +
       (fr.incoming.length ? '<a class="banner" href="./?seite=freunde"><span>🤝</span><b>' + plural(fr.incoming.length, 'neue Freundschaftsanfrage', 'neue Freundschaftsanfragen') + '</b><span class="arr">→</span></a>' : '') +
-      '<div class="home-top" data-stagger>' + profileCard(me, { self: true, copy: true }) +
+      current +
+      '<div class="home-top' + (APP_MODE ? ' solo' : '') + '" data-stagger>' + (APP_MODE ? '' : profileCard(me, { self: true, copy: true })) +
       '<div class="tiles">' +
       '<a class="tile" href="#meine"><b>' + mine.length + '</b><span>' + (mine.length === 1 ? 'Liste' : 'Listen') + '</span></a>' +
       '<a class="tile" href="./?seite=freunde"><b>' + fr.friends.length + '</b><span>' + (fr.friends.length === 1 ? 'Freund' : 'Freunde') + '</span></a>' +
@@ -670,10 +706,9 @@
       '<h1>' + esc(l.title) + '</h1>' + (l.description ? '<p class="lead">' + esc(l.description) + '</p>' : '') + '</div>' +
       (d !== null && d >= 0 ? '<div class="lh-cd"><b>' + d + '</b><span>' + (d === 1 ? 'Tag' : 'Tage') + (l.occasion ? ' bis ' + esc(l.occasion) : '') + '</span></div>' : '') + '</div>' +
       '<div class="lh-bar">' + (st.owner
-        ? '<span class="pill" title="Wer diese Liste sehen kann">' + vis + '</span><span class="sp"></span><button type="button" class="btn ghost" data-act="share">🔗 Teilen</button><button type="button" class="btn ghost" data-act="edit-list">⚙ Liste bearbeiten</button><button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>'
+        ? '<span class="pill" title="Wer diese Liste sehen kann">' + vis + '</span><span class="sp"></span>' + hideBtn(l) + '<button type="button" class="btn ghost" data-act="share">🔗 Teilen</button><button type="button" class="btn ghost" data-act="edit-list">⚙ Liste bearbeiten</button><button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>'
         : '<a class="owner-chip" href="./?seite=freund&id=' + l.owner.id + '">' + avatar(l.owner, 'sm') + '<span>Liste von <b>' + esc(l.owner.name) + '</b></span></a><span class="sp"></span><span class="pill">' + free + ' von ' + st.items.length + ' Wünschen noch frei</span>' +
-          (NATIVE ? (isMuted(l.id) ? '<button type="button" class="btn ghost bell off" data-act="mute" aria-pressed="true" title="Erinnerungen für diese Liste wieder einschalten">🔕 Stumm</button>'
-            : '<button type="button" class="btn ghost bell" data-act="mute" aria-pressed="false" title="Keine Erinnerungen mehr für diese Liste">🔔 Erinnerungen an</button>') : '') + (st.canSuggest ? '<button type="button" class="btn" data-act="suggest">💡 Vorschlag machen</button>' : '')) + '</div>' +
+          hideBtn(l) + (st.canSuggest ? '<button type="button" class="btn" data-act="suggest">💡 Vorschlag machen</button>' : '')) + '</div>' +
       (st.owner ? '<p class="surprise">🙈 <b>Überraschungsschutz:</b> Was reserviert wurde, siehst du auf deinen eigenen Listen nicht.</p>' : '') +
       '</header>' +
       (st.owner && st.sugg && st.sugg.length ? '<section class="sugg panel"><h2>💡 Vorschläge von Freunden <small class="muted">' + st.sugg.length + '</small></h2>' +
@@ -694,6 +729,12 @@
           cats.map(function (c) { return '<button type="button" class="cc' + (F.cat === c ? ' on' : '') + '" data-act="cat" data-cat="' + esc(c) + '">' + esc(c) + ' <small>' + catCount[c] + '</small></button>'; }).join('') : '') + autoBtn + '</div>' : '') : '') +
       '<div id="wishRes">' + listResults(st, v) + '</div>', quiet);
   }
+  // Ausblenden-Knopf: Liste wird nicht mehr angekuendigt, bleibt aber erreichbar
+  function hideBtn(l) {
+    return isMuted(l.id)
+      ? '<button type="button" class="btn ghost bell off" data-act="mute" aria-pressed="true" title="Wieder unter „Aktuelle Listen“, „Bald anstehend“ und in Erinnerungen zeigen">🔕 Ausgeblendet</button>'
+      : '<button type="button" class="btn ghost bell" data-act="mute" aria-pressed="false" title="Nicht mehr unter „Aktuelle Listen“, „Bald anstehend“ und in Erinnerungen zeigen">🙈 Ausblenden</button>';
+  }
   function isFree(it, res) {
     if (it.received) return false;
     if (it.group_gift) return true;
@@ -713,8 +754,9 @@
     if (act === 'suggest') return itemDialog(st, null, { suggest: true });
     if (act === 'mute') {
       var off = !isMuted(st.list.id);
-      setMuted(st.list.id, off);
-      FX.toast(off ? '🔕 Keine Erinnerungen mehr für diese Liste' : '🔔 Erinnerungen für diese Liste sind wieder an');
+      try { await busy(b, function () { return setMuted(st.list.id, off); }); } catch (err) { return FX.toast(errText(err)); }
+      FX.toast(off ? '🔕 Ausgeblendet: nicht mehr unter „Aktuelle Listen“ und „Bald anstehend“' + (NATIVE ? ', keine Erinnerungen' : '')
+        : '🔔 Wieder eingeblendet');
       syncNotifications(true);
       return paintList(st, true);
     }
