@@ -12,9 +12,11 @@
   // KAY/O kommt von valorant-api.com (wie Rang- und Agentenbilder), der Pionier ist das Steam-Titelbild von Satisfactory.
   var KAYO = '601dbbe7-43ce-be57-2a40-4abd24953621';
   var FIGURES = {
-    val: ['img/valorant-figur.png', 'https://media.valorant-api.com/agents/' + KAYO + '/fullportrait.png', 'https://media.valorant-api.com/agents/' + KAYO + '/fullportraitv2.png'],
-    steam: ['img/steam-figur.png', 'https://cdn.cloudflare.steamstatic.com/steam/apps/526870/library_600x900.jpg', 'https://cdn.cloudflare.steamstatic.com/steam/apps/526870/header.jpg']
+    val: ['img/valorant-figur.png', 'https://media.valorant-api.com/agents/' + KAYO + '/fullportrait.png', 'https://media.valorant-api.com/agents/' + KAYO + '/fullportraitv2.png']
   };
+  // Steam: Pionier im Schutzanzug als 3D-Figur. Die Designs sind eigene Pixel-Skins (tools/pioneer-skins.py malt sie nach site/skin/);
+  // [Datei, Name, Farbe des Auswahlpunkts]. Das zuletzt gewaehlte Design merkt sich das Geraet.
+  var PIONEERS = [['pionier-orange', 'FICSIT-Orange', '#fa9549'], ['pionier-blau', 'Stahlblau', '#4d8fe0'], ['pionier-gold', 'Caterium-Gold', '#e8c14a']];
   var GAMES = ['val', 'steam', 'mc'];
   var WORDS = { val: 'VALORANT', steam: 'STEAM', mc: 'MINECRAFT' };
   var HASH = { valorant: 'val', steam: 'steam', minecraft: 'mc', server: 'mc' };
@@ -49,7 +51,6 @@
     image.src = list[0];
   }
   loadFigure($('figVal'), FIGURES.val);
-  loadFigure($('figSteam'), FIGURES.steam);
 
   // ---------- Zahlen hochzaehlen (nur beim Einblenden einer Ansicht; bei "Bewegung reduzieren"/Pause sofort) ----------
   function countUp(scope) {
@@ -277,46 +278,103 @@
     getJson('../valorant-skins.json', { cache: 'no-cache' }).catch(function () { return null; })
   ]).then(function (r) { renderValorant(r[0], r[1]); });
 
-  // ---------- 3D-Skin (Datei site/skin/skeison.png ersetzen, um den Skin zu wechseln); Animation per Knopf waehlbar ----------
-  var canvas = $('skinCanvas');
-  try {
-    var v = new skinview3d.SkinViewer({ canvas: canvas, width: 300, height: 400 });
-    v.fov = 40; v.zoom = 0.85; v.autoRotateSpeed = 0.6;
-    v.controls.enablePan = false;
-    var ANIMS = { idle: skinview3d.IdleAnimation, wave: skinview3d.WaveAnimation, walk: skinview3d.WalkingAnimation, run: skinview3d.RunningAnimation };
-    // Ruhig bei "Bewegung reduzieren" oder "Animationen pausieren": keine Drehung, keine Bewegung,
-    // bis jemand selbst eine Animation waehlt (dann laeuft sie, das ist gewollt)
-    var chosen = false;
-    var applyStill = function () {
-      var still = FX.reduced || FX.still;
-      v.autoRotate = !still;
-      if (v.animation) v.animation.paused = still && !chosen;
-    };
-    var setAnim = function (name) {
-      v.animation = new ANIMS[name]();
-      applyStill();
-      document.querySelectorAll('#skinAnims .chip').forEach(function (c) { var on = c.getAttribute('data-anim') === name; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
-    };
-    setAnim('idle');
-    document.querySelectorAll('#skinAnims .chip').forEach(function (c) { c.addEventListener('click', function () { chosen = true; setAnim(c.getAttribute('data-anim')); }); });
-    document.addEventListener('fx:still', function () { chosen = false; applyStill(); });
-    Promise.resolve(v.loadSkin('../skin/skeison.png')).then(function () { canvas.classList.add('ready'); }, function () { canvas.classList.add('ready'); });
-    // Rendern nur, wenn Minecraft gewaehlt und die Buehne im Bild ist (spart Akku), und nicht im Hintergrund (fx:idle aus assets/fx.js)
-    var onScreen = true, bg = !!FX.idle, sync = function () { v.renderPaused = !onScreen || bg || cur !== 'mc'; };
-    if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { onScreen = es[0].isIntersecting; sync(); }).observe(stage);
-    document.addEventListener('fx:idle', function (e) { bg = e.detail; sync(); }); sync();
-    // Beim Wechsel zu Minecraft winkt die Figur kurz, danach steht sie wieder
-    var waveT = 0;
-    onShow.mc = function () {
-      sync(); clearTimeout(waveT);
-      if (calm() || chosen) return;
-      setAnim('wave'); waveT = setTimeout(function () { if (!chosen) setAnim('idle'); }, 2600);
-    };
-    onShow.val = onShow.steam = sync;
-  } catch (e) {
-    $('skinAnims').hidden = true;
-    canvas.replaceWith(el('p', 'muted', '3D-Ansicht wird von diesem Browser nicht unterstützt.'));
+  // ---------- 3D-Figuren (skinview3d): der eigene Minecraft-Skin und der Pionier fuer Steam ----------
+  // Beide Figuren sind Skins im Minecraft-Format und teilen sich diese Funktion: Animation per Knopf, Stillstand bei
+  // "Bewegung reduzieren"/"Animationen pausieren", gerendert wird nur die Figur des gewaehlten Spiels.
+  function figure3d(o) {
+    var canvas = $(o.canvas), chips = $(o.chips);
+    try {
+      var v = new skinview3d.SkinViewer({ canvas: canvas, width: 300, height: 400 });
+      v.fov = 40; v.zoom = 0.85; v.autoRotateSpeed = 0.6;
+      v.controls.enablePan = false;
+      // Ruhig bei "Bewegung reduzieren" oder "Animationen pausieren": keine Drehung, keine Bewegung,
+      // bis jemand selbst eine Animation waehlt (dann laeuft sie, das ist gewollt)
+      var chosen = false, enterT = 0;
+      var applyStill = function () {
+        var still = FX.reduced || FX.still;
+        v.autoRotate = !still;
+        if (v.animation) v.animation.paused = still && !chosen;
+      };
+      var setAnim = function (name) {
+        v.animation = o.anims[name]();
+        applyStill();
+        Array.prototype.forEach.call(chips.querySelectorAll('.chip'), function (c) { var on = c.getAttribute('data-anim') === name; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
+      };
+      setAnim('idle');
+      Array.prototype.forEach.call(chips.querySelectorAll('.chip'), function (c) { c.addEventListener('click', function () { chosen = true; clearTimeout(enterT); setAnim(c.getAttribute('data-anim')); }); });
+      document.addEventListener('fx:still', function () { chosen = false; applyStill(); });
+      var load = function (url) { return Promise.resolve(v.loadSkin(url)).then(function () { canvas.classList.add('ready'); }, function () { canvas.classList.add('ready'); }); };
+      load(o.skin);
+      // Rendern nur, wenn dieses Spiel gewaehlt und die Buehne im Bild ist (spart Akku), und nicht im Hintergrund (fx:idle aus assets/fx.js)
+      var onScreen = true, bg = !!FX.idle, sync = function () { v.renderPaused = !onScreen || bg || cur !== o.game; };
+      if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { onScreen = es[0].isIntersecting; sync(); }).observe(stage);
+      document.addEventListener('fx:idle', function (e) { bg = e.detail; sync(); }); sync();
+      syncers.push(sync);
+      // Beim Wechsel zu diesem Spiel zeigt die Figur kurz ihre Begruessung (o.enter), danach steht sie wieder
+      onShow[o.game] = function () {
+        syncers.forEach(function (f) { f(); }); clearTimeout(enterT);
+        if (calm() || chosen || !o.enter) return;
+        setAnim(o.enter); enterT = setTimeout(function () { if (!chosen) setAnim('idle'); }, 2600);
+      };
+      return { load: load };
+    } catch (e) {
+      chips.hidden = true;
+      canvas.replaceWith(el('p', 'muted', '3D-Ansicht wird von diesem Browser nicht unterstützt.'));
+      return null;
+    }
   }
+  var syncers = [], SV = window.skinview3d || {};
+  onShow.val = function () { syncers.forEach(function (f) { f(); }); };
+  var BASE_ANIMS = {
+    idle: function () { return new SV.IdleAnimation(); }, wave: function () { return new SV.WaveAnimation(); },
+    walk: function () { return new SV.WalkingAnimation(); }, run: function () { return new SV.RunningAnimation(); }
+  };
+  // Minecraft: Datei site/skin/skeison.png ersetzen, um den Skin zu wechseln
+  figure3d({ canvas: 'skinCanvas', chips: 'skinAnims', skin: '../skin/skeison.png', game: 'mc', anims: BASE_ANIMS, enter: 'wave' });
+
+  // Pionier: zusaetzlich zwei Bewegungen aus dem Spiel, selbst gebaut (FunctionAnimation: t = Sekunden seit Beginn).
+  // "Bauen": rechter Arm haelt das Bauwerkzeug nach vorn, der Blick folgt, kurzer Rueckstoss bei jedem "Klick".
+  // "Jetpack": die Figur schwebt auf und ab, Beine haengen leicht nach hinten, Arme halten das Gleichgewicht.
+  var PIONEER_ANIMS = {
+    idle: BASE_ANIMS.idle, wave: BASE_ANIMS.wave, walk: BASE_ANIMS.walk, run: BASE_ANIMS.run,
+    build: function () {
+      return new SV.FunctionAnimation(function (p, t) {
+        var k = p.skin, beat = Math.pow(Math.max(0, Math.sin(t * 5)), 12);
+        k.rightArm.rotation.x = -1.5 + beat * 0.16; k.rightArm.rotation.z = -0.08;
+        k.leftArm.rotation.x = -1.05; k.leftArm.rotation.z = 0.55;
+        k.head.rotation.x = 0.08; k.head.rotation.y = Math.sin(t * 0.9) * 0.35;
+        k.body.rotation.y = Math.sin(t * 0.9) * 0.06;
+        k.leftLeg.rotation.x = 0.12; k.rightLeg.rotation.x = -0.12;
+      });
+    },
+    jetpack: function () {
+      return new SV.FunctionAnimation(function (p, t) {
+        var k = p.skin, bob = Math.sin(t * 2.6);
+        p.position.y = 3 + bob * 1.6; p.rotation.x = 0.14 + bob * 0.03;
+        k.leftLeg.rotation.x = 0.3 + Math.sin(t * 2.6 + 1) * 0.1; k.rightLeg.rotation.x = 0.22 + Math.sin(t * 2.6 + 2) * 0.1;
+        k.leftArm.rotation.z = 0.42 + bob * 0.08; k.rightArm.rotation.z = -0.42 - bob * 0.08;
+        k.leftArm.rotation.x = 0.15; k.rightArm.rotation.x = 0.15;
+        k.head.rotation.x = -0.12;
+      });
+    }
+  };
+  (function () {
+    var KEY = 'gaming-pionier', pick = PIONEERS[0][0];
+    try { var saved = localStorage.getItem(KEY); if (PIONEERS.some(function (x) { return x[0] === saved; })) pick = saved; } catch (e) { /* Standard */ }
+    var fig = figure3d({ canvas: 'pioneerCanvas', chips: 'pioneerAnims', skin: '../skin/' + pick + '.png', game: 'steam', anims: PIONEER_ANIMS, enter: 'wave' });
+    var box = $('pioneerSkins');
+    if (!fig) { box.hidden = true; return; }
+    PIONEERS.forEach(function (x) {
+      var b = el('button', 'swatch' + (x[0] === pick ? ' on' : '')); b.type = 'button'; b.title = x[1]; b.setAttribute('aria-label', 'Design ' + x[1]); b.setAttribute('aria-pressed', String(x[0] === pick));
+      b.style.setProperty('--c', x[2]);
+      b.addEventListener('click', function () {
+        fig.load('../skin/' + x[0] + '.png');
+        try { localStorage.setItem(KEY, x[0]); } catch (e) { /* gilt dann nur fuer diesen Besuch */ }
+        Array.prototype.forEach.call(box.children, function (c) { var on = c === b; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
+      });
+      box.appendChild(b);
+    });
+  })();
 
   // ---------- Steam-Highlights aus steam.json (wird von tools/fetch-steam.js beim Deploy erzeugt) ----------
   function fmtH(h) { return (Math.round(h * 10) / 10).toLocaleString('de-DE') + ' Std'; }

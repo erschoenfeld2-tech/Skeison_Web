@@ -73,13 +73,24 @@
         <!-- Steam: Hauptfigur aus Satisfactory (Lieblingsspiel) -->
         <article class="panel" id="p-steam" data-game="steam" role="tabpanel" aria-labelledby="tab-steam" hidden>
           <div class="fig" data-fig="steam">
-            <div class="fig-fallback" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M50 8l8 6 10-2 4 9 9 4-2 10 6 8-6 8 2 10-9 4-4 9-10-2-8 6-8-6-10 2-4-9-9-4 2-10-6-8 6-8-2-10 9-4 4-9 10 2z" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="50" cy="50" r="13" fill="currentColor"/></svg></div>
-            <img id="figSteam" alt="Pionier aus Satisfactory, meinem Lieblingsspiel" hidden>
-            <p class="fig-name"><b>Satisfactory</b><span>Lieblingsspiel</span></p>
+            <div class="skin">
+              <div class="pedestal" aria-hidden="true"></div>
+              <canvas id="pioneerCanvas" width="300" height="400" aria-label="3D-Figur: Pionier im Schutzanzug aus Satisfactory"></canvas>
+            </div>
+            <div class="swatches" id="pioneerSkins" role="group" aria-label="Design des Anzugs"></div>
+            <p class="fig-name"><b>Pionier</b><span>Satisfactory · Lieblingsspiel</span></p>
           </div>
           <div class="info">
             <div class="info-head"><h2>Steam</h2><a class="more-link" id="stLink" href="https://steamcommunity.com/profiles/76561199246929908/" target="_blank" rel="noopener">Profil öffnen <span class="arr">↗</span></a></div>
             <div class="subtabs" id="stTabs" role="tablist" aria-label="Steam-Ansicht" hidden></div>
+            <div class="chips" id="pioneerAnims" role="group" aria-label="Animation des Pioniers">
+              <button type="button" class="chip on" data-anim="idle" aria-pressed="true">Stehen</button>
+              <button type="button" class="chip" data-anim="walk" aria-pressed="false">Laufen</button>
+              <button type="button" class="chip" data-anim="run" aria-pressed="false">Sprinten</button>
+              <button type="button" class="chip" data-anim="build" aria-pressed="false">Bauen</button>
+              <button type="button" class="chip" data-anim="jetpack" aria-pressed="false">Jetpack</button>
+              <button type="button" class="chip" data-anim="wave" aria-pressed="false">Winken</button>
+            </div>
             <div class="pages" id="stPages" aria-busy="true"><div class="page on"><div class="sk sk-line" style="width:45%"></div><div class="sk sk-block"></div><div class="sk sk-line" style="width:70%"></div></div></div>
           </div>
         </article>

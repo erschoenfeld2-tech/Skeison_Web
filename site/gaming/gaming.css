@@ -62,10 +62,10 @@ section.first { margin-top: 30px; }
 .fig-fallback { position: absolute; inset: 0; display: grid; place-items: center; color: color-mix(in srgb, var(--g) 70%, var(--text)); }
 .fig-fallback svg { width: min(46%, 220px); opacity: .5; animation: fig-float 6s ease-in-out infinite; filter: drop-shadow(0 0 30px var(--g)); }
 .fig.has-img .fig-fallback { display: none; }
-/* Steam: das Titelbild als gekippte Karte statt freigestellter Figur */
-.fig[data-fig="steam"] { place-items: center; }
-.fig[data-fig="steam"] img { width: auto; max-width: 78%; height: auto; max-height: 470px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--g) 60%, var(--line)); object-fit: cover;
-  transform: perspective(900px) rotateY(calc(10deg + var(--mx) * 14deg)) rotateX(calc(var(--my) * -10deg)) rotate(-2deg); box-shadow: -24px 30px 60px -20px rgba(0,0,0,.7), 0 0 0 6px color-mix(in srgb, var(--g) 14%, transparent); filter: none; }
+/* Design-Auswahl des Pioniers: Farbpunkte ueber der Figur */
+.swatches { position: absolute; z-index: 3; right: 14px; bottom: 18px; display: flex; gap: 8px; padding: 6px 8px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 80%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.swatch { width: 22px; height: 22px; padding: 0; cursor: pointer; border-radius: 50%; border: 2px solid transparent; background: var(--c); box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); transition: transform .2s var(--ease); }
+.swatch:hover { transform: scale(1.15); } .swatch.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg), 0 0 12px var(--c); }
 .fig[data-fig="steam"]::after { display: none; }
 .fig-name { position: absolute; z-index: 2; left: clamp(14px, 3vw, 26px); bottom: 18px; margin: 0; display: grid; padding: 8px 14px 8px 12px; border-left: 4px solid var(--g); background: color-mix(in srgb, var(--bg) 80%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .fig-name b { font-size: 1.25rem; line-height: 1.15; letter-spacing: .04em; text-transform: uppercase; } .fig-name span { font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--g); }
@@ -189,7 +189,7 @@ section.first { margin-top: 30px; }
 @media (max-width: 860px) {
   .panel { grid-template-columns: 1fr; padding: 0; min-height: 0; }
   .fig { min-height: 0; height: 300px; } .fig img { max-height: 300px; }
-  .fig[data-fig="steam"] img { max-height: 250px; } .fig[data-fig="mc"] { height: 340px; } .skin canvas { max-height: 320px; width: auto; }
+  .fig[data-fig="mc"], .fig[data-fig="steam"] { height: 340px; } .skin canvas { max-height: 320px; width: auto; }
   .pedestal { bottom: 20px; }
   .info { padding: 16px clamp(14px, 4vw, 22px) 20px; }
   .discord { grid-template-columns: 1fr; gap: 16px; }
@@ -210,4 +210,4 @@ section.first { margin-top: 30px; }
   .discord:hover .dc-orb svg { transform: rotate(-8deg); }
 }
 @keyframes skin-shine { to { left: 130%; } }
-@media (prefers-reduced-motion: reduce) { .fig img, .fig[data-fig="steam"] img { transform: none; } .stage-word span, .fig-fallback svg { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .fig img { transform: none; } .stage-word span, .fig-fallback svg { animation: none; } }
