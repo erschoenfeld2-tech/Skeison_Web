@@ -16,7 +16,7 @@
   };
   // Steam: Pionier im Schutzanzug als 3D-Figur. Die Designs sind eigene Pixel-Skins (tools/pioneer-skins.py malt sie nach site/skin/);
   // [Datei, Name, Farbe des Auswahlpunkts]. Das zuletzt gewaehlte Design merkt sich das Geraet.
-  var PIONEERS = [['pionier-orange', 'FICSIT-Orange', '#fa9549'], ['pionier-blau', 'Stahlblau', '#4d8fe0'], ['pionier-gold', 'Caterium-Gold', '#e8c14a']];
+  var PIONEERS = [['pionier-gruen', 'Grün', '#7c9a62'], ['pionier-schwarz', 'Schwarz', '#34343a'], ['pionier-blau', 'Blau', '#97a3e6'], ['pionier-weiss', 'Weiß', '#ececf0'], ['pionier-gelb', 'Gelb', '#e9db4d']];
   var GAMES = ['val', 'steam', 'mc'];
   var WORDS = { val: 'VALORANT', steam: 'STEAM', mc: 'MINECRAFT' };
   var HASH = { valorant: 'val', steam: 'steam', minecraft: 'mc', server: 'mc' };
@@ -71,6 +71,25 @@
     var d = el('div'); d.appendChild(el('dt', '', label));
     var dd = el('dd'); dd.appendChild(typeof value === 'number' ? counter(value, dec, suf) : el('b', '', value));
     if (sub) dd.appendChild(el('small', '', sub)); d.appendChild(dd); return d;
+  }
+
+  // ---------- "Wert des Kontos": ausklappbares Fenster mit einer groben Schaetzung (Valorant-Skins, Steam-Bibliothek) ----------
+  function eur(n) { return nf.format(Math.round(n)) + ' €'; }
+  // rows: [[Text, Wert, Farbe?]], note: Erklaerung unter der Aufstellung
+  function valueBox(total, sub, rows, note) {
+    var d = el('details', 'worth'), sm = el('summary');
+    sm.appendChild(el('span', 'w-label', 'Wert des Kontos'));
+    sm.appendChild(counter(total, 0, ' €'));
+    if (sub) sm.appendChild(el('small', '', sub));
+    d.appendChild(sm);
+    var ul = el('ul', 'w-rows');
+    rows.forEach(function (r) {
+      var li = el('li'); if (r[2]) li.style.setProperty('--c', r[2]);
+      li.appendChild(el('span', '', r[0])); li.appendChild(el('b', '', r[1])); ul.appendChild(li);
+    });
+    d.appendChild(ul);
+    d.appendChild(el('p', 'w-note', note));
+    return d;
   }
 
   // ---------- Unterseiten einer Ansicht: kleine Reiter statt Scrollen ----------
@@ -263,11 +282,19 @@
     paint(); wrap.appendChild(grid);
     return wrap;
   }
+  function valWorth(sk) {
+    var w = sk && sk.value; if (!w || !(w.vp > 0)) return null;
+    var rows = (w.tiers || []).map(function (t) { return [t.count + ' × ' + t.tier, nf.format(t.vp) + ' VP', /^#[0-9a-f]{6}$/i.test(t.color || '') ? t.color : '']; });
+    if (w.unpriced) rows.push([w.unpriced + ' ohne Preisstufe', 'nicht gezählt']);
+    return valueBox(w.eur, nf.format(w.vp) + ' VP in ' + w.priced + ' Skins', rows,
+      'Grobe Schätzung: übliche Shop-Preise je Seltenheitsstufe, umgerechnet mit rund ' + String(w.eurPer100Vp).replace('.', ',') + ' € je 100 VP. Einzelne Bundles kosten mehr oder weniger; Battlepass-Skins und Agenten zählen nicht mit. Das ist kein Verkaufswert.');
+  }
   function renderValorant(v, sk) {
-    var ok = v && !v.setup && v.riotId, skins = valSkins(sk), n = sk && sk.skins ? sk.skins.length : 0;
+    var ok = v && !v.setup && v.riotId, skins = valSkins(sk), n = sk && sk.skins ? sk.skins.length : 0, worth = valWorth(sk);
     var link = $('valLink'); if (ok && safe(v.url)) { link.href = v.url; link.hidden = false; }
     var pages = ok ? [{ id: 'over', title: 'Überblick', node: valOverview(v) }, { id: 'agents', title: 'Agenten', node: valAgents(v) }, { id: 'matches', title: 'Letzte Spiele', node: valMatches(v) }]
       : [{ id: 'over', title: 'Überblick', node: emptyPage(v && v.error ? 'Valorant-Daten sind gerade nicht verfügbar' : 'Valorant-Statistik folgt', v && v.error ? 'Bitte später noch einmal vorbeischauen.' : 'Hier erscheinen bald mein Rang, K/D, Trefferquote und die letzten Spiele.') }];
+    if (worth) pages[0].node.appendChild(worth);
     pages.push({ id: 'skins', title: 'Skins', node: skins, count: n });
     setPages('valTabs', 'valPages', pages);
     var r = ok && v.rank;
@@ -403,6 +430,15 @@
     var top = s.top && s.top[0];
     if (top) dl.appendChild(stat('Meistgespielt', top.name, fmtH(top.hours)));
     if (dl.children.length) box.appendChild(dl);
+    var w = s.value;
+    if (w && w.eur > 0) {
+      var rows = (w.top || []).map(function (g) { return [g.name, eur(g.eur)]; });
+      if (w.priced > rows.length) rows.push(['… und ' + (w.priced - rows.length) + ' weitere Spiele', '']);
+      if (w.eurNow && w.eurNow !== w.eur) rows.push(['Zu den Preisen von heute (Angebote)', eur(w.eurNow)]);
+      if (w.perHour != null) rows.push(['Pro gespielter Stunde', String(w.perHour.toFixed(2)).replace('.', ',') + ' €']);
+      box.appendChild(valueBox(w.eur, w.priced + ' von ' + w.count + ' Spielen mit Preis', rows,
+        'Summe der regulären Shop-Preise von heute (deutscher Steam-Shop). Kostenlose und nicht mehr verkaufte Spiele zählen nicht mit, DLCs und Gegenstände auch nicht. Bezahlt habe ich im Angebot oft weniger; das ist kein Verkaufswert.'));
+    }
     return box;
   }
   function steamEmpty(text) {
