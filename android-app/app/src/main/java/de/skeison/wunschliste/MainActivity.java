@@ -663,15 +663,9 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    /** Update direkt in der App laden und installieren (Updater); niemand muss dafuer in den Browser. */
     private void offerUpdate(int latest) {
-        if (isFinishing() || isDestroyed()) return;
-        new AlertDialog.Builder(this)
-                .setTitle("Neue App-Version")
-                .setMessage("Version 1." + latest + " der Wunschliste-App ist da (du hast " + BuildConfig.VERSION_NAME + ").\n\n"
-                        + "Deine Wünsche und Listen bleiben erhalten. Nach dem Download einfach die Datei öffnen und installieren.")
-                .setPositiveButton("Jetzt laden", (d, w) -> openExternal(Uri.parse(APK_URL)))
-                .setNegativeButton("Später", null)
-                .show();
+        Updater.offer(this, latest, APK_URL);
     }
 
     // ------------------------------------------------------------------ Hilfen
