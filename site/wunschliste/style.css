@@ -656,3 +656,34 @@ button, a, label, summary, .wish-media { touch-action: manipulation; -webkit-tap
 @media (max-width: 860px) { .fb-grid { grid-template-columns: 1fr; } .fb-admin { grid-template-columns: 1fr 1fr; } .fb-admin input { grid-column: 1 / -1; grid-row: 2; } }
 @media (max-width: 480px) { .fb-kinds { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .fb-kinds .vopt, .link-pick .vopt, .when-clone, fieldset.vis > .vopt { display: block; } .fb-kinds .vopt span { display: block; }
+
+/* ---------- Groesse der Wunschkacheln (Umschalter in der Werkzeugleiste, gespeichert auf dem Geraet) ---------- */
+.size-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); }
+.size-seg button { display: grid; place-items: center; width: 34px; height: 30px; padding: 0; cursor: pointer; border: 0; border-radius: 7px; background: none; color: var(--muted); }
+.size-seg button:hover { color: var(--text); } .size-seg button.on { background: var(--accent); color: var(--on-accent); }
+.size-seg span { display: grid; gap: 2px; width: 16px; height: 16px; } .size-seg i { background: currentColor; border-radius: 1px; }
+.size-seg .sz-s span { grid-template-columns: repeat(3, 1fr); } .size-seg .sz-m span { grid-template-columns: repeat(2, 1fr); } .size-seg .sz-list span { grid-template-rows: repeat(3, 1fr); gap: 3px; }
+/* Klein: mehr Kacheln pro Reihe, nur das Wichtigste */
+[data-size="s"] .wishes { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 12px; }
+[data-size="s"] .wish-body { padding: 10px 11px 12px; gap: 6px; } [data-size="s"] .wish-body h3 { font-size: .92rem; }
+[data-size="s"] .use, [data-size="s"] .shop, [data-size="s"] .cat-tag, [data-size="s"] .price-line { display: none; }
+[data-size="s"] .wish-meta { font-size: .74rem; } [data-size="s"] .wish .prio { font-size: .66rem; }
+[data-size="s"] .wish-act .btn { padding: 5px 9px; font-size: .8rem; }
+.tabs [data-size="s"] .wishes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* Gross: wenige, grosse Karten */
+[data-size="l"] .wishes { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 22px; }
+[data-size="l"] .wish-body h3 { font-size: 1.25rem; } [data-size="l"] .wish-body { padding: 18px 20px 20px; }
+.tabs [data-size="l"] .wishes { grid-template-columns: minmax(0, 1fr); }
+/* Liste: eine Zeile pro Wunsch mit kleinem Bild */
+[data-size="list"] .wishes { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+[data-size="list"] .wish { flex-direction: row; align-items: stretch; transform: none !important; }
+[data-size="list"] .wish-media { flex: none; width: 92px; aspect-ratio: 1; align-self: center; margin: 8px 0 8px 8px; border-radius: calc(var(--radius) * .6); }
+[data-size="list"] .wish-media .price, [data-size="list"] .wish-media .prio, [data-size="list"] .wish-media .qty { display: none; }
+[data-size="list"] .wish-body { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 16px; padding: 10px 14px; }
+[data-size="list"] .wish-body > * { grid-column: 1; } [data-size="list"] .wish-body h3 { font-size: 1rem; }
+[data-size="list"] .price-line { display: block; margin: 0; font-weight: 800; color: var(--accent); }
+[data-size="list"] .use { display: none; }
+[data-size="list"] .wish-act { grid-column: 2; grid-row: 1 / span 4; margin: 0; padding: 0; border: 0; justify-content: flex-end; align-self: center; }
+.tabs [data-size="list"] .wish-media { width: 72px; }
+.tabs [data-size="list"] .wish-body { grid-template-columns: minmax(0, 1fr); } .tabs [data-size="list"] .wish-act { grid-column: 1; grid-row: auto; justify-content: flex-start; margin-top: 6px; }
+.tabs [data-size="list"] .shop, .tabs [data-size="list"] .cat-tag { display: none; }

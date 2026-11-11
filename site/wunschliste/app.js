@@ -1013,6 +1013,16 @@
   }
 
   // Sortierte und gefilterte Wuensche samt Summe (fuer die ganze Seite und fuer die Suche)
+  // Groesse der Wunschkacheln: klein, mittel, gross oder kompakte Liste. Jeder stellt das fuer sich ein (gespeichert auf dem Geraet).
+  var SIZE_KEY = 'wl-tile-size', SIZES = [['s', 'Klein', 9], ['m', 'Mittel', 4], ['l', 'Groß', 1], ['list', 'Liste', 3]];
+  function tileSize() { try { var v = localStorage.getItem(SIZE_KEY); return SIZES.some(function (x) { return x[0] === v; }) ? v : 'm'; } catch (e) { return 'm'; } }
+  function sizePicker() {
+    var cur = tileSize();
+    return '<div class="size-seg" role="group" aria-label="Größe der Kacheln">' + SIZES.map(function (x) {
+      var label = x[0] === 'list' ? 'Kompakte Liste' : 'Kacheln: ' + x[1];
+      return '<button type="button" data-act="size" data-size="' + x[0] + '" class="sz-' + x[0] + (cur === x[0] ? ' on' : '') + '" aria-pressed="' + (cur === x[0]) + '" title="' + label + '" aria-label="' + label + '"><span aria-hidden="true">' + new Array(x[2] + 1).join('<i></i>') + '</span></button>'; }).join('') + '</div>';
+  }
+
   function listView(st) {
     var items = st.items.slice();
     var pr = function (it) { return it.price == null ? -1 : it.price; };
@@ -1106,10 +1116,10 @@
         '<label class="check tb-wide"><input type="checkbox" name="only"' + (F.only ? ' checked' : '') + '> ' + (st.owner ? 'Erhaltene ausblenden' : 'Nur freie Wünsche') + '</label>' +
         '<button type="button" class="btn small ghost tb-swipe" data-act="feed" title="Wünsche einzeln im Vollbild durchblättern">▶ Durchblättern</button>' +
         '<button type="button" class="link-btn" data-act="reset-filters"' + (filtered ? '' : ' hidden') + '>Filter zurücksetzen</button>' +
-        '<span class="sp"></span><span class="muted tb-count">' + listCount(st, v) + '</span></div>' +
+        '<span class="sp"></span>' + sizePicker() + '<span class="muted tb-count">' + listCount(st, v) + '</span></div>' +
         (cats.length || autoBtn ? '<div class="catchips" role="group" aria-label="Kategorien">' + (cats.length ? '<button type="button" class="cc' + (F.cat ? '' : ' on') + '" data-act="cat" data-cat="">Alle</button>' +
           cats.map(function (c) { return '<button type="button" class="cc' + (F.cat === c ? ' on' : '') + '" data-act="cat" data-cat="' + esc(c) + '">' + esc(c) + ' <small>' + catCount[c] + '</small></button>'; }).join('') : '') + autoBtn + '</div>' : '') : '') +
-      '<div id="wishRes">' + listResults(st, v) + '</div>', quiet);
+      '<div id="wishRes" data-size="' + tileSize() + '">' + listResults(st, v) + '</div>', quiet);
   }
   // Sortieren und Filtern als Blatt (Handy): grosse Auswahlfelder statt kleiner Aufklappmenues
   function filterSheet(st) {
@@ -1192,6 +1202,12 @@
         : '🔔 Wieder eingeblendet');
       syncNotifications(true);
       return paintList(st, true);
+    }
+    if (act === 'size') {
+      try { localStorage.setItem(SIZE_KEY, b.dataset.size); } catch (e) {}
+      var box = $('#wishRes', app); if (box) box.setAttribute('data-size', tileSize());
+      $$('.size-seg button', app).forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+      return;
     }
     if (act === 'cat') { st.f.cat = b.dataset.cat === st.f.cat ? '' : b.dataset.cat; return paintList(st, true); }
     if (act === 'reset-filters') { st.sort = 'prio'; st.f = { q: '', cat: '', prio: '', price: '', only: false }; return paintList(st, true); }
