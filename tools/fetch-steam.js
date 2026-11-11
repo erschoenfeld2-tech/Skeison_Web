@@ -67,6 +67,35 @@ function fromApiJson(summary, owned, level) {
   return build({ name: p.personaname, avatar: p.avatarfull, url: p.profileurl || BASE + '/' }, games, extra);
 }
 
+// Wert der Bibliothek: Summe der aktuellen Shop-Preise aller Spiele im Konto (deutscher Shop, Euro). Der Shop nennt je Spiel
+// den regulaeren Preis ("initial") und den gerade gueltigen ("final", z. B. im Angebot); kostenlose und nicht mehr
+// verkaufte Spiele haben keinen Preis und zaehlen nicht mit. Das ist, was die Spiele heute kosten wuerden, nicht was
+// bezahlt wurde, und kein Verkaufswert (Konten lassen sich nicht verkaufen). Abgefragt wird in Paketen zu 40 Spielen.
+function sumValue(games, priceById) {
+  let eur = 0, eurNow = 0, priced = 0;
+  const rows = [];
+  games.forEach((g) => {
+    const p = priceById[g.id];
+    if (!p || p.currency !== 'EUR' || !(p.initial > 0)) return;
+    priced++; eur += p.initial / 100; eurNow += (p.final || p.initial) / 100;
+    rows.push({ name: g.name, eur: Math.round(p.initial) / 100, hours: g.hours });
+  });
+  rows.sort((a, b) => b.eur - a.eur);
+  const hours = games.reduce((a, g) => a + g.hours, 0);
+  return { eur: Math.round(eur), eurNow: Math.round(eurNow), priced, unpriced: games.length - priced, count: games.length,
+    perHour: hours > 0 ? Math.round(eur / hours * 100) / 100 : null, top: rows.slice(0, 8) };
+}
+async function fetchPrices(ids) {
+  const out = {};
+  for (let i = 0; i < ids.length; i += 40) {
+    const part = ids.slice(i, i + 40);
+    const j = JSON.parse(await get('https://store.steampowered.com/api/appdetails?appids=' + part.join(',') + '&filters=price_overview&cc=de'));
+    part.forEach((id) => { const d = j && j[id] && j[id].success && j[id].data; if (d && d.price_overview) out[id] = d.price_overview; });
+    if (i + 40 < ids.length) await sleep(1500);
+  }
+  return out;
+}
+
 async function fromApi() {
   const q = (iface, params) => get('https://api.steampowered.com/' + iface + '?key=' + KEY + '&steamid=' + ID + '&steamids=' + ID + (params || '') + '&format=json').then(JSON.parse);
   const [summary, owned, level] = await Promise.all([
@@ -74,7 +103,14 @@ async function fromApi() {
     q('IPlayerService/GetOwnedGames/v1/', '&include_appinfo=1&include_played_free_games=1').catch(() => ({})),
     q('IPlayerService/GetSteamLevel/v1/').catch(() => null)
   ]);
-  return fromApiJson(summary, owned, level);
+  const s = fromApiJson(summary, owned, level);
+  // Wert der Bibliothek (README, Abschnitt Steam): scheitert die Preisabfrage, bleibt der Wert vom letzten Lauf stehen
+  const games = ((owned.response && owned.response.games) || []).filter((g) => g.name).map((g) => ({ id: String(g.appid), name: g.name, hours: Math.round((g.playtime_forever || 0) / 6) / 10 }));
+  if (games.length) {
+    try { s.value = sumValue(games, await fetchPrices(games.map((g) => g.id))); }
+    catch (e) { console.log('Steam-Preise nicht abgerufen: ' + e.message); const c = readCache(); if (c && c.value) s.value = c.value; }
+  }
+  return s;
 }
 
 const hasData = (s) => s && s.name && ((s.top && s.top.length) || (s.recent && s.recent.length) || s.gameCount);
@@ -83,7 +119,7 @@ const write = (file, s) => { fs.mkdirSync(path.dirname(file), { recursive: true 
 const summary = (lines) => { if (process.env.GITHUB_STEP_SUMMARY) try { fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '### Steam\n' + lines.map(l => '- ' + l).join('\n') + '\n'); } catch (e) { /* nur Hinweis */ } };
 const readCache = () => { try { return JSON.parse(fs.readFileSync(CACHE, 'utf8')); } catch (e) { return null; } };
 
-module.exports = { parse, fromApiJson };
+module.exports = { parse, fromApiJson, sumValue };
 if (require.main === module) (async () => {
   const source = KEY ? 'Steam Web API (STEAM_API_KEY gesetzt)' : 'XML-Profilseite ohne Schluessel (wird von Steam oft geblockt)';
   try {
@@ -91,7 +127,8 @@ if (require.main === module) (async () => {
     if (hasData(s)) {
       write(OUT, s); write(CACHE, s);
       console.log('steam.json geschrieben (' + source + ')');
-      summary(['Quelle: ' + source, 'Aktualisiert: ' + s.updated, 'Spiele: ' + (s.gameCount || '–') + ', Level: ' + (s.level != null ? s.level : '–')]);
+      summary(['Quelle: ' + source, 'Aktualisiert: ' + s.updated, 'Spiele: ' + (s.gameCount || '–') + ', Level: ' + (s.level != null ? s.level : '–'),
+        s.value ? 'Wert der Bibliothek: rund ' + s.value.eur + ' Euro (' + s.value.priced + ' Spiele mit Preis)' : 'Wert der Bibliothek: nicht berechnet']);
       return;
     }
     // Profil gefunden, aber keine Spiele: meist sind die Spieldetails privat. Dann lieber den letzten vollen Stand zeigen.

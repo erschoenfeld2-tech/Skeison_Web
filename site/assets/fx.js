@@ -169,6 +169,23 @@
         + '<svg class="i-play" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 1.5v11l9.5-5.5z"/></svg><span class="mb-t" aria-hidden="true">Animationen pausieren</span>';
       mb.addEventListener('click', function () { setStill(!FX.still); });
       links.insertBefore(mb, links.querySelector('.nav-cta'));
+
+      // Knopf "Hell/Dunkel" (assets/mode.js): Standard folgt dem Geraet, ein Klick wechselt zur anderen Darstellung
+      if (window.WLMode) {
+        var db = document.createElement('button');
+        db.type = 'button'; db.className = 'mode-btn';
+        db.innerHTML = '<svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>'
+          + '<svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.2A8 8 0 0 1 9.8 4a8 8 0 1 0 10.2 10.2z"/></svg><span class="mb-t" aria-hidden="true"></span>';
+        var syncMode = function () {
+          var dark = WLMode.current() === 'dark', t = dark ? 'Helles Design' : 'Dunkles Design';
+          db.setAttribute('aria-label', 'Zu ' + (dark ? 'hellem' : 'dunklem') + ' Design wechseln'); db.title = t + (WLMode.get() === 'auto' ? ' (aktuell: wie dein Gerät)' : '');
+          db.querySelector('.mb-t').textContent = t;
+        };
+        db.addEventListener('click', function () { WLMode.toggle(); });
+        document.addEventListener('wl:mode', syncMode); document.addEventListener('wl:modepref', syncMode);
+        syncMode();
+        links.insertBefore(db, mb);
+      }
     }
 
     function place(a) {
