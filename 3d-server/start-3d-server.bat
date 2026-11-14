@@ -1,8 +1,8 @@
 @echo off
-rem Startet den 3D-Druck-Server (siehe README.md). Laeuft nur auf diesem PC (127.0.0.1), nach aussen geht es ueber den Tunnel.
-rem Port per Umgebungsvariable S3D_PORT aenderbar (Standard 8095; 8090 ist das Admin-Panel).
+rem Startet den 3D-Druck-Worker (siehe README.md). Er holt Auftraege aus Supabase und braucht keinen offenen Port.
+rem Zugang: .env (SUPABASE_URL, SUPABASE_SERVICE_KEY) oder automatisch tools\admin.config.json wie beim Admin-Panel.
+rem S3D_PORT (Standard 8095) dient nur als Sperre gegen doppelten Start; 8090 ist das Admin-Panel.
 cd /d "%~dp0"
-if "%S3D_PORT%"=="" set S3D_PORT=8095
 if not exist ".venv\Scripts\python.exe" (echo .venv fehlt - siehe SERVER-SETUP.md, Prompt 3 & pause & exit /b 1)
 if not exist "data\logs" mkdir "data\logs"
-".venv\Scripts\python.exe" -m uvicorn app:app --host 127.0.0.1 --port %S3D_PORT% --proxy-headers --forwarded-allow-ips 127.0.0.1 >> "data\logs\server.log" 2>&1
+".venv\Scripts\python.exe" worker.py >> "data\logs\worker.log" 2>&1

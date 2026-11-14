@@ -1,7 +1,82 @@
-// 3D-Druck (site/3d/): Beschreibung/Fotos -> Server (3d-server/) -> STL/3MF mit Vorschau.
+// 3D-Druck (site/3d/): Beschreibung/Fotos -> Server-PC (3d-server/) -> STL/3MF mit Vorschau.
 // Navigation, Hell/Dunkel, Toast und Einblenden kommen aus assets/fx.js und assets/mode.js.
-const API = (window.SKEISON_3D_API || "").replace(/\/$/, "");
+// Verbindung laut config.js: ueber Supabase (Live-Seite) oder direkt per HTTP (lokaler Testserver app.py).
+const CFG = window.SKEISON_3D || { api: "" };
 const $ = (id) => document.getElementById(id);
+
+/* ---------- Verbindung ---------- */
+function httpBackend(API) {
+  return {
+    async health() {
+      const r = await fetch(`${API}/api/health`, { cache: "no-store" });
+      if (!r.ok) throw new Error("offline");
+      return { online: true, ...(await r.json()) };
+    },
+    async create(d) {
+      const fd = new FormData();
+      fd.append("description", d.description);
+      fd.append("size_mm", d.size);
+      fd.append("size_user", d.sizeUser ? "1" : "0");
+      fd.append("flat_base", d.flat ? "1" : "0");
+      d.files.forEach((f) => fd.append("images", f, f.name));
+      const r = await fetch(`${API}/api/jobs`, { method: "POST", body: fd, headers: d.code != null ? { "X-Access-Code": d.code } : {} });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || "Der Auftrag konnte nicht gestartet werden.");
+      return data.id;
+    },
+    async get(id) {
+      const r = await fetch(`${API}/api/jobs/${id}`, { cache: "no-store" });
+      if (r.status === 404) return null;
+      if (!r.ok) throw new Error("Abfrage fehlgeschlagen");
+      return r.json();
+    },
+    file: (j, fmt, inline) => `${API}/api/jobs/${j.id}/file?format=${fmt}${inline ? "&inline=1" : ""}`,
+  };
+}
+
+// Fotos verkleinern (laengste Seite 1536 px, JPEG): reicht Meshy und haelt den Auftrag klein
+async function shrink(file, max = 1536) {
+  const bmp = await createImageBitmap(file);
+  const s = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * s);
+  c.height = Math.round(bmp.height * s);
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff";
+  g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close?.();
+  return { mime: "image/jpeg", data: c.toDataURL("image/jpeg", 0.88).split(",")[1] };
+}
+
+function supabaseBackend({ url, key }) {
+  const rpc = async (fn, body) => {
+    const r = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+      method: "POST", cache: "no-store", body: JSON.stringify(body || {}),
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    });
+    const data = await r.json().catch(() => null);
+    if (!r.ok) throw new Error(data?.message || "Der Auftrag konnte nicht gestartet werden.");
+    return data;
+  };
+  return {
+    health: () => rpc("p3d_status"),
+    async create(d) {
+      const images = await Promise.all(d.files.map((f) => shrink(f)));
+      return rpc("p3d_create_job", {
+        p_description: d.description, p_size_mm: +d.size, p_size_user: d.sizeUser, p_flat_base: d.flat,
+        p_images: images, p_code: d.code || "",
+      });
+    },
+    get: (id) => (/^[0-9a-f-]{36}$/.test(id) ? rpc("p3d_get_job", { p_id: id }) : Promise.resolve(null)),
+    file(j, fmt, inline) {
+      const u = j.files?.[fmt] || "";
+      return inline || !u ? u : `${u}&download=${encodeURIComponent(`${j.name}.${fmt}`)}`;
+    },
+  };
+}
+
+const backend = CFG.api === "supabase" ? supabaseBackend(CFG) : httpBackend((CFG.api || "").replace(/\/$/, ""));
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
@@ -101,15 +176,15 @@ let health = null;
 async function checkHealth() {
   const n = $("notice");
   try {
-    const r = await fetch(`${API}/api/health`, { cache: "no-store" });
-    health = await r.json();
+    health = await backend.health();
+    if (!health?.online) throw new Error("offline");
     if (health.needs_code) { $("codeField").hidden = false; $("code").value = store.get("s3d-code") || ""; }
     if (health.demo) { n.hidden = false; n.className = "notice warn"; n.textContent = "Demo-Modus: Es wird eine Beispiel-Vase erzeugt, keine echte KI."; }
     $("limitInfo").textContent = `Bis zu ${health.limit_per_day} Modelle pro Tag · Dauer meist 1–4 Minuten`;
   } catch {
     n.hidden = false; n.className = "notice bad";
-    n.textContent = "Der 3D-Server ist gerade nicht erreichbar. Bitte später nochmal versuchen.";
-    if (!state.jobId) { $("go").disabled = true; $("go").textContent = "Server nicht erreichbar"; }
+    n.textContent = "Der 3D-Server ist gerade offline. Bitte später nochmal versuchen.";
+    if (!state.jobId) { $("go").disabled = true; $("go").textContent = "Server offline"; }
   }
 }
 
@@ -126,6 +201,7 @@ function showStage(mode) {
   }
   st.classList.toggle("idle", mode === "idle");
   $("steps").hidden = mode !== "run";
+  if (mode !== "run") $("queueInfo").hidden = true;
   $("result").hidden = mode !== "done";
   $("viewer").classList.toggle("busy", mode === "run");
   $("empty").hidden = mode === "done";
@@ -133,6 +209,7 @@ function showStage(mode) {
   $("go").innerHTML = mode === "run" ? "Wird erstellt …" : 'Modell erstellen <span class="arr">→</span>';
 }
 function markSteps(stage, progress) {
+  if (stage === "upload") stage = "blender"; // Hochladen gehoert noch zum letzten Schritt
   const idx = STEPS.indexOf(stage);
   document.querySelectorAll("#steps li").forEach((li, i) => {
     li.classList.toggle("done", idx > i || stage === "done");
@@ -149,23 +226,17 @@ $("form").addEventListener("submit", async (e) => {
   const desc = $("desc").value.trim();
   if (!desc && !state.files.length) { formError("Beschreibe kurz, was du drucken willst, oder lade ein Foto hoch."); $("desc").focus(); return; }
 
-  const fd = new FormData();
-  fd.append("description", desc);
-  fd.append("size_mm", size.value);
-  fd.append("size_user", state.sizeTouched ? "1" : "0");
-  fd.append("flat_base", $("flat").checked ? "1" : "0");
-  state.files.forEach((f) => fd.append("images", f.file, f.file.name));
-  const headers = {};
-  if (health?.needs_code) { headers["X-Access-Code"] = $("code").value; store.set("s3d-code", $("code").value); }
+  const order = {
+    description: desc, size: size.value, sizeUser: state.sizeTouched, flat: $("flat").checked,
+    files: state.files.map((f) => f.file), code: health?.needs_code ? $("code").value : null,
+  };
+  if (health?.needs_code) store.set("s3d-code", $("code").value);
 
   showStage("run");
   markSteps("queued", 0);
   if (matchMedia("(max-width: 900px)").matches) $("stage").scrollIntoView({ behavior: "smooth", block: "start" });
   try {
-    const r = await fetch(`${API}/api/jobs`, { method: "POST", body: fd, headers });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.detail || "Der Auftrag konnte nicht gestartet werden.");
-    startPolling(data.id);
+    startPolling(await backend.create(order));
   } catch (err) {
     showStage("idle");
     formError(err.message === "Failed to fetch" ? "Keine Verbindung zum 3D-Server." : err.message);
@@ -178,10 +249,12 @@ function startPolling(id) {
   clearInterval(state.poll);
   const tick = async () => {
     try {
-      const r = await fetch(`${API}/api/jobs/${id}`, { cache: "no-store" });
-      if (r.status === 404) { clearInterval(state.poll); store.set("s3d-job", null); showStage("idle"); return; }
-      const j = await r.json();
+      const j = await backend.get(id);
+      if (!j) { clearInterval(state.poll); store.set("s3d-job", null); showStage("idle"); return; }
       markSteps(j.stage, j.progress);
+      const q = $("queueInfo");
+      q.hidden = !(j.state === "queued" && j.position > 0);
+      q.textContent = `Platz ${(j.position || 0) + 1} in der Warteschlange – vor dir ${j.position === 1 ? "ist 1 Auftrag" : `sind ${j.position} Aufträge`}.`;
       if (j.state === "done") { clearInterval(state.poll); finish(j); }
       if (j.state === "error") { clearInterval(state.poll); store.set("s3d-job", null); showStage("idle"); formError(j.message); toast(j.message, true); }
     } catch { /* kurzer Netzaussetzer: weiter versuchen */ }
@@ -204,16 +277,16 @@ async function finish(j) {
   $("hint").textContent = j.hint || "";
   const other = state.fmt === "3mf" ? "stl" : "3mf";
   const main = $("dlMain"), alt = $("dlAlt");
-  main.href = `${API}/api/jobs/${j.id}/file?format=${state.fmt}`;
+  main.href = backend.file(j, state.fmt);
   main.setAttribute("download", `${j.name}.${state.fmt}`);
   main.innerHTML = `${state.fmt.toUpperCase()} herunterladen <span class="arr">↓</span>`;
-  alt.href = `${API}/api/jobs/${j.id}/file?format=${other}`;
+  alt.href = backend.file(j, other);
   alt.setAttribute("download", `${j.name}.${other}`);
   alt.textContent = `Als ${other.toUpperCase()}`;
   toast("Dein Modell ist fertig");
   try {
     await ensureViewer();
-    await viewer.load(`${API}/api/jobs/${j.id}/file?format=stl&inline=1`);
+    await viewer.load(backend.file(j, "stl", true));
   } catch (err) { console.warn("Vorschau nicht moeglich", err); $("empty").hidden = false; }
 }
 
