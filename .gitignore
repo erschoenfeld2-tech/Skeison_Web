@@ -2,3 +2,9 @@
 .taste-skill/
 .valorant-cache/
 .stats-cache/
+
+# 3D-Druck-Server: lokale Umgebung, Auftraege und Schluessel
+3d-server/.venv/
+3d-server/data/
+3d-server/.env
+__pycache__/
