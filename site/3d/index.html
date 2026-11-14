@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3D-Druck · Skeison</title>
+<meta name="description" content="Beschreibung oder Foto rein, druckfertige STL- oder 3MF-Datei raus. Wasserdicht, in Millimetern, mit flacher Standfläche.">
+<meta name="theme-color" content="#0f0f0e">
+<meta property="og:title" content="3D-Druck aus Idee · Skeison">
+<meta property="og:description" content="Beschreibung oder Foto rein, druckfertige STL- oder 3MF-Datei raus.">
+<meta property="og:type" content="website">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<script src="../assets/mode.js"></script>
+<link rel="stylesheet" href="../assets/fx.css">
+<link rel="stylesheet" href="../main.css">
+<link rel="stylesheet" href="3d.css">
+<script>document.documentElement.classList.add('fx');</script>
+<script src="config.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<a class="skip" href="#erstellen">Zum Formular springen</a>
+<div class="fx-bg" aria-hidden="true"><canvas></canvas></div>
+
+<div class="nav-bar">
+  <nav class="nav wrap" aria-label="Hauptnavigation">
+    <a class="brand" href="../"><span class="brand-mark" aria-hidden="true"></span>Skeison</a>
+    <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
+    <div class="links" id="navLinks">
+      <span class="nav-ind" aria-hidden="true"></span>
+      <a href="#erstellen">Erstellen</a><a href="#ablauf">Ablauf</a><a href="../#projekte">Projekte</a>
+      <a class="nav-cta" href="../">Hauptseite <span class="arr">↗</span></a>
+    </div>
+  </nav>
+  <div class="nav-progress"></div>
+</div>
+
+<header class="intro wrap" id="top" data-stagger>
+  <p class="eyebrow">Tools · 3D-Druck</p>
+  <h1>Von der Idee<br><span class="gold">zum Druck.</span></h1>
+  <span class="rule" aria-hidden="true"></span>
+  <p class="lead">Beschreibe ein Objekt oder lade ein Foto hoch. Du bekommst eine druckfertige STL- oder 3MF-Datei: wasserdicht, in Millimetern und mit flacher Standfläche.</p>
+  <p class="notice" id="notice" hidden></p>
+</header>
+
+<main class="wrap" id="inhalt">
+  <section class="studio" id="erstellen" aria-label="Modell erstellen">
+    <!-- Eingabe -->
+    <form class="panel form" id="form" novalidate data-stagger>
+      <div class="field">
+        <label class="label" for="desc"><span class="num">01</span>Was soll gedruckt werden?</label>
+        <textarea id="desc" name="description" rows="3" maxlength="2000" placeholder="z. B. Ein kleiner Drache, der auf einem Felsen sitzt"></textarea>
+        <div class="chips" id="chips" aria-label="Beispiele">
+          <button type="button" class="chip">Stifthalter in Form einer Eule</button>
+          <button type="button" class="chip">Kleiner Drache auf einem Felsen</button>
+          <button type="button" class="chip">Schlüsselanhänger mit Herz</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label"><span class="num">02</span>Fotos <em>optional</em></span>
+        <label class="drop" id="drop" tabindex="0">
+          <input type="file" id="files" accept="image/jpeg,image/png,image/webp" multiple hidden>
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><rect x="8.5" y="9.5" width="7" height="7"/></svg>
+          <span><b>Foto aufnehmen oder auswählen</b><small>Bis zu 4 Fotos von verschiedenen Seiten machen das Modell genauer</small></span>
+        </label>
+        <ul class="thumbs" id="thumbs"></ul>
+      </div>
+
+      <div class="field">
+        <span class="label" id="sizeLabel"><span class="num">03</span>Größe <em>längste Seite</em></span>
+        <div class="size-row">
+          <input type="range" id="size" min="20" max="250" step="5" value="80" aria-labelledby="sizeLabel">
+          <output id="sizeOut" for="size"><b>80</b> mm</output>
+        </div>
+        <div class="seg" id="sizePresets" role="group" aria-label="Größe schnell wählen">
+          <button type="button" data-size="40">Klein · 4 cm</button>
+          <button type="button" data-size="80" class="on">Mittel · 8 cm</button>
+          <button type="button" data-size="150">Groß · 15 cm</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label"><span class="num">04</span>Dateiformat</span>
+        <div class="seg" id="fmt" role="radiogroup" aria-label="Dateiformat">
+          <button type="button" role="radio" data-fmt="3mf" class="on" aria-checked="true">3MF <small>Bambu, Prusa, Orca</small></button>
+          <button type="button" role="radio" data-fmt="stl" aria-checked="false">STL <small>passt überall</small></button>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="flat" checked>
+          <span class="track" aria-hidden="true"></span>
+          <span>Flache Standfläche <small>damit es sicher auf der Druckplatte steht</small></span>
+        </label>
+      </div>
+
+      <div class="field" id="codeField" hidden>
+        <label class="label" for="code">Zugangscode</label>
+        <input type="password" id="code" autocomplete="off" placeholder="Code eingeben">
+      </div>
+
+      <div class="submit">
+        <p class="error" id="formError" role="alert" hidden></p>
+        <button class="btn big" id="go" type="submit">Modell erstellen <span class="arr">→</span></button>
+        <p class="fine" id="limitInfo"></p>
+      </div>
+    </form>
+
+    <!-- Fortschritt und Vorschau -->
+    <div class="panel stage idle" id="stage" aria-live="polite" data-reveal>
+      <div class="viewer" id="viewer">
+        <span class="scan" aria-hidden="true"></span>
+        <div class="empty" id="empty">
+          <svg viewBox="0 0 120 120" width="92" height="92" aria-hidden="true">
+            <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter">
+              <path d="M60 16 100 39v42L60 104 20 81V39z"/>
+              <path d="M20 39l40 23 40-23M60 62v42" opacity=".5"/>
+            </g>
+          </svg>
+          <p>Hier erscheint dein Modell</p>
+          <small>Drehen mit Finger oder Maus</small>
+        </div>
+      </div>
+
+      <ol class="steps" id="steps" hidden>
+        <li data-step="analyse"><span class="dot"></span><div><b>Idee verstehen</b><small>Beschreibung wird aufbereitet</small></div></li>
+        <li data-step="generate"><span class="dot"></span><div><b>3D-Modell erzeugen</b><small>Dauert meist 1–3 Minuten</small><div class="bar"><i id="bar"></i></div></div></li>
+        <li data-step="blender"><span class="dot"></span><div><b>Druckfertig machen</b><small>Blender: wasserdicht, Größe, Standfläche</small></div></li>
+      </ol>
+
+      <div class="result" id="result" hidden>
+        <div class="stats" id="stats"></div>
+        <p class="hint" id="hint" hidden></p>
+        <div class="cta-row">
+          <a class="btn" id="dlMain" href="#" download>Herunterladen <span class="arr">↓</span></a>
+          <a class="btn ghost" id="dlAlt" href="#" download></a>
+        </div>
+        <button class="btn ghost small" id="again" type="button">Neues Modell</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="how" id="ablauf">
+    <div class="sec-head" data-reveal><h2>So funktioniert es</h2><p class="eyebrow">Drei Schritte · meist unter 4 Minuten</p></div>
+    <ol class="how-grid" data-stagger>
+      <li><span class="how-n">01</span><h3>Beschreiben</h3><p class="muted">Ein Satz oder ein Foto reicht. Claude macht daraus einen genauen Auftrag für die 3D-KI.</p></li>
+      <li><span class="how-n">02</span><h3>Erzeugen</h3><p class="muted">Eine 3D-KI baut das Modell. Für den Druck ohne Farbe, das spart Zeit und Kosten.</p></li>
+      <li><span class="how-n">03</span><h3>Drucken</h3><p class="muted">Blender schließt Löcher, skaliert auf Millimeter und stellt das Modell gerade auf die Platte.</p></li>
+    </ol>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in" data-reveal>
+    <div>
+      <a class="brand" href="../"><span class="brand-mark" aria-hidden="true"></span>Skeison</a>
+      <p class="muted">Dateien werden nach 24 Stunden automatisch gelöscht.</p>
+    </div>
+    <nav class="foot-links" aria-label="Fußzeile">
+      <a href="../">Hauptseite</a><a href="../wunschliste/">Wunschliste</a><a href="../#projekte">Projekte</a><a href="../gaming/">Gaming-Profil</a>
+    </nav>
+  </div>
+  <div class="wrap foot-bottom muted">© 2026 Skeison</div>
+</footer>
+<script src="../assets/fx.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

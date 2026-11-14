@@ -8,6 +8,8 @@ Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seit
 | `site/gaming/` | Gaming-Profil: kurzer Einstieg, darunter die „Bühne“ mit Spielauswahl (Valorant mit KAY/O, Steam mit Satisfactory, Minecraft mit 3D-Skin und Cobblemon Server), Discord |
 | `site/cobblemon/` | Cobblemon-Server-Seite (Status, Zeitplan, Ranglisten, Whitelist) inkl. `data/`, `download/`, `announcements.json` |
 | `site/wunschliste/` | Wunschliste für Freunde & Familie: Konten, Freunde per `Name#CODE`, private Rollen/Tags, Gruppen, Listen mit 12 Designs (hell und dunkel), Reservieren, verknüpfte Wünsche über mehrere Listen |
+| `site/3d/` | 3D-Druck: Beschreibung oder Foto rein, druckfertige STL/3MF raus (mit 3D-Vorschau). Das Hauptdesign in voller Stärke: Schwarz, Grau und Gold, eckig, Haarlinien, weiche Einblendungen (`3d.css`). Braucht den Server aus `3d-server/`, dessen Adresse in `site/3d/config.js` steht |
+| `3d-server/` | Server für `site/3d/` (Python/FastAPI: Claude für die Beschreibung, Meshy für das Modell, Blender headless für die Druckvorbereitung). Einrichtung als fertige KI-Prompts in `3d-server/SERVER-SETUP.md` |
 | `site/skin/skeison.png` | Minecraft-Skin für die 3D-Ansicht |
 | `site/assets/fx.css`, `fx.js` | Gemeinsame Effekte aller Seiten: Navigation, Pixel-Partikel im Hintergrund, Scroll-Animationen, rollender Countdown, Toast |
 | `site/assets/mode.js` | Hell/Dunkel für alle Seiten: Standard folgt dem Gerät, der Knopf (Sonne/Mond) in der Navigation wechselt; die Wahl gilt auf dem Gerät für alle Seiten |
