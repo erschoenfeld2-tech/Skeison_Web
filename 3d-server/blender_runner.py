@@ -17,6 +17,9 @@ BLENDER_BIN = os.getenv("BLENDER_BIN", "blender")
 MODE = os.getenv("BLENDER_MODE", "cli")
 MCP_PORT = int(os.getenv("BLENDER_MCP_PORT", "9876"))
 TIMEOUT = int(os.getenv("BLENDER_TIMEOUT", "900"))
+# Ruecksicht auf andere Dienste auf demselben PC (z. B. Minecraft-Server): begrenzte Threads, niedrige Prioritaet
+THREADS = int(os.getenv("BLENDER_THREADS", "0"))  # 0 = Blender entscheidet
+LOW_PRIORITY = os.getenv("BLENDER_LOW_PRIORITY", "1") == "1"
 
 
 class BlenderError(RuntimeError):
@@ -36,9 +39,17 @@ def _parse(output: str) -> dict:
 
 
 def _run_cli(args: list[str]) -> dict:
-    cmd = [BLENDER_BIN, "-b", "--factory-startup", "-noaudio", "-P", SCRIPT, "--", *args]
+    cmd = [BLENDER_BIN, "-b", "--factory-startup", "-noaudio"]
+    if THREADS > 0:
+        cmd += ["-t", str(THREADS)]
+    cmd += ["-P", SCRIPT, "--", *args]
+    kw: dict = {}
+    if os.name == "nt":
+        kw["creationflags"] = subprocess.CREATE_NO_WINDOW | (subprocess.BELOW_NORMAL_PRIORITY_CLASS if LOW_PRIORITY else 0)
+    elif LOW_PRIORITY:
+        kw["preexec_fn"] = lambda: os.nice(10)
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT)
+        p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TIMEOUT, **kw)
     except FileNotFoundError as e:
         raise BlenderError(f"Blender nicht gefunden ({BLENDER_BIN}). BLENDER_BIN in .env setzen.") from e
     except subprocess.TimeoutExpired as e:

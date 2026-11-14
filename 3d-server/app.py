@@ -38,6 +38,7 @@ DATA_DIR = os.path.abspath(os.getenv("DATA_DIR", os.path.join(HERE, "data")))
 DEMO = os.getenv("DEMO_MODE", "0") == "1"
 ACCESS_CODE = os.getenv("ACCESS_CODE", "").strip()
 JOBS_PER_DAY = int(os.getenv("JOBS_PER_IP_PER_DAY", "10"))
+JOBS_TOTAL_PER_DAY = int(os.getenv("JOBS_TOTAL_PER_DAY", "40"))  # alle Besucher zusammen (Meshy-Guthaben)
 JOB_TTL_H = float(os.getenv("JOB_TTL_HOURS", "24"))
 MAX_IMG_MB = 10
 ALLOWED_IMG = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
@@ -86,19 +87,27 @@ def _slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s).strip("-")[:40] or "modell"
 
 
+# Echte Besucher-IP fuer das Tageslimit. Der Server lauscht nur auf 127.0.0.1, davor sitzt ein Tunnel:
+# Cloudflare Tunnel -> CLIENT_IP_HEADER=cf-connecting-ip, Tailscale Funnel/Proxy -> x-forwarded-for.
+CLIENT_IP_HEADER = os.getenv("CLIENT_IP_HEADER", "x-forwarded-for").strip().lower()
+
+
 def _client_ip(req: Request) -> str:
-    fwd = req.headers.get("x-forwarded-for")
-    return fwd.split(",")[0].strip() if fwd else (req.client.host if req.client else "?")
+    val = req.headers.get(CLIENT_IP_HEADER) if CLIENT_IP_HEADER else None
+    return val.split(",")[0].strip() if val else (req.client.host if req.client else "?")
 
 
 def _check_rate(ip: str) -> None:
-    q = RATE[ip]
     now = time.time()
-    while q and now - q[0] > 86400:
-        q.popleft()
-    if len(q) >= JOBS_PER_DAY:
+    for q in (RATE[ip], RATE["*"]):
+        while q and now - q[0] > 86400:
+            q.popleft()
+    if len(RATE["*"]) >= JOBS_TOTAL_PER_DAY:
+        raise HTTPException(429, "Für heute sind alle Modelle vergeben. Bitte morgen nochmal versuchen.")
+    if len(RATE[ip]) >= JOBS_PER_DAY:
         raise HTTPException(429, f"Tageslimit erreicht ({JOBS_PER_DAY} Modelle pro Tag).")
-    q.append(now)
+    RATE[ip].append(now)
+    RATE["*"].append(now)
 
 
 def _run(job: Job) -> None:
@@ -110,7 +119,7 @@ def _run(job: Job) -> None:
         # 1) Claude (nur mit Beschreibung)
         if prompt and not DEMO:
             job.stage, job.message = "analyse", "Beschreibung wird verstanden"
-            r = claude_step.refine(prompt, job.images)
+            r = claude_step.refine(prompt, job.images, job.dir)
             if r and r.get("refused"):
                 raise RuntimeError("Diese Beschreibung kann leider nicht verarbeitet werden.")
             if r:
@@ -165,7 +174,7 @@ def health():
     return {
         "ok": True,
         "demo": DEMO,
-        "claude": claude_step.enabled(),
+        "claude": claude_step.backend(),
         "meshy": bool(os.getenv("MESHY_API_KEY")),
         "blender_mode": blender_runner.MODE,
         "needs_code": bool(ACCESS_CODE),

@@ -15,12 +15,13 @@ site/3d/ (GitHub Pages)  ──►  3d-server/app.py (eigener Server)
 | Datei | Inhalt |
 |---|---|
 | `app.py` | API: `/api/health`, `POST /api/jobs`, `GET /api/jobs/{id}`, `GET /api/jobs/{id}/file?format=stl\|3mf`; liefert optional auch `site/` aus |
-| `claude_step.py` | Der eine sparsame Claude-Aufruf (Modell und Aufwand per `.env`) |
+| `claude_step.py` | Der eine sparsame Claude-Aufruf: lokal angemeldetes Claude Code wie der KI-Bot (`CLAUDE_BACKEND=cli`) oder API-Key (`api`) |
+| `start-3d-server.bat` | Start auf dem Windows-Server-PC (nur `127.0.0.1`, Port `S3D_PORT`, Standard 8095; Log in `data\logs\server.log`) |
 | `meshy.py` | Meshy-API (gleiche Endpunkte wie die Blender-Skills image-to-3d / multi-image-to-3d) |
 | `blender/printprep.py` | Blender-Skript: macht das Modell druckfertig |
 | `blender_runner.py` | Startet Blender: `cli` (Server) oder `mcp` (laufendes Blender mit blender-mcp-Addon, Port 9876) |
 | `mesh_io.py` | STL- und 3MF-Writer ohne Abhängigkeiten + Demo-Form |
-| `SERVER-SETUP.md` | **Fertige Prompts**, mit denen eine KI den Server einrichtet |
+| `SERVER-SETUP.md` | **Fertige Prompts** für Claude Code auf dem Windows-11-Server-PC (neben MCSManager, Minecraft und den `tools\`), inkl. Tunnel für HTTPS |
 
 Die Seite `site/3d/` findet den Server über `site/3d/config.js` (`SKEISON_3D_API`). Leer heißt: gleicher Server wie die Seite.
 
@@ -40,6 +41,7 @@ Danach http://localhost:8000/3d/ öffnen. Im Demo-Modus entsteht eine Beispiel-V
 
 ## Kosten und Schutz
 
-- **Claude:** wird nur bei Text-Aufträgen aufgerufen, einmal pro Auftrag. Kosten mit `claude-opus-5-5` (effort low) etwa 1–2 Cent, mit `CLAUDE_MODEL=claude-haiku-5-5` etwa 0,05 Cent.
+- **Claude:** wird nur bei Text-Aufträgen aufgerufen, einmal pro Auftrag. Mit `CLAUDE_BACKEND=cli` nutzt der Server das lokal angemeldete Claude Code (Haiku, zählt gegen das Abo des Server-PCs, gemeinsam mit dem KI-Bot). Mit API-Key kostet es mit `claude-opus-5-5` (effort low) etwa 1–2 Cent, mit `CLAUDE_MODEL=claude-haiku-5-5` etwa 0,05 Cent.
 - **Meshy:** erzeugt ohne Textur. Das ist günstiger, und Farbe spielt beim Drucken keine Rolle.
-- **Schutz:** Tageslimit pro IP (`JOBS_PER_IP_PER_DAY`), optionaler `ACCESS_CODE`, CORS auf deine Domains (`ALLOWED_ORIGINS`), Rate-Limit in nginx. Dateien werden nach 24 h gelöscht.
+- **Schutz:** Tageslimit pro IP (`JOBS_PER_IP_PER_DAY`) und für alle zusammen (`JOBS_TOTAL_PER_DAY`), optionaler `ACCESS_CODE`, CORS auf deine Domains (`ALLOWED_ORIGINS`). Der Server lauscht nur auf `127.0.0.1` und ist nur über den Tunnel erreichbar. Dateien werden nach 24 h gelöscht.
+- **Rücksicht auf Minecraft:** Blender läuft mit niedriger Priorität (`BLENDER_LOW_PRIORITY`) und begrenzten Kernen (`BLENDER_THREADS`), immer nur ein Auftrag gleichzeitig.

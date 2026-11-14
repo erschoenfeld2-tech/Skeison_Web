@@ -1,230 +1,259 @@
-# 3D-Druck – Server einrichten mit einer KI
+# 3D-Druck – Server einrichten (Windows 11, neben den laufenden Diensten)
 
-Diese Anleitung besteht aus **fertigen Prompts**. Du kopierst sie nacheinander in Claude Code auf deinem Server, und die KI richtet alles ein. Jeder Prompt endet mit einer Prüfung, damit du siehst, ob der Schritt geklappt hat.
+Diese Anleitung besteht aus **fertigen Prompts für Claude Code auf dem Server-PC**. Du fügst sie nacheinander ein, Claude führt die Einrichtung aus und prüft am Ende jedes Schritts, ob er geklappt hat. Zwischen den Prompts entscheidest du, ob es weitergeht.
 
-**Annahmen:** Linux-Server mit Ubuntu 22.04 oder 24.04, Zugang mit `sudo`, mindestens 4 GB RAM (besser 8 GB), etwa 10 GB freier Speicher. Eine (Sub-)Domain wie `3d.deine-domain.de` zeigt per DNS-A-Eintrag auf den Server. Eine Grafikkarte brauchst du nicht.
+**Ausgangslage (Stand dieses Repos):**
+- Windows-11-PC, der als Server dient, mit `C:\MinecraftHosting`: MCSManager, Cobblemon-Server und die Werkzeuge aus `tools\`.
+- Dort laufen schon `sync-github.js` (Daten für die Webseite), `ki-bot.js` (nutzt das lokal angemeldete Claude Code mit Haiku) und bei Bedarf `admin-panel.js` auf `127.0.0.1:8090`.
+- Diese Dienste sind **Produktion** und dürfen nicht gestört werden.
+
+**Was hinzukommt:**
+- Der 3D-Server (`3d-server/`) läuft unter `C:\MinecraftHosting\3d-druck` und lauscht nur auf `127.0.0.1:8095`.
+- Erreichbar wird er über einen **Tunnel** (Cloudflare oder Tailscale). So braucht es keine Portfreigabe im Router und keine Ausnahme in der Windows-Firewall, und die IP-Adresse des PCs bleibt verborgen.
+- Blender läuft ohne Oberfläche mit **niedriger Priorität und begrenzten Kernen**, damit Minecraft flüssig bleibt.
 
 ---
 
-## Vorab: Was „lokale Claude-Instanz“ hier bedeutet
+## Claude-Kontingent: welcher Weg?
 
-Claude läuft nicht komplett offline auf einem eigenen Server, sondern wird immer über Anthropic aufgerufen. Darum gibt es zwei getrennte Rollen:
+Der 3D-Server ruft Claude **nur bei Text-Aufträgen** auf, genau einmal pro Auftrag. Bei reinen Foto-Aufträgen wird Claude gar nicht aufgerufen.
 
-| Rolle | Wofür | Verbrauch |
+| `CLAUDE_BACKEND` | Wie | Verbrauch |
 |---|---|---|
-| **Claude Code auf dem Server** | Führt die Prompts unten aus und hilft später bei Wartung und Fehlersuche | Nur wenn du selbst damit arbeitest (dein Claude-Abo) |
-| **Claude in der Web-App** | Macht aus deutschen Beschreibungen einen guten englischen 3D-Prompt | Ein kleiner Aufruf pro Text-Auftrag, über einen API-Key mit eigenem Budget |
+| `cli` | Das lokal angemeldete Claude Code, wie der KI-Bot (`claude.exe -p`, Modell Haiku, keine Werkzeuge außer Lesen des Fotos) | Zählt gegen das Claude-Abo des Server-PCs, gemeinsam mit dem KI-Bot. Pro Auftrag ein kurzer Haiku-Aufruf |
+| `api` | API-Key mit eigenem Budget | Etwa 0,05 Cent pro Auftrag mit Haiku, 1–2 Cent mit Opus. Ausgabenlimit in der Claude Console setzen |
+| `auto` (Standard) | `api`, wenn ein Key eingetragen ist, sonst `cli` | – |
 
-**So spart die App Kontingent:**
-- Bei reinen Foto-Aufträgen wird Claude gar nicht aufgerufen.
-- Pro Text-Auftrag gibt es genau einen Aufruf, mit Bild höchstens 512 px, kurzer JSON-Antwort und `effort: low`.
-- Ohne API-Key läuft die App trotzdem, nur ohne Prompt-Verbesserung.
-- **Geschätzte Kosten pro Text-Auftrag:** mit `claude-opus-5-5` etwa 1–2 Cent, mit `claude-haiku-5-5` etwa 0,05 Cent. Umstellen kannst du das in `.env` über `CLAUDE_MODEL`.
-
-> Für die Besucher deiner Webseite immer einen **API-Key** verwenden, nicht deinen persönlichen Claude-Login. In der Claude Console ein monatliches **Ausgabenlimit** setzen.
-
-### Claude Code auf dem Server installieren (einmalig, von Hand)
-
-```bash
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
-Danach im Projektordner `claude` starten und anmelden. Ab dann die Prompts unten einzeln einfügen.
-
-### Woher der Server den Code bekommt
-
-Der Code liegt im Repo `Skeison_Web`: der Server in `3d-server/`, die Oberfläche in `site/3d/`. Der Server klont das Repo in Prompt 3 nach `/opt/skeison-3d`. Updates holst du später mit `git pull`. Schlüssel stehen nur in `3d-server/.env` auf dem Server und landen nie im Repo.
+Empfehlung: Starte mit `cli`, weil es schon eingerichtet ist. Die Tageslimits (`JOBS_PER_IP_PER_DAY`, `JOBS_TOTAL_PER_DAY`) begrenzen den Verbrauch. Wenn die Seite viele Besucher bekommt, ist ein API-Key mit festem Budget der saubere Weg, denn dann teilt sich der 3D-Server das Kontingent nicht mehr mit dem KI-Bot und deiner eigenen Nutzung.
 
 ---
 
-## Prompt 1 – Grundsystem absichern
+## Prompt 0 – Regeln für diese Sitzung (immer zuerst einfügen)
 
 ```text
-Richte diesen Ubuntu-Server als Basis für eine kleine Web-App ein. Arbeite Schritt für Schritt, zeig mir
-jeden Befehl bevor du ihn ausführst, und frag nach, bevor du etwas löschst oder SSH-Einstellungen änderst.
+Du richtest auf diesem Windows-11-PC einen zusätzlichen Dienst ein: den 3D-Druck-Server aus dem Repo
+https://github.com/erschoenfeld2-tech/Skeison_Web (Ordner 3d-server/, Anleitung 3d-server/SERVER-SETUP.md).
+Auf diesem PC laufen bereits Produktivdienste: MCSManager, der Cobblemon-Minecraft-Server und die Werkzeuge
+unter C:\MinecraftHosting\tools (sync-github.js, ki-bot.js, admin-panel.js). Für die ganze Sitzung gilt:
 
-1. System aktualisieren (apt update/upgrade) und unattended-upgrades für Sicherheitsupdates aktivieren.
-2. Pakete installieren: python3, python3-venv, python3-pip, nginx, certbot, python3-certbot-nginx, ufw,
-   fail2ban, curl, unzip, xz-utils, jq.
-3. Einen Systembenutzer "skeison3d" ohne Login-Shell anlegen (für den Dienst), Home /opt/skeison-3d.
-4. Firewall ufw: nur OpenSSH, 80 und 443 erlauben, dann aktivieren. Prüfe vorher, dass SSH erlaubt ist,
-   damit ich mich nicht aussperre.
-5. fail2ban mit Standard-Jail für sshd aktivieren.
-
-Prüfung am Ende: zeig mir `ufw status`, `systemctl is-active fail2ban nginx` und `python3 --version`.
+1. Beende, starte oder ändere KEINE bestehenden Prozesse, Dienste, geplanten Aufgaben, MCSManager-Instanzen
+   oder Dateien unter C:\MinecraftHosting außerhalb von C:\MinecraftHosting\3d-druck. Kein Neustart des PCs.
+2. Keine Änderungen an Windows-Firewall, Router, Energieeinstellungen oder Benutzerkonten, ohne mich vorher
+   zu fragen. Der neue Dienst lauscht nur auf 127.0.0.1.
+3. Vor jeder Installation (winget, pip, Downloads) sagst du, was du installierst und woher, und wartest auf mein OK.
+4. Gib niemals API-Keys, Tokens oder den Inhalt von .env-Dateien aus. Schlüssel trage ich selbst ein.
+5. Nutze PowerShell. Zeig mir vor jedem Schritt mit Wirkung den Befehl. Wenn etwas schiefgeht: anhalten,
+   Ursache erklären, Vorschlag machen, auf mein OK warten.
+Bestätige die Regeln kurz und warte dann auf den nächsten Prompt.
 ```
 
-## Prompt 2 – Blender ohne Oberfläche installieren
+## Prompt 1 – Bestandsaufnahme (nur lesen, ändert nichts)
 
 ```text
-Installiere Blender für den Headless-Betrieb (ohne Bildschirm) auf diesem Server.
+Mach eine Bestandsaufnahme dieses PCs, ohne etwas zu ändern:
+1. Windows-Version, CPU (Kerne/Threads), RAM gesamt und frei, freier Speicher auf C:.
+2. Laufende Prozesse rund um den Server: java/javaw (Minecraft), node_app.exe (MCSManager, Werkzeuge),
+   claude.exe, python. Zeig CPU- und RAM-Verbrauch.
+3. Belegte Ports (Get-NetTCPConnection -State Listen) mit Prozessnamen. Ist 8095 frei? Wenn nicht, schlag
+   einen freien Port zwischen 8091 und 8099 vor.
+4. Wie werden ki-bot.js und sync-github.js gestartet? Prüfe MCSManager (Instanzen in
+   C:\MinecraftHosting\panel), die Aufgabenplanung (Get-ScheduledTask, nur Aufgaben, die nicht von Microsoft
+   stammen) und die Autostart-Ordner. Unter welchem Windows-Benutzer laufen sie?
+5. Vorhanden? git, python (Version), winget, Blender, cloudflared, tailscale.
+6. claude.exe: Finde sie wie tools\ki-bot.js (findClaude: %APPDATA%\Claude\claude-code oder
+   %LOCALAPPDATA%\Claude-Data) und nenne den Pfad. Schau in C:\MinecraftHosting\tools\data\ki-bot.log nach
+   den letzten Antworten, um zu sehen, ob die Anmeldung funktioniert (nur Zeitstempel und ob Fehler, keine Inhalte).
+7. Energieoptionen: Geht der PC in den Ruhezustand oder Standby (powercfg /query für Standby- und Ruhezustand-Zeit)?
 
-1. Lade die aktuelle Blender-LTS-Version (4.5 LTS oder neuer, Linux x64, .tar.xz) direkt von
-   https://download.blender.org/release/ herunter. Prüfe die SHA256-Prüfsumme gegen die .sha256-Datei
-   im selben Ordner.
-2. Entpacke nach /opt/blender (der Ordner soll direkt die Datei /opt/blender/blender enthalten)
-   und lege einen Symlink /usr/local/bin/blender an.
-3. Installiere die Bibliotheken, die Blender auch im Hintergrundmodus braucht, z. B. libxi6 libxxf86vm1
-   libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libice6 libegl1. Falls beim Test eine .so-Datei fehlt,
-   installiere das passende Paket nach.
-4. Test 1: `blender -b --factory-startup --version`
-5. Test 2: Lass Blender im Hintergrund eine UV-Kugel als GLB exportieren:
-   blender -b --factory-startup --python-expr "import bpy; bpy.ops.mesh.primitive_uv_sphere_add(); bpy.ops.export_scene.gltf(filepath='/tmp/test.glb')"
-   und prüfe, dass /tmp/test.glb existiert und größer als 0 Byte ist.
-
-Prüfung am Ende: Blender-Version und Größe von /tmp/test.glb.
+Fasse am Ende zusammen: empfohlener Port, empfohlene Zahl Blender-Threads (etwa ein Drittel der Threads,
+höchstens 4, damit Minecraft genug übrig hat), und auf welchem Weg der 3D-Server automatisch starten sollte
+(derselbe wie beim KI-Bot). Ändere nichts.
 ```
 
-## Prompt 3 – App installieren und konfigurieren
+## Prompt 2 – Software installieren
 
 ```text
-Installiere die Web-App "3D-Druck" aus dem Repo https://github.com/erschoenfeld2-tech/Skeison_Web.
+Installiere, was für den 3D-Druck-Server fehlt (frag vor jeder Installation, Regel 3):
+1. Git, falls nicht vorhanden: winget install --id Git.Git -e
+2. Python 3.12 (oder neuer), falls nicht vorhanden: winget install --id Python.Python.3.12 -e
+   Danach in einer neuen PowerShell prüfen: py -3.12 --version
+3. Blender LTS (4.2 oder neuer): mit `winget search Blender` die passende LTS-ID suchen, mir zeigen und nach
+   meinem OK installieren. Alternativ die .zip von https://download.blender.org/release/ nach
+   C:\MinecraftHosting\3d-druck\blender entpacken (dann bleibt alles in einem Ordner).
+4. Test ohne Oberfläche (Pfad zu blender.exe anpassen):
+   & "<blender.exe>" -b --factory-startup --version
+   & "<blender.exe>" -b --factory-startup --python-expr "import bpy; bpy.ops.mesh.primitive_monkey_add(); bpy.ops.export_scene.gltf(filepath=r'C:\MinecraftHosting\3d-druck\test\monkey.glb')"
+   (den Ordner test vorher anlegen)
 
-1. Klone das Repo (Branch main) nach /opt/skeison-3d, sodass es /opt/skeison-3d/3d-server und /opt/skeison-3d/site gibt.
-   Lies danach /opt/skeison-3d/3d-server/README.md und 3d-server/app.py, damit du den Aufbau verstehst.
-2. Lege in /opt/skeison-3d/3d-server eine venv an (.venv) und installiere requirements.txt.
-3. Erstelle /opt/skeison-3d/3d-server/.env aus .env.example mit diesen Werten:
-   DEMO_MODE=1 (vorerst!), DATA_DIR=/opt/skeison-3d/data, BLENDER_MODE=cli,
-   BLENDER_BIN=/opt/blender/blender, ALLOWED_ORIGINS=https://erschoenfeld2-tech.github.io,https://<MEINE-DOMAIN>
-   Die API-Keys (MESHY_API_KEY, ANTHROPIC_API_KEY) trage ich selbst ein: öffne die Datei NICHT mit
-   den Keys in deiner Ausgabe, sondern sag mir nur den Befehl, mit dem ich sie bearbeiten kann
-   (sudo nano /opt/skeison-3d/3d-server/.env).
-4. Rechte: Alles gehört skeison3d:skeison3d, .env hat chmod 600, /opt/skeison-3d/data existiert und
-   ist für skeison3d beschreibbar.
+Prüfung am Ende: Versionen von git, Python und Blender, voller Pfad zu blender.exe, Größe von monkey.glb.
+```
 
-Prüfung am Ende: `sudo -u skeison3d /opt/skeison-3d/3d-server/.venv/bin/python -c "import fastapi, anthropic, PIL; print('ok')"`
-und `ls -la /opt/skeison-3d/3d-server/.env` (nur Rechte zeigen, nicht den Inhalt).
+## Prompt 3 – 3D-Server installieren
+
+```text
+Installiere den 3D-Druck-Server nach C:\MinecraftHosting\3d-druck:
+1. git clone --depth 1 https://github.com/erschoenfeld2-tech/Skeison_Web.git C:\MinecraftHosting\3d-druck\repo
+   Lies danach repo\3d-server\README.md und repo\3d-server\app.py.
+2. In repo\3d-server eine venv anlegen (py -3.12 -m venv .venv) und requirements.txt installieren.
+3. repo\3d-server\.env aus .env.example erstellen mit:
+   DEMO_MODE=1 (vorerst!), JOB_WORKERS=1, CLAUDE_BACKEND=cli,
+   BLENDER_BIN='<voller Pfad zu blender.exe aus Prompt 2>' (in einfachen Anführungszeichen),
+   BLENDER_THREADS=<Empfehlung aus Prompt 1>, BLENDER_LOW_PRIORITY=1,
+   ALLOWED_ORIGINS=https://erschoenfeld2-tech.github.io
+   Wenn claude.exe in Prompt 1 nicht automatisch gefunden wurde: CLAUDE_EXE='<Pfad>'.
+   Keine Schlüssel eintragen (Regel 4).
+4. .env nur für den Windows-Benutzer lesbar machen, unter dem der Dienst laufen soll:
+   icacls .env /inheritance:r /grant:r "<Benutzer>:(R,W)"
+5. Wenn der Port aus Prompt 1 nicht 8095 ist: Umgebungsvariable S3D_PORT für diesen Benutzer setzen
+   ([Environment]::SetEnvironmentVariable('S3D_PORT','<Port>','User')).
+
+Prüfung am Ende: .venv\Scripts\python -c "import fastapi, anthropic, PIL; print('ok')" und
+icacls .env (nur die Rechte, nicht den Inhalt).
 ```
 
 ## Prompt 4 – Testen, ohne Guthaben zu verbrauchen
 
 ```text
-Teste den 3D-Druck-Server, ohne Meshy- oder Claude-Guthaben zu verbrauchen.
+Teste den 3D-Server, ohne Meshy-Guthaben zu verbrauchen. Beobachte dabei, dass Minecraft weiterläuft.
 
-Teil A – Demo-Modus (DEMO_MODE=1 steht in der .env):
-1. Starte die App als Benutzer skeison3d testweise im Vordergrund:
-   cd /opt/skeison-3d/3d-server && .venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000
-2. In einem zweiten Terminal: curl http://127.0.0.1:8000/api/health
-3. Lege per curl einen Auftrag an: POST /api/jobs als multipart mit description="Testvase" und size_mm=60.
-   Frage den Status unter /api/jobs/<id> ab, bis state "done" ist, und lade /api/jobs/<id>/file?format=3mf
-   und ?format=stl herunter. Prüfe, dass die 3MF eine gültige ZIP-Datei ist und dass die Größe der
-   Binär-STL genau 84 + 50 × Dreiecksanzahl Byte beträgt.
-4. Beende den Testserver.
+Teil A – Demo-Modus (DEMO_MODE=1):
+1. Starte im Ordner repo\3d-server testweise im Vordergrund:
+   .venv\Scripts\python -m uvicorn app:app --host 127.0.0.1 --port <Port>
+2. In einer zweiten PowerShell: Invoke-RestMethod http://127.0.0.1:<Port>/api/health
+3. Auftrag anlegen: curl.exe -s -F "description=Testvase" -F "size_mm=60" http://127.0.0.1:<Port>/api/jobs
+   Status unter /api/jobs/<id> abfragen bis state "done", dann /api/jobs/<id>/file?format=3mf und
+   ?format=stl herunterladen. Prüfen: 3MF ist ein gültiges ZIP, STL-Größe = 84 + 50 × Dreiecke.
+4. Im Browser http://127.0.0.1:<Port>/3d/ öffnen: Seite erscheint im Skeison-Design.
+5. Testserver beenden (nur diesen Prozess!).
 
-Teil B – echtes Blender-Skript mit einer Test-GLB (kostet nichts):
-1. Erzeuge mit Blender eine Test-GLB: einen "Suzanne"-Affenkopf (bpy.ops.mesh.primitive_monkey_add),
-   exportiert nach /tmp/monkey.glb. Der Affe hat offene Stellen, gut zum Testen.
-2. Führe als skeison3d aus:
-   /opt/blender/blender -b --factory-startup -noaudio -P /opt/skeison-3d/3d-server/blender/printprep.py -- \
-     --in /tmp/monkey.glb --out-dir /tmp/monkey-out --name affe --size 60 --flat-base 1
-3. Die letzte Zeile muss mit SKEISON_RESULT beginnen. Prüfe darin: "watertight": true und size_mm ungefähr 60
-   an der längsten Kante. Wenn watertight false ist oder ein Fehler kommt, analysiere die Ausgabe,
-   behebe das Problem in printprep.py und erkläre mir die Änderung.
+Teil B – Blender mit der Test-GLB aus Prompt 2 (kostet nichts):
+1. Während es läuft, CPU-Last von java und blender beobachten (Get-Process).
+   & "<blender.exe>" -b --factory-startup -noaudio -t <Threads> -P repo\3d-server\blender\printprep.py -- `
+     --in C:\MinecraftHosting\3d-druck\test\monkey.glb --out-dir C:\MinecraftHosting\3d-druck\test\out `
+     --name affe --size 60 --flat-base 1
+   (Hier läuft Blender mit normaler Priorität; der Dienst startet es später mit niedriger.)
+2. Die letzte Zeile muss mit SKEISON_RESULT beginnen, mit "watertight": true und der längsten Kante
+   etwa 60 mm. Bei einem Fehler: Ausgabe analysieren, Lösung vorschlagen, auf mein OK warten.
 
-Prüfung am Ende: die SKEISON_RESULT-Zeile und die Dateigrößen von model.stl und model.3mf.
+Prüfung am Ende: SKEISON_RESULT-Zeile, Dauer, höchste CPU-Last von Blender, und ob Minecraft dabei weiterlief.
 ```
 
-## Prompt 5 – Als Dienst einrichten (startet automatisch)
+## Prompt 5 – Claude lokal prüfen (ein kurzer Haiku-Aufruf)
 
 ```text
-Richte den 3D-Druck-Server als systemd-Dienst ein.
-
-1. Erstelle /etc/systemd/system/skeison-3d.service:
-   - User/Group skeison3d, WorkingDirectory /opt/skeison-3d/3d-server
-   - ExecStart: /opt/skeison-3d/3d-server/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000
-     --proxy-headers --forwarded-allow-ips 127.0.0.1
-   - WICHTIG: genau EIN uvicorn-Worker (keine --workers-Option), weil die Auftragsliste im
-     Arbeitsspeicher liegt.
-   - Restart=always, RestartSec=3
-   - Härtung: NoNewPrivileges=true, PrivateTmp=true, ProtectSystem=strict,
-     ReadWritePaths=/opt/skeison-3d/data, ProtectHome=true, MemoryMax=6G (an meinen RAM anpassen)
-2. daemon-reload, enable, start.
-3. Prüfe, ob Blender unter ProtectSystem=strict funktioniert (Blender schreibt evtl. in ~/.config oder /tmp).
-   Falls nicht: Environment=HOME=/opt/skeison-3d/data/home setzen und den Ordner anlegen.
-
-Prüfung am Ende: `systemctl status skeison-3d`, `curl -s http://127.0.0.1:8000/api/health | jq` und
-die letzten 20 Zeilen von `journalctl -u skeison-3d`.
+Prüfe, ob der 3D-Server das lokal angemeldete Claude Code nutzen kann (CLAUDE_BACKEND=cli).
+Führe GENAU EINEN Testaufruf aus, unter dem Windows-Benutzer, unter dem auch der Dienst laufen wird:
+cd repo\3d-server
+.venv\Scripts\python -c "import logging,claude_step as c; logging.basicConfig(level=logging.INFO); print(c.backend()); print(c.refine('Eine kleine Eule als Stifthalter, etwa 10 cm hoch', [], '.'))"
+Erwartet: "cli" und ein JSON mit meshy_prompt (Englisch), size_mm 100, name und hint.
+Wenn "Not logged in" kommt: Mir sagen, dass ich die Anmeldung wie beim KI-Bot einmal selbst erledige
+(C:\MinecraftHosting\tools\ki-login.bat, dort /login und dann /exit). Danach den Test einmal wiederholen.
+Wenn eine Option von claude.exe nicht erkannt wird (andere Version): Fehlermeldung zeigen, in claude_step.py
+(_refine_cli) eine Lösung vorschlagen und auf mein OK warten.
 ```
 
-## Prompt 6 – nginx, HTTPS und Schutz vor Missbrauch
+## Prompt 6 – Automatisch starten
 
 ```text
-Mach den 3D-Druck-Server über https://<MEINE-DOMAIN> erreichbar.
+Richte den automatischen Start des 3D-Servers ein, auf DEMSELBEN Weg wie beim KI-Bot (Ergebnis aus Prompt 1)
+und unter demselben Windows-Benutzer, damit die Claude-Anmeldung gilt. Das Startskript ist
+repo\3d-server\start-3d-server.bat (lauscht nur auf 127.0.0.1, schreibt nach data\logs\server.log).
 
-1. nginx-Site /etc/nginx/sites-available/skeison-3d für server_name <MEINE-DOMAIN>:
-   - proxy_pass http://127.0.0.1:8000 für alles
-   - client_max_body_size 45M (4 Fotos à 10 MB)
-   - proxy_read_timeout 120s
-   - WICHTIG gegen IP-Fälschung: proxy_set_header X-Forwarded-For $remote_addr;
-     (überschreiben, NICHT $proxy_add_x_forwarded_for), dazu Host und X-Forwarded-Proto setzen
-   - Rate-Limit nur für POST /api/jobs: limit_req_zone $binary_remote_addr zone=s3djobs:10m rate=6r/m;
-     mit burst=3 nodelay in einer location = /api/jobs
-   - Sicherheits-Header: X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin
-2. Site aktivieren, `nginx -t`, reload.
-3. HTTPS mit certbot --nginx für <MEINE-DOMAIN>, inkl. automatischer Weiterleitung von http auf https.
-   Prüfe, dass der automatische Verlängerungs-Timer aktiv ist.
+- Wenn der KI-Bot über MCSManager läuft: Erkläre mir Schritt für Schritt, wie ich im MCSManager-Webpanel
+  eine neue Instanz "3D-Druck" (allgemeine Anwendung, Startbefehl = die .bat, Arbeitsordner = repo\3d-server,
+  Autostart an, Neustart bei Absturz an) anlege. Ändere die Konfiguration von MCSManager nicht selbst.
+- Wenn er über die Aufgabenplanung läuft: Lege eine Aufgabe "Skeison 3D-Druck" an (Auslöser: bei Anmeldung
+  dieses Benutzers und beim Start, Aktion: die .bat, "Bei Fehler neu starten" alle 1 Minute, beliebig oft,
+  keine Laufzeitbegrenzung, Batterie- und Leerlaufbedingungen aus). Wenn "Unabhängig von der Anmeldung
+  ausführen" nötig ist, gebe ich das Passwort selbst in der Aufgabenplanung ein, nicht du.
+- Sonst: Schlag den passenden Weg vor und warte auf mein OK.
 
-Prüfung am Ende: `curl -s https://<MEINE-DOMAIN>/api/health | jq` und ob https://<MEINE-DOMAIN>/3d/
-die Oberfläche (HTML mit "Von der Idee") ausliefert.
+Prüfung am Ende: Dienst gestartet, Invoke-RestMethod http://127.0.0.1:<Port>/api/health antwortet,
+und Get-Process zeigt, dass Minecraft, MCSManager und KI-Bot weiterhin laufen.
 ```
 
-## Prompt 7 – Echtbetrieb einschalten (verbraucht Guthaben)
+## Prompt 7 – Öffentlich per HTTPS erreichbar machen (Tunnel)
 
-> Vorher selbst die Keys eintragen: `sudo nano /opt/skeison-3d/3d-server/.env`, dann `MESHY_API_KEY` und `ANTHROPIC_API_KEY` setzen und `DEMO_MODE=0` stellen. Optional `ACCESS_CODE` setzen, solange nur du testest.
+Die Webseite auf GitHub Pages braucht eine **HTTPS-Adresse** für den Server. Ein Tunnel baut die Verbindung von innen nach außen auf. Wähle **A**, wenn du eine eigene Domain bei Cloudflare hast, sonst **B**.
 
 ```text
-Ich habe in /opt/skeison-3d/3d-server/.env die API-Keys eingetragen und DEMO_MODE=0 gesetzt.
-Gib die Keys niemals aus.
+Mach den 3D-Server (127.0.0.1:<Port>) über einen Tunnel per HTTPS erreichbar. Keine Portfreigabe, keine
+Firewall-Änderung. Ich habe mich für Variante <A oder B> entschieden.
 
-1. Starte den Dienst neu und prüfe /api/health: "demo" false, "claude" true, "meshy" true.
-2. Starte GENAU EINEN echten Text-Auftrag per curl (description "kleine Eule als Stifthalter",
-   size_mm 70). Falls ACCESS_CODE gesetzt ist, lies ihn aus der .env und schick ihn als Header
-   X-Access-Code mit, ohne ihn anzuzeigen. Frage den Status alle 10 s ab und zeig mir die Stufen.
-3. Nach "done": Zeig mir das result-JSON (Größe, Dreiecke, watertight) und die Logzeile mit dem
-   Claude-Tokenverbrauch (journalctl -u skeison-3d | grep "Claude").
-4. Bei Fehlern: lies das Journal, finde die Ursache, schlag eine Lösung vor und warte auf mein OK,
-   bevor du Code änderst.
+Variante A – Cloudflare Tunnel (eigene Domain bei Cloudflare, z. B. 3d.<domain>):
+1. cloudflared installieren (winget install --id Cloudflare.cloudflared -e, nach meinem OK).
+2. Anmelden: cloudflared tunnel login (öffnet den Browser, die Anmeldung mache ich).
+3. Tunnel "skeison-3d" anlegen, DNS-Eintrag 3d.<domain> setzen, config.yml mit ingress
+   3d.<domain> -> http://127.0.0.1:<Port> und danach http_status:404.
+4. Als Windows-Dienst installieren (cloudflared service install), damit er mit Windows startet.
+5. In repo\3d-server\.env CLIENT_IP_HEADER=cf-connecting-ip setzen und den 3D-Dienst neu starten
+   (nur diesen, auf dem Weg aus Prompt 6).
+
+Variante B – Tailscale Funnel (keine eigene Domain nötig, Adresse https://<pc>.<tailnet>.ts.net):
+1. Tailscale installieren (winget install --id Tailscale.Tailscale -e, nach meinem OK), anmelden mache ich.
+2. Funnel muss ich in der Tailscale-Admin-Konsole erlauben; sag mir, wo.
+3. tailscale funnel --bg <Port>, Adresse ausgeben.
+4. Mit einem Testaufruf prüfen, in welchem Header die echte Besucher-IP ankommt (z. B. kurz in
+   data\logs\server.log), und CLIENT_IP_HEADER in .env entsprechend setzen. 3D-Dienst neu starten.
+
+Für beide: ALLOWED_ORIGINS in .env bleibt https://erschoenfeld2-tech.github.io (plus die Tunnel-Adresse, falls
+ich die Seite auch direkt darüber öffnen will).
+
+Prüfung am Ende (von außen, z. B. über curl.exe vom PC aus an die öffentliche Adresse):
+curl.exe -s https://<adresse>/api/health
+curl.exe -s -I -H "Origin: https://erschoenfeld2-tech.github.io" https://<adresse>/api/health
+(der zweite Aufruf muss access-control-allow-origin zeigen)
 ```
 
-## Prompt 8 – GitHub-Pages-Seite mit dem Server verbinden (auf deinem PC im Repo Skeison_Web)
+## Prompt 8 – Echtbetrieb einschalten (verbraucht Meshy-Guthaben)
 
-Die Seite `site/3d/` ist schon Teil des Repos. Sie muss nur wissen, unter welcher Adresse der Server läuft. Diesen Prompt in Claude Code **auf deinem PC** im Ordner `Skeison_Web` ausführen:
+> Vorher selbst eintragen: `notepad C:\MinecraftHosting\3d-druck\repo\3d-server\.env`, dort `MESHY_API_KEY` setzen und `DEMO_MODE=0`. Optional `ACCESS_CODE`, solange nur du testest. Einen `ANTHROPIC_API_KEY` nur eintragen, wenn du statt des Abos die API nutzen willst.
 
 ```text
-Verbinde die Seite site/3d/ mit meinem 3D-Server unter https://<MEINE-DOMAIN>.
-1. Setze in site/3d/config.js: window.SKEISON_3D_API = "https://<MEINE-DOMAIN>";
-2. Prüfe per curl, dass https://<MEINE-DOMAIN>/api/health antwortet und den CORS-Header für
-   https://erschoenfeld2-tech.github.io zurückgibt (Origin-Header mitschicken).
-3. Neuer Branch, Commit, Pull Request. Nach dem Merge: https://erschoenfeld2-tech.github.io/Skeison_Web/3d/
-   öffnen und prüfen, dass der Hinweis "Server nicht erreichbar" verschwunden ist.
-Optional: Auf der Startseite (site/index.html, main.js PROJECTS) einen Link auf 3d/ ergänzen, im Stil der
-bestehenden Karten. Zeig mir den Diff, bevor du committest.
+Ich habe in repo\3d-server\.env den Meshy-Key eingetragen und DEMO_MODE=0 gesetzt. Gib keine Schlüssel aus.
+1. Starte nur den 3D-Dienst neu und prüfe /api/health: "demo" false, "meshy" true, "claude" "cli" (oder "api").
+2. Starte GENAU EINEN echten Auftrag:
+   curl.exe -s -F "description=kleine Eule als Stifthalter" -F "size_mm=70" http://127.0.0.1:<Port>/api/jobs
+   (mit -H "X-Access-Code: ..." aus der .env, falls ACCESS_CODE gesetzt ist, ohne den Code anzuzeigen)
+   Status alle 10 Sekunden abfragen und die Stufen zeigen. Währenddessen CPU-Last von java und blender beobachten.
+3. Nach "done": result-JSON zeigen (Größe, Dreiecke, watertight) und die Claude-Zeile aus data\logs\server.log.
+4. Bei Fehlern: Log lesen, Ursache erklären, Lösung vorschlagen, auf mein OK warten.
 ```
 
-## Prompt 9 – Wartung und Überwachung
+## Prompt 9 – Seite mit dem Server verbinden (im Repo, z. B. auf deinem PC)
 
 ```text
-Richte für den 3D-Druck-Server eine einfache Wartung ein:
-1. journald: Logs auf maximal 500 MB begrenzen (SystemMaxUse).
-2. Ein täglicher systemd-Timer, der prüft, ob /opt/skeison-3d/data größer als 5 GB ist, und dann
-   Auftragsordner löscht, die älter als 2 Tage sind (die App räumt nach 24 h selbst auf, das ist nur
-   die Absicherung, z. B. nach einem Neustart).
-3. Ein Health-Check alle 5 Minuten (systemd-Timer + curl auf /api/health). Bei zwei Fehlschlägen
-   hintereinander Dienst neu starten und ins Journal schreiben.
-4. Schreib mir eine kurze Datei /opt/skeison-3d/WARTUNG.md: wie ich Logs ansehe, den Dienst neu starte,
-   Blender aktualisiere, die App aktualisiere (neue Dateien, pip install, restart) und das Tageslimit
-   (JOBS_PER_IP_PER_DAY) ändere.
+Verbinde die Seite site/3d/ mit dem 3D-Server unter https://<adresse aus Prompt 7>:
+1. Setze in site/3d/config.js: window.SKEISON_3D_API = "https://<adresse>";
+2. Neuer Branch, Commit, Pull Request. Nach dem Merge https://erschoenfeld2-tech.github.io/Skeison_Web/3d/
+   öffnen: Der Hinweis "Server nicht erreichbar" muss verschwunden sein.
+Optional: Auf der Startseite (site/index.html bzw. main.js) einen Link auf 3d/ ergänzen, im Stil der bestehenden
+Karten. Zeig mir den Diff, bevor du committest.
 ```
 
-## Optional – Prompt 10: 3D-Erzeugung komplett auf dem eigenen Server
-
-Meshy ist ein externer Dienst. Wenn du später **alles** selbst hosten willst, brauchst du eine NVIDIA-Grafikkarte mit mindestens etwa 12–16 GB VRAM.
+## Prompt 10 – Wartung
 
 ```text
-Prüfe, ob dieser Server eine NVIDIA-GPU hat (nvidia-smi) und wie viel VRAM verfügbar ist.
+Richte für den 3D-Server eine einfache Wartung ein (nur innerhalb von C:\MinecraftHosting\3d-druck und
+mit eigener geplanter Aufgabe, bestehende Aufgaben nicht anfassen):
+1. Health-Check alle 5 Minuten (PowerShell-Skript + geplante Aufgabe "Skeison 3D-Druck Check"):
+   Antwortet http://127.0.0.1:<Port>/api/health zweimal hintereinander nicht, den 3D-Dienst auf dem Weg aus
+   Prompt 6 neu starten und eine Zeile in data\logs\health.log schreiben.
+2. Logs: Ist data\logs\server.log größer als 20 MB, auf die letzten 5000 Zeilen kürzen.
+3. Lege C:\MinecraftHosting\3d-druck\WARTUNG.md an: Logs ansehen, Dienst neu starten, Update
+   (cd repo; git pull; .venv\Scripts\pip install -r 3d-server\requirements.txt; Dienst neu starten),
+   Blender aktualisieren (BLENDER_BIN anpassen), Tageslimits ändern (JOBS_PER_IP_PER_DAY, JOBS_TOTAL_PER_DAY),
+   zwischen CLAUDE_BACKEND=cli und api wechseln.
+```
+
+## Optional – 3D-Erzeugung komplett auf dem eigenen PC
+
+Meshy ist ein externer Dienst. Komplett lokal ginge es nur mit einer NVIDIA-Grafikkarte mit etwa 12–16 GB VRAM. Die wäre dann aber auch für Minecraft weniger frei.
+
+```text
+Prüfe, ob dieser PC eine NVIDIA-GPU hat (nvidia-smi) und wie viel VRAM frei ist, während Minecraft läuft.
 Wenn ja: Bewerte quelloffene Bild-zu-3D-Modelle (z. B. Hunyuan3D-2, TripoSR, TRELLIS) nach Lizenz
-(kommerzielle Nutzung erlaubt?), VRAM-Bedarf, Qualität und Geschwindigkeit. Schlag mir eines vor und
-beschreibe, wie man in /opt/skeison-3d/3d-server/meshy.py eine zweite Funktion generate_local() ergänzt,
-die dieselbe Schnittstelle hat (gibt eine GLB-Datei zurück), umschaltbar über GENERATOR=meshy|local in
-der .env. Noch nichts installieren, erst meine Entscheidung abwarten.
+(kommerzielle Nutzung?), VRAM-Bedarf, Qualität und Laufzeit unter Windows. Schlag eines vor und beschreibe, wie
+man in repo\3d-server\meshy.py eine Funktion generate_local() mit derselben Schnittstelle ergänzt (gibt eine
+GLB-Datei zurück), umschaltbar über GENERATOR=meshy|local. Noch nichts installieren.
 ```
