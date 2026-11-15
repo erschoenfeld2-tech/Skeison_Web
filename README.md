@@ -15,7 +15,7 @@ Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seit
 | `site/assets/mode.js` | Hell/Dunkel für alle Seiten: Standard folgt dem Gerät, der Knopf (Sonne/Mond) in der Navigation wechselt; die Wahl gilt auf dem Gerät für alle Seiten |
 | `site/assets/skinview3d.*` | skinview3d (MIT-Lizenz) |
 | `server/kubejs/server_scripts/` | KubeJS-Skripte für den Minecraft-Server (z. B. `nicknames.js`: `/nick` für Admins) |
-| `supabase/` | Datenbank-Schema (`whitelist.sql`, `wunschliste*.sql`, `druck3d.sql`, `druck3d_server.sql` und `druck3d_settings.sql` für den 3D-Druck) und Edge Functions |
+| `supabase/` | Datenbank-Schema (`whitelist.sql`, `wunschliste*.sql`, `druck3d.sql`, `druck3d_server.sql`, `druck3d_settings.sql` und `druck3d_host.sql` für den 3D-Druck) und Edge Functions |
 | `android-app/` | Wunschliste als Android-App: lädt die Live-Webseite, ergänzt Teilen, QR speichern, Zurück-Taste, Links in der App. Gebaut, getestet und veröffentlicht von `.github/workflows/android-app.yml` (Details in `android-app/README.md`). Installationsseite: `site/wunschliste/app.html` |
 
 ## Anpassen

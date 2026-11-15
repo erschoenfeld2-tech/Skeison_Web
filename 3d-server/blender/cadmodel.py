@@ -149,6 +149,40 @@ def union(parts, max_parts=120):
 
 # ---------- Ansichten ----------
 
+# BLENDER_PREVIEW_ENGINE (.env des Workers, wird an Blender weitergereicht): workbench | cycles | auto
+#   workbench = nur Workbench (schnell), cycles = nur Cycles auf der CPU, auto = Workbench, bei einem Renderfehler Cycles.
+# Vorher musste ein lokaler Patch (cadmodel-cycles-preview.patch) auf dem Server-PC her; jetzt reicht eine Zeile in der .env.
+PREVIEW_ENGINE = os.environ.get("BLENDER_PREVIEW_ENGINE", "auto")
+try:
+    PREVIEW_SAMPLES = max(1, int(os.environ.get("BLENDER_PREVIEW_SAMPLES") or 12))
+except ValueError:
+    PREVIEW_SAMPLES = 12
+
+
+def preview_engines(setting):
+    """Render-Engines in der Reihenfolge, in der sie versucht werden. Unbekannte Werte gelten als auto."""
+    s = (setting or "auto").strip().lower()
+    if s == "cycles":
+        return ["CYCLES"]
+    if s == "workbench":
+        return ["BLENDER_WORKBENCH"]
+    return ["BLENDER_WORKBENCH", "CYCLES"]
+
+
+def render_with_fallback(engines, setup, render, state):
+    """Rendert mit engines[state['i']]; bei einem RuntimeError mit der naechsten. Der Zustand bleibt fuer die weiteren
+    Ansichten erhalten (nach einem Wechsel wird nicht jedes Mal erst die kaputte Engine versucht). Gibt die genutzte Engine zurueck."""
+    while True:
+        try:
+            render()
+            return engines[state["i"]]
+        except RuntimeError:
+            if state["i"] + 1 >= len(engines):
+                raise
+            state["i"] += 1
+            setup(engines[state["i"]])
+
+
 def render_previews(obj, path, overhang_deg=45):
     """Vier Ansichten: vorne, rechts, oben (orthografisch, massstabsgetreu) und schraeg. Ueberhaenge rot."""
     scene = bpy.context.scene
@@ -174,14 +208,25 @@ def render_previews(obj, path, overhang_deg=45):
     scene.world = world
     scene.render.resolution_x = scene.render.resolution_y = 512
     scene.render.image_settings.file_format = "PNG"
-    try:
-        scene.render.engine = "BLENDER_WORKBENCH"
-        scene.display.shading.light = "STUDIO"
-        scene.display.shading.color_type = "MATERIAL"
-        scene.display.shading.show_cavity = True
-        scene.display.shading.show_object_outline = True
-    except (TypeError, AttributeError):
-        pass
+    engines = preview_engines(PREVIEW_ENGINE)
+    engine_state = {"i": 0}
+
+    def setup_engine(engine):
+        if engine == "CYCLES":
+            scene.render.engine = "CYCLES"
+            scene.cycles.device = "CPU"
+            scene.cycles.samples = PREVIEW_SAMPLES
+            return
+        try:
+            scene.render.engine = engine
+            scene.display.shading.light = "STUDIO"
+            scene.display.shading.color_type = "MATERIAL"
+            scene.display.shading.show_cavity = True
+            scene.display.shading.show_object_outline = True
+        except (TypeError, AttributeError):
+            pass
+
+    setup_engine(engines[0])
     views = [  # Name, Richtung von der Mitte zur Kamera, orthografische Breite (0 = perspektivisch), feste Drehung
         ("vorne", Vector((0, -1, 0)), max(size.x, size.z), (math.pi / 2, 0, 0)),          # X rechts, Z oben
         ("rechts", Vector((1, 0, 0)), max(size.y, size.z), (math.pi / 2, 0, math.pi / 2)),  # Y rechts, Z oben
@@ -203,13 +248,7 @@ def render_previews(obj, path, overhang_deg=45):
         cam.rotation_euler = rot if rot else (-d).to_track_quat("-Z", "Y").to_euler()
         out = path.replace(".png", f"_{name}.png")
         scene.render.filepath = out
-        try:
-            bpy.ops.render.render(write_still=True)
-        except RuntimeError:
-            scene.render.engine = "CYCLES"
-            scene.cycles.device = "CPU"
-            scene.cycles.samples = 12
-            bpy.ops.render.render(write_still=True)
+        render_with_fallback(engines, setup_engine, lambda: bpy.ops.render.render(write_still=True), engine_state)
         files.append(out)
     return files
 

@@ -98,23 +98,26 @@ Prüfung am Ende: Versionen von git, Python und Blender, voller Pfad zu blender.
 
 ## Prompt 3 – 3D-Server installieren
 
+Solange PR #27 noch nicht gemergt ist, im ersten Schritt `--branch claude/3d-blender` statt `--branch main` verwenden.
+
 ```text
 Installiere den 3D-Druck-Server nach C:\MinecraftHosting\3d-druck:
-1. git clone --depth 1 https://github.com/erschoenfeld2-tech/Skeison_Web.git C:\MinecraftHosting\3d-druck\repo
+1. git clone --depth 1 --branch main https://github.com/erschoenfeld2-tech/Skeison_Web.git C:\MinecraftHosting\3d-druck\repo
    Lies danach repo\3d-server\README.md, repo\3d-server\worker.py und repo\supabase\druck3d.sql.
 2. In repo\3d-server eine venv anlegen (py -3.12 -m venv .venv) und requirements.txt installieren.
 3. repo\3d-server\.env aus .env.example erstellen mit:
-   SERVER_NAME=HW_01, DEMO_MODE=1 (vorerst!), JOB_WORKERS=1, GENERATOR=claude, CLAUDE_BACKEND=cli,
+   SERVER_NAME=<HW_01 bzw. HW_02, je Rechner anders>, DEMO_MODE=1 (vorerst!), JOB_WORKERS=1, GENERATOR=claude, CLAUDE_BACKEND=cli,
    ANTHROPIC_API_KEY und MESHY_API_KEY leer,
    BLENDER_BIN='<voller Pfad zu blender.exe aus Prompt 2>' (in einfachen Anführungszeichen),
    BLENDER_THREADS=<Empfehlung aus Prompt 1>, BLENDER_LOW_PRIORITY=1.
    Wenn claude.exe in Prompt 1 nicht automatisch gefunden wurde: CLAUDE_EXE='<Pfad>'.
-   Supabase: SUPABASE_URL und SUPABASE_SERVICE_KEY leer lassen, wenn admin.config.json existiert (der Worker
-   liest sie dort). Sonst trage ich den Key selbst ein. Keine Schlüssel eintragen oder anzeigen (Regel 4).
+   Supabase: SUPABASE_URL steht schon in .env.example (öffentlich). SUPABASE_SERVICE_KEY trage ich selbst ein; nur auf dem
+   alten PC mit tools\admin.config.json darf er leer bleiben (der Worker liest ihn dort). Keine Schlüssel eintragen oder
+   anzeigen (Regel 4).
 4. .env nur für den Windows-Benutzer lesbar machen, unter dem der Dienst laufen soll:
    icacls .env /inheritance:r /grant:r "<Benutzer>:(R,W)"
-5. Wenn der Port aus Prompt 1 nicht 8095 ist: Umgebungsvariable S3D_PORT für diesen Benutzer setzen
-   ([Environment]::SetEnvironmentVariable('S3D_PORT','<Port>','User')).
+5. Wenn der Port aus Prompt 1 nicht 8095 ist: in der .env S3D_PORT=<Port> eintragen (die .env gilt vor
+   Umgebungsvariablen; keine Benutzer-Umgebungsvariable dafür anlegen).
 
 Prüfung am Ende: .venv\Scripts\python -c "import fastapi, requests, anthropic, PIL; print('ok')" und
 icacls .env (nur die Rechte, nicht den Inhalt).
@@ -245,14 +248,16 @@ Aktualisiere den 3D-Worker auf die neue Fassung (Claude modelliert selbst in Ble
 1. cd C:\MinecraftHosting\3d-druck\repo; git pull; .venv\Scripts\pip install -r 3d-server\requirements.txt
 2. Ergänze in 3d-server\.env (Werte von Schlüsseln nicht anzeigen): SERVER_NAME=HW_01, GENERATOR=claude,
    CLAUDE_BACKEND=cli, CLAUDE_CAD_MODEL=sonnet, CAD_MAX_CALLS=3, JOBS_PER_IP_PER_DAY=3, JOBS_TOTAL_PER_DAY=10,
-   BLENDER_MAX_RAM_MB=3072. Vergleiche mit .env.example, ob sonst etwas fehlt.
+   BLENDER_MAX_RAM_MB=3072, BLENDER_PREVIEW_ENGINE=auto (oder cycles, falls dort ein lokaler Cycles-Patch an cadmodel.py
+   angewendet war: erst mit `git status` prüfen und `git checkout 3d-server/blender/cadmodel.py`, damit git pull nicht kollidiert).
+   Vergleiche mit .env.example, ob sonst etwas fehlt.
 3. Test wie in Prompt 5, dann nur den 3D-Worker neu starten (Weg aus Prompt 7) und worker.log prüfen
    ("w2 auf HW_01 gestartet ... Erzeugung=claude").
 ```
 
 ## Prompt 10 – Umzug von HW_01 auf HW_02
 
-Auf HW_02 zuerst die Prompts 0 bis 7 ausführen (mit `SERVER_NAME=HW_02` in Prompt 3). Den Worker dort aber erst starten, wenn er auf HW_01 beendet ist: Ein zweiter Server-PC verweigert den Start, solange HW_01 noch Lebenszeichen sendet.
+Auf HW_02 zuerst die Prompts 0 bis 7 ausführen (mit `SERVER_NAME=HW_02` in Prompt 3). Den Worker dort aber erst starten, wenn er auf HW_01 beendet ist: Ein zweiter Server-PC verweigert den Start, solange HW_01 noch Lebenszeichen sendet (erkannt am SERVER_NAME und, sobald `supabase/druck3d_host.sql` eingespielt ist, auch am Rechner, selbst bei gleichem Namen).
 
 ```text
 Auf HW_01 (alter Server-PC):
