@@ -4,7 +4,7 @@ Prueft gegen eine lokale Attrappe von Supabase (127.0.0.1) mit den Check-Bedingu
   1. p3d_update: Meldungen werden angepasst (message <= 300, name, progress, stage); Fortschritt wirft nie; Ergebnis wird wiederholt
   2. SERVER_NAME-Sperre ueber Name UND Rechner (host), Warnungen zu needs_code/Server im Betrieb
   3. .env gilt vor Umgebungsvariablen (ACCESS_CODE), WORKER_TAKEOVER aus der Shell bleibt
-  4. cadmodel.py: BLENDER_PREVIEW_ENGINE und Rueckfall auf Cycles (mit Attrappen fuer bpy, ohne Blender)
+  4. cadmodel.py: BLENDER_PREVIEW_ENGINE (Standard cycles), Material/Welt/Sonne fuer Cycles (mit Attrappen fuer bpy, ohne Blender)
 Es wird nie eine echte .env gelesen und nie ein echter Schluessel benutzt (Dummy-Werte)."""
 import importlib
 import json
@@ -174,16 +174,20 @@ check(f"leere Umgebungsvariable ACCESS_CODE ueberstimmt die .env NICHT mehr (Lae
 if r.returncode:
     print(r.stderr[-600:])
 
-print("== 4. cadmodel.py: Vorschau-Engine")
+print("== 4. cadmodel.py: Vorschau-Engine (cycles ist Standard)")
 for mod in ("bpy", "bmesh", "mathutils", "mathutils.bvhtree"):
     sys.modules[mod] = um.MagicMock()
 sys.path.insert(0, os.path.join(HERE, "blender"))
-os.environ["BLENDER_PREVIEW_ENGINE"], os.environ["BLENDER_PREVIEW_SAMPLES"] = "Cycles", "abc"
+for k in ("BLENDER_PREVIEW_ENGINE", "BLENDER_PREVIEW_SAMPLES"):
+    os.environ.pop(k, None)
 cm = importlib.import_module("cadmodel")
-check("BLENDER_PREVIEW_ENGINE=Cycles (Gross/klein egal), ungueltige Samples -> 12", cm.PREVIEW_ENGINE == "Cycles" and cm.PREVIEW_SAMPLES == 12)
-check("engines: cycles / workbench / auto / unbekannt / leer",
-      cm.preview_engines("cycles") == ["CYCLES"] and cm.preview_engines(" Workbench ") == ["BLENDER_WORKBENCH"]
-      and cm.preview_engines("auto") == cm.preview_engines("quatsch") == cm.preview_engines("") == ["BLENDER_WORKBENCH", "CYCLES"])
+check("ohne Einstellung: cycles mit 24 Samples", cm.PREVIEW_ENGINE == "cycles" and cm.PREVIEW_SAMPLES == 24)
+os.environ["BLENDER_PREVIEW_ENGINE"], os.environ["BLENDER_PREVIEW_SAMPLES"] = "Workbench", "abc"
+cm = importlib.reload(cm)
+check("BLENDER_PREVIEW_ENGINE=Workbench (Gross/klein egal), ungueltige Samples -> 24", cm.PREVIEW_ENGINE == "Workbench" and cm.PREVIEW_SAMPLES == 24)
+check("engines: cycles / leer / unbekannt -> nur Cycles, workbench, auto = Workbench dann Cycles",
+      cm.preview_engines("cycles") == cm.preview_engines("") == cm.preview_engines("quatsch") == cm.preview_engines(None) == ["CYCLES"]
+      and cm.preview_engines(" Workbench ") == ["BLENDER_WORKBENCH"] and cm.preview_engines("auto") == ["BLENDER_WORKBENCH", "CYCLES"])
 log_, state = [], {"i": 0}
 
 
@@ -208,6 +212,109 @@ try:
     check("workbench: Fehler wird nicht verschluckt", False)
 except RuntimeError:
     check("workbench: Fehler wird nicht verschluckt (kein heimlicher Rueckfall)", True)
+
+
+# Attrappen fuer Material, Welt und Sonne: alter Stil (Knoten erst mit use_nodes) und Blender-5-Stil (Knoten immer da, use_nodes veraltet)
+class Sock:
+    default_value = None
+
+
+class Node:
+    def __init__(self, type_):
+        self.type = type_
+        self.inputs = {k: Sock() for k in ("Base Color", "Roughness", "Color", "Strength", "Surface")}
+        self.outputs = {k: Sock() for k in ("BSDF", "Background")}
+
+
+class Nodes(list):
+    IDS = {"ShaderNodeBsdfPrincipled": "BSDF_PRINCIPLED", "ShaderNodeOutputMaterial": "OUTPUT_MATERIAL",
+           "ShaderNodeBackground": "BACKGROUND", "ShaderNodeOutputWorld": "OUTPUT_WORLD"}
+
+    def new(self, idname):
+        n = Node(self.IDS[idname])
+        self.append(n)
+        return n
+
+
+class Links(list):
+    def new(self, a, b):
+        self.append((a, b))
+
+
+class Tree:
+    def __init__(self, types):
+        self.nodes, self.links = Nodes(), Links()
+        for t in types:
+            self.nodes.append(Node(t))
+
+
+class Block:
+    TYPES = ()
+
+    def __init__(self, tree_present, empty=False):
+        self.node_tree = Tree(() if empty else self.TYPES) if tree_present else None
+        self.use_nodes_sets = 0
+
+    @property
+    def use_nodes(self):
+        return self.node_tree is not None
+
+    @use_nodes.setter
+    def use_nodes(self, v):
+        self.use_nodes_sets += 1
+        if v and self.node_tree is None:
+            self.node_tree = Tree(self.TYPES)
+
+
+class Mat(Block):
+    TYPES = ("OUTPUT_MATERIAL", "BSDF_PRINCIPLED")
+
+
+class World(Block):
+    TYPES = ("OUTPUT_WORLD", "BACKGROUND")
+
+
+class Obj:
+    def __init__(self, name, data):
+        self.name, self.data, self.parent, self.rotation_euler = name, data, None, None
+
+
+def fake_bpy(tree_present, empty=False):
+    made = {"mat": [], "world": []}
+    ns = um.MagicMock()
+    ns.data.materials.new = lambda name: (made["mat"].append(Mat(tree_present, empty)) or made["mat"][-1])
+    ns.data.worlds.new = lambda name: (made["world"].append(World(tree_present, empty)) or made["world"][-1])
+    ns.data.lights.new = lambda name, kind: um.Mock(type=kind, energy=0)
+    ns.data.objects.new = lambda name, data: Obj(name, data)
+    return ns, made
+
+
+import math  # noqa: E402
+
+for style, tree_present, empty in (("alt (Knoten erst mit use_nodes)", False, False), ("Blender 5 (Knoten immer da)", True, False),
+                                   ("Blender 5, Baum ohne Knoten", True, True)):
+    cm.bpy, cm.link = fake_bpy(tree_present, empty)[0], lambda o: o
+    ns, made = fake_bpy(tree_present, empty)
+    cm.bpy = ns
+    m = cm._preview_material("gold", (0.95, 0.72, 0.1, 1))
+    bsdf = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    check(f"Material {style}: Base Color und Roughness 0.7", bsdf.inputs["Base Color"].default_value == (0.95, 0.72, 0.1, 1)
+          and bsdf.inputs["Roughness"].default_value == 0.7 and m.diffuse_color == (0.95, 0.72, 0.1, 1))
+    check(f"Material {style}: use_nodes " + ("einmal gesetzt" if not tree_present else "nie gesetzt (keine Veraltet-Warnung)"),
+          m.use_nodes_sets == (0 if tree_present else 1))
+    if empty:
+        check("Material ohne Knoten: BSDF angelegt und mit dem Ausgang verbunden", len(m.node_tree.links) == 1)
+    sc = um.Mock()
+    wd = cm._preview_world(sc)
+    bg = next(n for n in wd.node_tree.nodes if n.type == "BACKGROUND")
+    check(f"Welt {style}: Hintergrund (0.12, 0.12, 0.12) Staerke 1.0, use_nodes " + ("einmal" if not tree_present else "nie"),
+          bg.inputs["Color"].default_value == (0.12, 0.12, 0.12, 1.0) and bg.inputs["Strength"].default_value == 1.0
+          and wd.use_nodes_sets == (0 if tree_present else 1) and sc.world is wd)
+cam = Obj("cam", None)
+sun = cm._preview_sun(cam)
+check("Sonne: SUN, Staerke 3.0, an der Kamera, Drehung (35, 8, -30) Grad",
+      sun.data.type == "SUN" and sun.data.energy == 3.0 and sun.parent is cam
+      and all(abs(x - math.radians(d)) < 1e-9 for x, d in zip(sun.rotation_euler, (35, 8, -30))))
 
 shutil.rmtree(tmp, ignore_errors=True)
 print("\nERGEBNIS:", "alle Pruefungen bestanden" if not FAILED else f"{len(FAILED)} FEHLER: " + "; ".join(FAILED))

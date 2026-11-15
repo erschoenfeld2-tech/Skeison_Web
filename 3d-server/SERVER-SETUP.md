@@ -248,8 +248,9 @@ Aktualisiere den 3D-Worker auf die neue Fassung (Claude modelliert selbst in Ble
 1. cd C:\MinecraftHosting\3d-druck\repo; git pull; .venv\Scripts\pip install -r 3d-server\requirements.txt
 2. Ergänze in 3d-server\.env (Werte von Schlüsseln nicht anzeigen): SERVER_NAME=HW_01, GENERATOR=claude,
    CLAUDE_BACKEND=cli, CLAUDE_CAD_MODEL=sonnet, CAD_MAX_CALLS=3, JOBS_PER_IP_PER_DAY=3, JOBS_TOTAL_PER_DAY=10,
-   BLENDER_MAX_RAM_MB=3072, BLENDER_PREVIEW_ENGINE=auto (oder cycles, falls dort ein lokaler Cycles-Patch an cadmodel.py
-   angewendet war: erst mit `git status` prüfen und `git checkout 3d-server/blender/cadmodel.py`, damit git pull nicht kollidiert).
+   BLENDER_MAX_RAM_MB=3072, BLENDER_PREVIEW_ENGINE=cycles (Standard; ersetzt den lokalen Patch cadmodel-cycles-preview.patch).
+   War dieser Patch an cadmodel.py angewendet, ihn vor dem git pull zurücknehmen (erst `git status` prüfen, dann
+   `git checkout 3d-server/blender/cadmodel.py`), sonst kollidiert der Pull.
    Vergleiche mit .env.example, ob sonst etwas fehlt.
 3. Test wie in Prompt 5, dann nur den 3D-Worker neu starten (Weg aus Prompt 7) und worker.log prüfen
    ("w2 auf HW_01 gestartet ... Erzeugung=claude").

@@ -149,24 +149,29 @@ def union(parts, max_parts=120):
 
 # ---------- Ansichten ----------
 
-# BLENDER_PREVIEW_ENGINE (.env des Workers, wird an Blender weitergereicht): workbench | cycles | auto
-#   workbench = nur Workbench (schnell), cycles = nur Cycles auf der CPU, auto = Workbench, bei einem Renderfehler Cycles.
-# Vorher musste ein lokaler Patch (cadmodel-cycles-preview.patch) auf dem Server-PC her; jetzt reicht eine Zeile in der .env.
-PREVIEW_ENGINE = os.environ.get("BLENDER_PREVIEW_ENGINE", "auto")
+# BLENDER_PREVIEW_ENGINE (.env des Workers, wird an Blender weitergereicht): cycles (Standard) | workbench | auto
+#   cycles    = Cycles auf der CPU. Braucht keinen OpenGL-Kontext, laeuft also auch in einer getrennten Windows-Sitzung
+#               (Dienst, MCSManager, Aufgabenplanung). Das ist der Weg fuer den Server-PC.
+#   workbench = schnell, braucht aber einen OpenGL-Kontext. Ohne den stuerzt Blender hart ab (EXCEPTION_ACCESS_VIOLATION),
+#               das laesst sich nicht abfangen. Nur auf einem PC mit angemeldetem Desktop verwenden.
+#   auto      = Workbench, bei einem RuntimeError Cycles. Faengt den harten Absturz NICHT ab (siehe workbench).
+# Ersetzt den frueheren lokalen Patch cadmodel-cycles-preview.patch von HW_01.
+PREVIEW_ENGINE = os.environ.get("BLENDER_PREVIEW_ENGINE", "cycles")
 try:
-    PREVIEW_SAMPLES = max(1, int(os.environ.get("BLENDER_PREVIEW_SAMPLES") or 12))
+    PREVIEW_SAMPLES = max(1, int(os.environ.get("BLENDER_PREVIEW_SAMPLES") or 24))
 except ValueError:
-    PREVIEW_SAMPLES = 12
+    PREVIEW_SAMPLES = 24
 
 
 def preview_engines(setting):
-    """Render-Engines in der Reihenfolge, in der sie versucht werden. Unbekannte Werte gelten als auto."""
-    s = (setting or "auto").strip().lower()
-    if s == "cycles":
-        return ["CYCLES"]
+    """Render-Engines in der Reihenfolge, in der sie versucht werden. Leere und unbekannte Werte gelten als cycles
+    (der Weg, der ohne Desktop-Sitzung sicher funktioniert)."""
+    s = (setting or "cycles").strip().lower()
     if s == "workbench":
         return ["BLENDER_WORKBENCH"]
-    return ["BLENDER_WORKBENCH", "CYCLES"]
+    if s == "auto":
+        return ["BLENDER_WORKBENCH", "CYCLES"]
+    return ["CYCLES"]
 
 
 def render_with_fallback(engines, setup, render, state):
@@ -183,6 +188,53 @@ def render_with_fallback(engines, setup, render, state):
             setup(engines[state["i"]])
 
 
+def _preview_material(name, rgba):
+    """Material fuer die Vorschau. diffuse_color gilt fuer Workbench; Cycles ignoriert es und braucht Knoten:
+    Principled BSDF mit Base Color = rgba, Roughness 0.7. use_nodes wird nur gesetzt, wenn es noch keine Knoten gibt
+    (aelteres Blender); ab Blender 5 sind sie immer da, use_nodes ist dort veraltet und wuerde eine Warnung ausloesen."""
+    mat = bpy.data.materials.new(name)
+    mat.diffuse_color = rgba
+    if mat.node_tree is None:
+        mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if bsdf is None:
+        bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+        out = next((n for n in nt.nodes if n.type == "OUTPUT_MATERIAL"), None) or nt.nodes.new("ShaderNodeOutputMaterial")
+        nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+    bsdf.inputs["Base Color"].default_value = rgba
+    bsdf.inputs["Roughness"].default_value = 0.7
+    return mat
+
+
+def _preview_world(scene):
+    """Welt mit Hintergrundknoten (Cycles): Farbe (0.12, 0.12, 0.12), Staerke 1.0. world.color gilt fuer Workbench."""
+    world = bpy.data.worlds.new("w")
+    world.color = (0.08, 0.08, 0.08)
+    scene.world = world
+    if world.node_tree is None:   # wie bei den Materialien: use_nodes nur, wenn es noch keine Knoten gibt
+        world.use_nodes = True
+    nt = world.node_tree
+    bg = next((n for n in nt.nodes if n.type == "BACKGROUND"), None)
+    if bg is None:
+        bg = nt.nodes.new("ShaderNodeBackground")
+        out = next((n for n in nt.nodes if n.type == "OUTPUT_WORLD"), None) or nt.nodes.new("ShaderNodeOutputWorld")
+        nt.links.new(bg.outputs["Background"], out.inputs["Surface"])
+    bg.inputs["Color"].default_value = (0.12, 0.12, 0.12, 1.0)
+    bg.inputs["Strength"].default_value = 1.0
+    return world
+
+
+def _preview_sun(cam):
+    """Sonne (Staerke 3.0) an der Kamera: Das Licht dreht mit, jede Ansicht ist gleich ausgeleuchtet."""
+    data = bpy.data.lights.new("sonne", "SUN")
+    data.energy = 3.0
+    sun = link(bpy.data.objects.new("sonne", data))
+    sun.parent = cam
+    sun.rotation_euler = (math.radians(35), math.radians(8), math.radians(-30))
+    return sun
+
+
 def render_previews(obj, path, overhang_deg=45):
     """Vier Ansichten: vorne, rechts, oben (orthografisch, massstabsgetreu) und schraeg. Ueberhaenge rot."""
     scene = bpy.context.scene
@@ -191,10 +243,8 @@ def render_previews(obj, path, overhang_deg=45):
     hi = Vector([max(v.co[i] for v in me.vertices) for i in range(3)])
     center, size = (lo + hi) / 2, hi - lo
     radius = max(size.length / 2, 1.0)
-    gold = bpy.data.materials.new("gold")
-    gold.diffuse_color = (0.95, 0.72, 0.1, 1)
-    red = bpy.data.materials.new("ueberhang")
-    red.diffuse_color = (0.85, 0.12, 0.1, 1)
+    gold = _preview_material("gold", (0.95, 0.72, 0.1, 1))
+    red = _preview_material("ueberhang", (0.85, 0.12, 0.1, 1))
     me.materials.append(gold)
     me.materials.append(red)
     limit = math.sin(math.radians(overhang_deg))
@@ -203,9 +253,8 @@ def render_previews(obj, path, overhang_deg=45):
     cam_data = bpy.data.cameras.new("cam")
     cam = link(bpy.data.objects.new("cam", cam_data))
     scene.camera = cam
-    world = bpy.data.worlds.new("w")
-    world.color = (0.08, 0.08, 0.08)
-    scene.world = world
+    _preview_sun(cam)
+    _preview_world(scene)
     scene.render.resolution_x = scene.render.resolution_y = 512
     scene.render.image_settings.file_format = "PNG"
     engines = preview_engines(PREVIEW_ENGINE)
@@ -216,6 +265,11 @@ def render_previews(obj, path, overhang_deg=45):
             scene.render.engine = "CYCLES"
             scene.cycles.device = "CPU"
             scene.cycles.samples = PREVIEW_SAMPLES
+            scene.cycles.use_denoising = False
+            try:
+                scene.view_settings.view_transform = "Standard"   # keine Filmkurve: die Farben bleiben, wie sie sind
+            except (TypeError, AttributeError):
+                pass
             return
         try:
             scene.render.engine = engine
