@@ -60,12 +60,21 @@ def mesh_object(name, bm):
     return link(bpy.data.objects.new(name, me))
 
 
+BOOLEAN_PENDING = []   # (Ziel, Modifikator, Operand): Operanden, die Blender nicht angenommen hat (Schrift, Kurven)
+
+
 def boolean(target, cutter, operation="DIFFERENCE"):
-    """Boolean-Modifikator; der Schneidkoerper wird ausgeblendet und zaehlt nicht zum Modell."""
+    """Boolean-Modifikator; der Schneidkoerper wird ausgeblendet und zaehlt nicht zum Modell.
+    Blender nimmt als Operand NUR Mesh-Objekte an. Bei Schrift oder Kurven bleibt mod.object ohne Fehlermeldung None, der
+    Modifikator tut nichts, und weil der Operand ausgeblendet ist, fehlt der Text im Modell. Solche Operanden werden
+    deshalb vorgemerkt und nach dem Skript (resolve_booleans) als Mesh eingesetzt, in der Lage, die sie dann haben
+    (das Skript darf sie auch nach dem boolean()-Aufruf noch verschieben)."""
     mod = target.modifiers.new("bool", "BOOLEAN")
     mod.operation = operation
-    mod.object = cutter
     mod.solver = "EXACT"
+    mod.object = cutter
+    if mod.object is None:
+        BOOLEAN_PENDING.append((target, mod, cutter))
     cutter.hide_render = True
     cutter.display_type = "WIRE"
     return mod
@@ -81,6 +90,78 @@ def text_object(name, body, size=10.0, depth=2.0, align="CENTER"):
     obj = link(bpy.data.objects.new(name, cu))
     obj.location.z = depth / 2
     return obj
+
+
+def _mesh_copy_of(obj):
+    """Ausgewertetes Mesh eines Objekts (z. B. Schrift) in Weltkoordinaten."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(obj.evaluated_get(dg))
+    me.transform(obj.matrix_world)
+    return me
+
+
+def resolve_booleans(warnings):
+    """Setzt vorgemerkte Operanden (siehe boolean) als Mesh ein. Was sich nicht retten laesst, wird als Warnung gemeldet."""
+    for target, mod, cutter in BOOLEAN_PENDING:
+        try:
+            me = _mesh_copy_of(cutter)
+        except Exception:  # noqa: BLE001
+            me = None
+        if me is None or not len(me.polygons):
+            warnings.append(f"Boolean ({mod.operation}) auf '{target.name}': Der Operand '{cutter.name}' ({cutter.type}) hat keine "
+                            "Flaechen und wird ignoriert.")
+            continue
+        op = link(bpy.data.objects.new(cutter.name + "_mesh", me))
+        op.hide_render = True
+        op.display_type = "WIRE"
+        mod.object = op
+        if mod.object is None:
+            warnings.append(f"Boolean ({mod.operation}) auf '{target.name}': Der Operand '{cutter.name}' konnte nicht eingesetzt werden.")
+    BOOLEAN_PENDING.clear()
+
+
+def _shape(obj):
+    """(Punkte, Flaechen, Umgrenzungsquader) des ausgewerteten Objekts, mit allen aktiven Modifikatoren."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(obj.evaluated_get(dg))
+    try:
+        if not me.vertices:
+            return 0, 0, ()
+        lo = [min(v.co[i] for v in me.vertices) for i in range(3)]
+        hi = [max(v.co[i] for v in me.vertices) for i in range(3)]
+        return len(me.vertices), len(me.polygons), tuple(round(x, 3) for x in lo + hi)
+    finally:
+        bpy.data.meshes.remove(me)
+
+
+def check_boolean_effects(objs, warnings, limit=8):
+    """Meldet Boolean-Modifikatoren, die nichts bewirken (kein Operand, Operand liegt ganz im Koerper oder beruehrt ihn nicht,
+    Schneidkoerper trifft nichts). Sonst steht ein Schriftzug im Text von Claude, fehlt aber im Modell."""
+    checked = 0
+    for obj in objs:
+        for mod in [m for m in obj.modifiers if m.type == "BOOLEAN" and m.show_viewport]:
+            if mod.operand_type != "OBJECT":
+                continue
+            if mod.object is None:
+                warnings.append(f"Ein Boolean-Modifikator an '{obj.name}' hat keinen Operanden und tut nichts (als Operand erlaubt Blender "
+                                "nur Mesh-Objekte).")
+                continue
+            if mod.operation == "INTERSECT" or checked >= limit:
+                continue
+            checked += 1
+            full = _shape(obj)
+            mod.show_viewport = False
+            bpy.context.view_layer.update()
+            without = _shape(obj)
+            mod.show_viewport = True
+            bpy.context.view_layer.update()
+            if full == without:
+                name = mod.object.name.removesuffix("_mesh")
+                warnings.append(
+                    f"Boolean {mod.operation} von '{obj.name}' mit '{name}' hatte KEINE Wirkung: "
+                    + ("Der Operand liegt ganz im Koerper oder beruehrt ihn nicht, er fehlt im Modell (bei Schrift oder Reliefs: "
+                       "ragt er aus der Oberflaeche heraus und ueberlappt sie um mindestens 0,5 mm?)." if mod.operation == "UNION"
+                       else "Der Schneidkoerper trifft den Koerper nicht (liegt daneben oder in einem Hohlraum)."))
 
 
 HELPERS = {"link": link, "mesh_object": mesh_object, "boolean": boolean, "text_object": text_object, "Vector": Vector}
@@ -245,6 +326,9 @@ def render_previews(obj, path, overhang_deg=45):
     radius = max(size.length / 2, 1.0)
     gold = _preview_material("gold", (0.95, 0.72, 0.1, 1))
     red = _preview_material("ueberhang", (0.85, 0.12, 0.1, 1))
+    # Erst leeren: Ab Blender 5.3 bringt die vereinte Geometrie einen leeren Materialplatz mit. Ohne clear() rutschen die
+    # beiden Materialien um einen Platz, Flaechen mit Index 0 bleiben farblos (weiss/grau) und Ueberhaenge werden gold statt rot.
+    me.materials.clear()
     me.materials.append(gold)
     me.materials.append(red)
     limit = math.sin(math.radians(overhang_deg))
@@ -325,11 +409,14 @@ def main():
         where = next((f"Zeile {fr.lineno}" for fr in reversed(tb) if fr.filename == "modell.py"), "")
         return result({"ok": False, "error": f"{type(e).__name__} {where}: {e}"[:600]})
 
+    warnings = []
+    resolve_booleans(warnings)
     objs = model_objects()
     if not objs:
         return result({"ok": False, "error": "Das Skript hat kein sichtbares Objekt erzeugt."})
     if len(objs) > a.max_objects:
         return result({"ok": False, "error": f"Zu viele Teile ({len(objs)})."})
+    check_boolean_effects(objs, warnings)
     parts = to_mesh_objects(objs)
     if not parts:
         return result({"ok": False, "error": "Das Modell hat keine Flaechen."})
@@ -341,6 +428,9 @@ def main():
     hi = [max(v.co[i] for v in me.vertices) for i in range(3)]
     stats = {"ok": True, "parts": len(parts), "faces": len(me.polygons), "exact": exact,
              "size_mm": [round(hi[i] - lo[i], 2) for i in range(3)], "min_z": round(lo[2], 2)}
+
+    stats["warnings"] = warnings
+    stats["blender"] = bpy.app.version_string
 
     # Analyse wie im Slicer (modellierte Groesse und Lage)
     s = print_settings.normalize(json.loads(a.settings or "{}"))

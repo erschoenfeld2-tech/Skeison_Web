@@ -30,7 +30,8 @@ log = logging.getLogger("skeison3d.cad")
 CAD_MODEL = os.getenv("CLAUDE_CAD_MODEL", "sonnet")   # Claude Code: Alias fuer das aktuelle Sonnet (im Pro-Abo enthalten)
 MAX_CALLS = max(1, int(os.getenv("CAD_MAX_CALLS", "3")))
 CAD_TIMEOUT = int(os.getenv("CLAUDE_CAD_TIMEOUT", "300"))
-TOLERANCE_PCT = 3.0  # Abweichung von den Sollmassen, ab der Claude nachbessern soll
+TOLERANCE_PCT = 1.0  # Abweichung von den Sollmassen, ab der Claude nachbessern soll (Prozent) ...
+TOLERANCE_MM = 0.8   # ... mindestens aber so viel in mm: Ein 1,2 mm hoher Schriftzug fehlt sonst bei 3 % unbemerkt (82,4 statt 80,0 mm)
 
 
 class CadError(RuntimeError):
@@ -162,7 +163,7 @@ def _deviation(target: dict | None, size: list[float]) -> str:
     msgs = []
     for i, k in enumerate("xyz"):
         t = float(target.get(k) or 0)
-        if t > 0 and abs(size[i] - t) / t * 100 > TOLERANCE_PCT:
+        if t > 0 and abs(size[i] - t) > max(TOLERANCE_MM, t * TOLERANCE_PCT / 100):
             msgs.append(f"{k.upper()} ist {size[i]} mm statt {t} mm")
     return ("Abweichung von den Sollmassen: " + ", ".join(msgs) + ".") if msgs else "Sollmasse eingehalten."
 
@@ -205,7 +206,13 @@ def generate(job, on_progress: Callable[[int], None]) -> tuple[str, dict]:
             if r.get("dimensions_mm") and not job.size_user:
                 target = r["dimensions_mm"]
             if r.get("ok") and best:
-                break
+                open_w = best[1].get("warnings") or []
+                if not open_w or calls >= MAX_CALLS:
+                    break
+                # ok gemeldet, aber die Pruefung hat etwas gefunden, das sicher fehlt: nicht durchwinken, nochmal pruefen lassen
+                feedback += ("\nDu hast ok gemeldet, aber die Pruefung meldet noch: " + " | ".join(open_w) +
+                             " Behebe das (ok = false und das vollstaendige verbesserte Skript).\n")
+                continue
             log.info("Auftrag %s: Kontrolle %d: %s", job.id, calls, (r.get("problems") or "")[:200])
             script = r.get("script") or ""
             if not script:
@@ -237,11 +244,18 @@ def generate(job, on_progress: Callable[[int], None]) -> tuple[str, dict]:
                     + ("exakt vereinigt. " if res.get("exact") else "NICHT exakt vereinigt. ")
                     + (res.get("analysis_text") or "") + " " + _deviation(target, res.get("size_mm", [0, 0, 0]))
                     + (" Die vier Ansichten liegen als letztes Bild bei." if sheet else "") + "\n")
+        warns = res.get("warnings") or []
+        if warns:
+            feedback += "\nWARNUNG, bitte beheben (sonst fehlt etwas im Modell): " + " | ".join(warns) + "\n"
+            log.warning("Auftrag %s: Bau %d: %s", job.id, calls, " | ".join(warns)[:500])
         log.info("Auftrag %s: Bau %d: %s", job.id, calls, feedback.strip()[:300])
         on_progress(int(100 * calls / (MAX_CALLS + 1)) + 10)
 
     if not best:
         raise CadError("Das Modell konnte nicht gebaut werden. Bitte die Beschreibung etwas einfacher fassen.")
+    if best[1].get("warnings"):   # Claudes Hinweis behauptet sonst vielleicht etwas, das im Modell fehlt
+        job.hint = ("Achtung: Ein Teil des Entwurfs (z. B. ein Schriftzug oder eine Aussparung) konnte nicht umgesetzt werden. "
+                    + (job.hint or "")).strip()
     return best
 
 

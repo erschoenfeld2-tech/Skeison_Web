@@ -317,5 +317,41 @@ check("Sonne: SUN, Staerke 3.0, an der Kamera, Drehung (35, 8, -30) Grad",
       and all(abs(x - math.radians(d)) < 1e-9 for x, d in zip(sun.rotation_euler, (35, 8, -30))))
 
 shutil.rmtree(tmp, ignore_errors=True)
+print("== 6. cad_generator: Sollmass und Warnungen")
+import cad_generator as cg  # noqa: E402
+check("Abweichung 82,4 statt 80,0 mm (2,9 %) wird gemeldet", "Y ist 80.0 mm statt 82.4" in cg._deviation({"x": 80, "y": 82.4, "z": 90}, [80, 80.0, 90]))
+check("Abweichung 0,5 mm bleibt innerhalb der Toleranz", cg._deviation({"x": 80, "y": 80, "z": 90}, [80, 80.5, 90]) == "Sollmasse eingehalten.")
+
+
+class FakeJob:
+    id, name, hint, description, images, size_user, flat_base, size_mm = "j", "", "", "x", [], False, True, 80.0
+    dir = tempfile.mkdtemp(prefix="w3d-gen-")
+    settings = cg.print_settings.normalize({})
+
+
+def run_generate(builds):
+    """Claude meldet immer ok; die Pruefung (Blender) liefert nacheinander die Ergebnisse aus builds."""
+    asks, it = [], iter(builds)
+    cg._ask = lambda system, text, schema, imgs, wd: (asks.append(text) or (
+        {"refused": False, "plan": {"object": "Halter", "dimensions_mm": {"x": 80, "y": 82.4, "z": 90}}, "name": "halter",
+         "hint": "mit Schriftzug", "script": "x = 1"} if "refused" in schema["required"]
+        else {"ok": True, "problems": "", "dimensions_mm": {"x": 80, "y": 82.4, "z": 90}, "script": "", "hint": ""}))
+    cg.cad_sandbox.check = lambda s: None
+    cg.blender_runner.build = lambda *a: next(it)
+    job = FakeJob()
+    return cg.generate(job, lambda p: None), job, asks
+
+
+bad = {"ok": True, "parts": 1, "faces": 10, "exact": True, "size_mm": [80, 80.0, 90], "warnings": ["Boolean UNION ... KEINE Wirkung"]}
+(glb, res), job, asks = run_generate([bad, bad, bad])
+check("ok trotz offener Warnung wird nicht durchgewinkt (Claude wird erneut gefragt)", len(asks) == 3)
+check("Rueckmeldung an Claude nennt Warnung und Sollabweichung", "WARNUNG" in asks[1] and "Y ist 80.0 mm statt 82.4" in asks[1])
+check("Hinweis fuer den Besucher warnt, dass etwas nicht umgesetzt wurde", job.hint.startswith("Achtung:"))
+good = dict(bad, size_mm=[80, 82.4, 90], warnings=[])
+(glb, res), job, asks = run_generate([good])
+check("Sauberes Ergebnis: eine Kontrolle genuegt, kein Warnhinweis", len(asks) == 2 and not job.hint.startswith("Achtung"))
+
+import test_blender   # 5. echter Blender (uebersprungen, wenn keiner da ist)
+FAILED.extend(test_blender.FAILED)
 print("\nERGEBNIS:", "alle Pruefungen bestanden" if not FAILED else f"{len(FAILED)} FEHLER: " + "; ".join(FAILED))
 sys.exit(1 if FAILED else 0)
