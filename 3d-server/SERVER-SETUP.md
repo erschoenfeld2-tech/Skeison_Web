@@ -3,6 +3,7 @@
 Diese Anleitung besteht aus **fertigen Prompts für Claude Code auf dem Server-PC**. Du fügst sie nacheinander ein, Claude führt die Einrichtung aus und prüft am Ende jedes Schritts, ob er geklappt hat. Zwischen den Prompts entscheidest du, ob es weitergeht.
 
 **Ausgangslage (Stand dieses Repos):**
+- Eingerichtet wird zuerst auf dem Server-PC **HW_01**. Später zieht alles auf den baugleichen **HW_02** um (Prompt 10).
 - Windows-11-PC, der als Server dient, mit `C:\MinecraftHosting`: MCSManager, Cobblemon-Server und die Werkzeuge aus `tools\`.
 - Dort laufen schon `sync-github.js` (Daten für die Webseite), `ki-bot.js` (nutzt das lokal angemeldete Claude Code mit Haiku) und bei Bedarf `admin-panel.js` auf `127.0.0.1:8090`.
 - Diese Dienste sind **Produktion** und dürfen nicht gestört werden.
@@ -11,7 +12,8 @@ Diese Anleitung besteht aus **fertigen Prompts für Claude Code auf dem Server-P
 - Der 3D-Worker (`3d-server/worker.py`) läuft unter `C:\MinecraftHosting\3d-druck`.
 - **Kein offener Port, kein Tunnel, keine eigene Domain.** Wie das Admin-Panel und `sync-github.js` baut der Worker nur Verbindungen nach außen auf: Die Seite auf GitHub Pages legt Aufträge in Supabase ab (Projekt `skeison-whitelist`, Tabellen aus `supabase/druck3d.sql`). Der Worker holt sie dort ab, rechnet und legt STL/3MF in den privaten Bucket `p3d` zurück.
 - Den Supabase-Zugang nimmt der Worker automatisch aus `C:\MinecraftHosting\tools\admin.config.json`, die das Admin-Panel schon nutzt.
-- Blender läuft ohne Oberfläche mit **niedriger Priorität und begrenzten Kernen**, damit Minecraft flüssig bleibt.
+- **Kein zusätzliches Geld:** Claude modelliert das Objekt selbst in Blender (`GENERATOR=claude`) und läuft über die Anmeldung von Claude Code wie der KI-Bot, also über das vorhandene Pro-Abo. Meshy und ein API-Key sind nicht nötig.
+- Blender läuft ohne Oberfläche mit **niedriger Priorität, begrenzten Kernen und einer RAM-Grenze**, damit Minecraft flüssig bleibt.
 
 ```
 Webseite (GitHub Pages) ──p3d_create_job──►  Supabase  ◄──p3d_claim / p3d_update / Storage──  worker.py (Server-PC)
@@ -20,17 +22,15 @@ Webseite (GitHub Pages) ──p3d_create_job──►  Supabase  ◄──p3d_cl
 
 ---
 
-## Claude-Kontingent: welcher Weg?
+## Claude-Abo statt zusätzlicher Kosten
 
-Der 3D-Server ruft Claude **nur bei Text-Aufträgen** auf, genau einmal pro Auftrag. Bei reinen Foto-Aufträgen wird Claude gar nicht aufgerufen.
+Pro Auftrag ruft der Worker Claude **höchstens dreimal** auf (`CAD_MAX_CALLS`): Entwurf als Blender-Skript, dann bis zu zwei Kontrollen anhand von zwei Vorschaubildern. Modell: das aktuelle Sonnet (`CLAUDE_CAD_MODEL=sonnet`), im Pro-Abo enthalten.
 
-| `CLAUDE_BACKEND` | Wie | Verbrauch |
-|---|---|---|
-| `cli` | Das lokal angemeldete Claude Code, wie der KI-Bot (`claude.exe -p`, Modell Haiku, keine Werkzeuge außer Lesen des Fotos) | Zählt gegen das Claude-Abo des Server-PCs, gemeinsam mit dem KI-Bot. Pro Auftrag ein kurzer Haiku-Aufruf |
-| `api` | API-Key mit eigenem Budget | Etwa 0,05 Cent pro Auftrag mit Haiku, 1–2 Cent mit Opus. Ausgabenlimit in der Claude Console setzen |
-| `auto` (Standard) | `api`, wenn ein Key eingetragen ist, sonst `cli` | – |
-
-Empfehlung: Starte mit `cli`, weil es schon eingerichtet ist. Die Tageslimits (`JOBS_PER_IP_PER_DAY`, `JOBS_TOTAL_PER_DAY`) begrenzen den Verbrauch. Wenn die Seite viele Besucher bekommt, ist ein API-Key mit festem Budget der saubere Weg, denn dann teilt sich der 3D-Server das Kontingent nicht mehr mit dem KI-Bot und deiner eigenen Nutzung.
+- `CLAUDE_BACKEND=cli` (Standard): lokal angemeldetes Claude Code wie der KI-Bot. Zählt gegen die Nutzungsgrenzen des Pro-Abos, gemeinsam mit dem KI-Bot und deiner eigenen Nutzung. Kostet kein zusätzliches Geld. Ist das Kontingent erschöpft, bekommt der Besucher „Die KI ist gerade ausgelastet“.
+- `ANTHROPIC_API_KEY` **leer lassen**. Nur mit `CLAUDE_BACKEND=api` würde ein Key genutzt, und das kostet Geld.
+- Tageslimits: 3 Modelle pro Besucher, 10 insgesamt (`JOBS_PER_IP_PER_DAY`, `JOBS_TOTAL_PER_DAY`). So bleibt genug für den KI-Bot.
+- Was gut klappt: Halter, Boxen, Schilder mit Text, Vasen, einfache Ersatzteile. Tiere und Figuren werden stilisiert.
+- Sicherheit: Claudes Skript entsteht aus Besuchertext. Es wird vor dem Start geprüft (`blender/cad_sandbox.py`: nur Geometrie, keine Dateien, kein `bpy.ops`, kein Import außer bpy/bmesh/math) und läuft in einem eigenen Blender mit Zeit- und RAM-Grenze. Claude Code selbst hat dabei keine Werkzeuge außer Lesen der Bilder im eigenen Auftragsordner (`--restricted`).
 
 ---
 
@@ -104,7 +104,8 @@ Installiere den 3D-Druck-Server nach C:\MinecraftHosting\3d-druck:
    Lies danach repo\3d-server\README.md, repo\3d-server\worker.py und repo\supabase\druck3d.sql.
 2. In repo\3d-server eine venv anlegen (py -3.12 -m venv .venv) und requirements.txt installieren.
 3. repo\3d-server\.env aus .env.example erstellen mit:
-   DEMO_MODE=1 (vorerst!), JOB_WORKERS=1, CLAUDE_BACKEND=cli,
+   SERVER_NAME=HW_01, DEMO_MODE=1 (vorerst!), JOB_WORKERS=1, GENERATOR=claude, CLAUDE_BACKEND=cli,
+   ANTHROPIC_API_KEY und MESHY_API_KEY leer,
    BLENDER_BIN='<voller Pfad zu blender.exe aus Prompt 2>' (in einfachen Anführungszeichen),
    BLENDER_THREADS=<Empfehlung aus Prompt 1>, BLENDER_LOW_PRIORITY=1.
    Wenn claude.exe in Prompt 1 nicht automatisch gefunden wurde: CLAUDE_EXE='<Pfad>'.
@@ -122,7 +123,7 @@ icacls .env (nur die Rechte, nicht den Inhalt).
 ## Prompt 4 – Testen, ohne Guthaben zu verbrauchen
 
 ```text
-Teste den 3D-Server, ohne Meshy-Guthaben zu verbrauchen. Beobachte dabei, dass Minecraft weiterläuft.
+Teste den 3D-Server, ohne Claude oder Meshy zu nutzen. Beobachte dabei, dass Minecraft weiterläuft.
 
 Teil A – Demo-Modus (DEMO_MODE=1), nur lokal über HTTP (app.py, ohne Supabase):
 1. Starte im Ordner repo\3d-server testweise im Vordergrund:
@@ -146,18 +147,20 @@ Teil B – Blender mit der Test-GLB aus Prompt 2 (kostet nichts):
 Prüfung am Ende: SKEISON_RESULT-Zeile, Dauer, höchste CPU-Last von Blender, und ob Minecraft dabei weiterlief.
 ```
 
-## Prompt 5 – Claude lokal prüfen (ein kurzer Haiku-Aufruf)
+## Prompt 5 – Claude modelliert ein Testobjekt (nutzt das Pro-Abo, kein Geld)
 
 ```text
-Prüfe, ob der 3D-Server das lokal angemeldete Claude Code nutzen kann (CLAUDE_BACKEND=cli).
-Führe GENAU EINEN Testaufruf aus, unter dem Windows-Benutzer, unter dem auch der Dienst laufen wird:
+Prüfe, ob Claude auf diesem PC Modelle in Blender bauen kann (GENERATOR=claude, CLAUDE_BACKEND=cli).
+Unter dem Windows-Benutzer, unter dem auch der Dienst laufen wird, GENAU EINEN Test ausführen:
 cd repo\3d-server
-.venv\Scripts\python -c "import logging,claude_step as c; logging.basicConfig(level=logging.INFO); print(c.backend()); print(c.refine('Eine kleine Eule als Stifthalter, etwa 10 cm hoch', [], '.'))"
-Erwartet: "cli" und ein JSON mit meshy_prompt (Englisch), size_mm 100, name und hint.
+$env:DEMO_MODE = '0'; .venv\Scripts\python test_modell.py "Runder Stifthalter, 90 mm hoch, mit dem Schriftzug SKEISON"
+Erwartet: state "done", watertight true, Maße um 90 mm. Zeig mir die Dauer, die Zeilen von skeison3d.cad
+(wie viele Claude-Aufrufe, ob ein Skript abgelehnt wurde) und schau dir die Vorschaubilder ansicht_*.png im
+ausgegebenen Ordner an: Ist es ein Stifthalter mit Schriftzug?
 Wenn "Not logged in" kommt: Mir sagen, dass ich die Anmeldung wie beim KI-Bot einmal selbst erledige
 (C:\MinecraftHosting\tools\ki-login.bat, dort /login und dann /exit). Danach den Test einmal wiederholen.
-Wenn eine Option von claude.exe nicht erkannt wird (andere Version): Fehlermeldung zeigen, in claude_step.py
-(_refine_cli) eine Lösung vorschlagen und auf mein OK warten.
+Wenn claude.exe eine Option nicht kennt (andere Version): Fehlermeldung zeigen, in claude_step.py (_ask_cli)
+eine Lösung vorschlagen und auf mein OK warten. Keine Sicherheitsprüfungen in cad_sandbox.py lockern.
 ```
 
 ## Prompt 6 – Verbindung zu Supabase prüfen (Demo, kostet nichts)
@@ -203,19 +206,19 @@ Prüfung am Ende: worker.log zeigt "gestartet", p3d_status (wie in Prompt 6) mel
 und Get-Process zeigt, dass Minecraft, MCSManager, sync-github und KI-Bot weiterhin laufen.
 ```
 
-## Prompt 8 – Echtbetrieb einschalten (verbraucht Meshy-Guthaben)
-
-> Vorher selbst eintragen: `notepad C:\MinecraftHosting\3d-druck\repo\3d-server\.env`, dort `MESHY_API_KEY` setzen und `DEMO_MODE=0`. Optional `ACCESS_CODE`, solange nur du testest (die Seite fragt dann danach). Einen `ANTHROPIC_API_KEY` nur eintragen, wenn du statt des Abos die API nutzen willst.
+## Prompt 8 – Echtbetrieb einschalten (nutzt das Pro-Abo, kein Geld)
 
 ```text
-Ich habe in repo\3d-server\.env den Meshy-Key eingetragen und DEMO_MODE=0 gesetzt. Gib keine Schlüssel aus.
-1. Starte nur den 3D-Worker neu (Weg aus Prompt 7). worker.log muss "Demo=False" zeigen, p3d_status demo False.
-2. Ich lege GENAU EINEN echten Auftrag über https://erschoenfeld2-tech.github.io/Skeison_Web/3d/ an
-   (z. B. "kleine Eule als Stifthalter", 70 mm). Verfolge worker.log, und beobachte währenddessen die
-   CPU-Last von java und blender.
-3. Nach "fertig": Zeig die Zeilen zum Auftrag aus worker.log (Claude-Aufruf, Dauer) und die Ergebnisse
+Schalte den 3D-Worker in den Echtbetrieb. Gib keine Schlüssel aus.
+1. In repo\3d-server\.env: DEMO_MODE=0, GENERATOR=claude, CLAUDE_BACKEND=cli, SERVER_NAME=HW_01.
+   Prüfe ohne Werte anzuzeigen, dass ANTHROPIC_API_KEY leer ist (sonst mich fragen).
+2. Starte nur den 3D-Worker neu (Weg aus Prompt 7). worker.log muss "Demo=False, Erzeugung=claude" zeigen,
+   p3d_status meldet server "HW_01" und generator "claude".
+3. Ich lege GENAU EINEN Auftrag über https://erschoenfeld2-tech.github.io/Skeison_Web/3d/ an.
+   Verfolge worker.log und beobachte währenddessen die CPU-Last von java und blender.
+4. Nach "fertig": Zeig die Zeilen zum Auftrag aus worker.log (Claude-Aufrufe, Dauer) und die Ergebnisse
    (Größe, Dreiecke, watertight) aus p3d_get_job.
-4. Bei Fehlern: Log lesen, Ursache erklären, Lösung vorschlagen, auf mein OK warten.
+5. Bei Fehlern: Log lesen, Ursache erklären, Lösung vorschlagen, auf mein OK warten.
 ```
 
 ## Prompt 9 – Wartung
@@ -231,7 +234,39 @@ mit eigener geplanter Aufgabe, bestehende Aufgaben nicht anfassen):
    (cd repo; git pull; .venv\Scripts\pip install -r 3d-server\requirements.txt; Worker neu starten),
    Blender aktualisieren (BLENDER_BIN anpassen), Tageslimits ändern (JOBS_PER_IP_PER_DAY, JOBS_TOTAL_PER_DAY,
    greifen nach dem Neustart, weil der Worker sie an Supabase meldet), Zugangscode (ACCESS_CODE),
-   zwischen CLAUDE_BACKEND=cli und api wechseln.
+   ein Testmodell (test_modell.py), Umzug auf HW_02 (Prompt 10 aus SERVER-SETUP.md).
+```
+
+## Prompt U – Update (wenn HW_01 schon mit einer älteren Fassung läuft)
+
+```text
+Aktualisiere den 3D-Worker auf die neue Fassung (Claude modelliert selbst in Blender, kein Meshy nötig):
+1. cd C:\MinecraftHosting\3d-druck\repo; git pull; .venv\Scripts\pip install -r 3d-server\requirements.txt
+2. Ergänze in 3d-server\.env (Werte von Schlüsseln nicht anzeigen): SERVER_NAME=HW_01, GENERATOR=claude,
+   CLAUDE_BACKEND=cli, CLAUDE_CAD_MODEL=sonnet, CAD_MAX_CALLS=3, JOBS_PER_IP_PER_DAY=3, JOBS_TOTAL_PER_DAY=10,
+   BLENDER_MAX_RAM_MB=3072. Vergleiche mit .env.example, ob sonst etwas fehlt.
+3. Test wie in Prompt 5, dann nur den 3D-Worker neu starten (Weg aus Prompt 7) und worker.log prüfen
+   ("w2 auf HW_01 gestartet ... Erzeugung=claude").
+```
+
+## Prompt 10 – Umzug von HW_01 auf HW_02
+
+Auf HW_02 zuerst die Prompts 0 bis 7 ausführen (mit `SERVER_NAME=HW_02` in Prompt 3). Den Worker dort aber erst starten, wenn er auf HW_01 beendet ist: Ein zweiter Server-PC verweigert den Start, solange HW_01 noch Lebenszeichen sendet.
+
+```text
+Auf HW_01 (alter Server-PC):
+1. Den 3D-Worker beenden und seinen Autostart deaktivieren (MCSManager-Instanz "3D-Druck" bzw. Aufgabe
+   "Skeison 3D-Druck" und "Skeison 3D-Druck Check"); bei MCSManager erklärst du mir die Schritte.
+   Nichts anderes anfassen.
+2. Warte, bis p3d_status online False meldet (höchstens 3 Minuten).
+
+Auf HW_02 (neuer Server-PC, Prompts 0 bis 6 sind erledigt, SERVER_NAME=HW_02):
+3. Prüfe, dass tools\admin.config.json da ist und claude.exe angemeldet ist (Test aus Prompt 5).
+4. Autostart wie in Prompt 7 einrichten und starten. worker.log muss "auf HW_02 gestartet" zeigen,
+   p3d_status server "HW_02". Falls der Start mit "Auf HW_01 laeuft noch ein 3D-Worker" abbricht:
+   zurück zu Schritt 1 (nur im Notfall einmalig WORKER_TAKEOVER=1).
+5. Ein Testauftrag über die Webseite. Alte Aufträge und Dateien räumt Supabase nach 24 h selbst auf.
+6. Auf HW_01 darf der Ordner C:\MinecraftHosting\3d-druck danach bleiben (nicht löschen, ohne mich zu fragen).
 ```
 
 ## Optional – 3D-Erzeugung komplett auf dem eigenen PC

@@ -55,12 +55,13 @@
     <form class="panel form" id="form" novalidate data-stagger>
       <div class="field">
         <label class="label" for="desc"><span class="num">01</span>Was soll gedruckt werden?</label>
-        <textarea id="desc" name="description" rows="3" maxlength="2000" placeholder="z. B. Ein kleiner Drache, der auf einem Felsen sitzt"></textarea>
+        <textarea id="desc" name="description" rows="3" maxlength="2000" placeholder="z. B. Ein runder Stifthalter mit dem Namen Lena auf der Vorderseite"></textarea>
         <div class="chips" id="chips" aria-label="Beispiele">
-          <button type="button" class="chip">Stifthalter in Form einer Eule</button>
-          <button type="button" class="chip">Kleiner Drache auf einem Felsen</button>
+          <button type="button" class="chip">Stifthalter mit Schriftzug SKEISON</button>
+          <button type="button" class="chip">Handyständer, 60° geneigt</button>
           <button type="button" class="chip">Schlüsselanhänger mit Herz</button>
         </div>
+        <p class="fine gen" id="genInfo" hidden>Am besten gelingen technische Dinge wie Halter, Boxen, Schilder und Vasen. Tiere und Figuren werden stilisiert.</p>
       </div>
 
       <div class="field">
@@ -147,10 +148,10 @@
   </section>
 
   <section class="how" id="ablauf">
-    <div class="sec-head" data-reveal><h2>So funktioniert es</h2><p class="eyebrow">Drei Schritte · meist unter 4 Minuten</p></div>
+    <div class="sec-head" data-reveal><h2>So funktioniert es</h2><p class="eyebrow">Drei Schritte · meist unter 5 Minuten</p></div>
     <ol class="how-grid" data-stagger>
-      <li><span class="how-n">01</span><h3>Beschreiben</h3><p class="muted">Ein Satz oder ein Foto reicht. Claude macht daraus einen genauen Auftrag für die 3D-KI.</p></li>
-      <li><span class="how-n">02</span><h3>Erzeugen</h3><p class="muted">Eine 3D-KI baut das Modell. Für den Druck ohne Farbe, das spart Zeit und Kosten.</p></li>
+      <li><span class="how-n">01</span><h3>Beschreiben</h3><p class="muted">Ein Satz reicht, Fotos helfen bei Form und Proportionen. Claude plant daraus das Modell mit echten Maßen.</p></li>
+      <li><span class="how-n">02</span><h3>Erzeugen</h3><p class="muted">Claude baut das Modell in Blender, prüft es an Vorschaubildern und bessert bei Bedarf nach.</p></li>
       <li><span class="how-n">03</span><h3>Drucken</h3><p class="muted">Blender schließt Löcher, skaliert auf Millimeter und stellt das Modell gerade auf die Platte.</p></li>
     </ol>
   </section>

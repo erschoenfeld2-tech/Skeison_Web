@@ -140,6 +140,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 2px solid var
 .fine { margin: 0; font-family: var(--mono); font-size: .74rem; letter-spacing: .03em; color: var(--muted); text-align: center; }
 .fine:empty { display: none; }
 .fine.queue { margin-top: 18px; text-align: left; color: var(--accent); }
+.fine.gen { margin-top: 10px; text-align: left; }
 
 /* ---------- Vorschau ---------- */
 .viewer { position: relative; aspect-ratio: 1 / 1; max-height: 64vh; width: 100%; overflow: hidden; border: 1px solid var(--line); touch-action: none;

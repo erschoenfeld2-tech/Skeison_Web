@@ -1,4 +1,9 @@
-"""Ein Auftrag von Anfang bis Ende: (Claude) -> Meshy -> Blender -> STL / 3MF.
+"""Ein Auftrag von Anfang bis Ende -> STL / 3MF.
+
+GENERATOR=claude: Claude modelliert in Blender (cad_generator.py), nur ueber das Claude-Abo, ohne Meshy.
+GENERATOR=meshy:  Claude formuliert einen Prompt, Meshy erzeugt das Modell (kostet Meshy-Credits).
+GENERATOR=auto (Standard): meshy, wenn MESHY_API_KEY gesetzt ist, sonst claude.
+Danach immer blender/printprep.py: wasserdicht, Groesse, Standflaeche.
 
 Wird von app.py (Direktbetrieb ueber HTTP) und worker.py (Auftraege aus Supabase) genutzt.
 """
@@ -12,6 +17,7 @@ import time
 from dataclasses import dataclass, field
 
 import blender_runner
+import cad_generator
 import claude_step
 import meshy
 import mesh_io
@@ -20,6 +26,13 @@ log = logging.getLogger("skeison3d")
 
 DEMO = os.getenv("DEMO_MODE", "0") == "1"
 BLENDER_LOCK = threading.Semaphore(int(os.getenv("BLENDER_PARALLEL", "1")))
+GENERATOR = os.getenv("GENERATOR", "auto").strip().lower()
+
+
+def generator() -> str:
+    if GENERATOR in ("claude", "meshy"):
+        return GENERATOR
+    return "meshy" if os.getenv("MESHY_API_KEY") else "claude"
 
 
 @dataclass
@@ -57,6 +70,26 @@ def run(job: Job) -> None:
     job.state = "running"
     try:
         prompt = job.description.strip()
+        glb = os.path.join(job.dir, "meshy.glb")
+        out = os.path.join(job.dir, "out")
+
+        if not DEMO and generator() == "claude":
+            # Claude modelliert selbst in Blender (nur Abo, kein Meshy)
+            job.stage, job.message = "analyse", "Claude entwirft das Modell"
+
+            def progress(p: int) -> None:
+                job.stage, job.message, job.progress = "generate", "Claude baut und prüft das Modell", p
+
+            glb, stats = cad_generator.generate(job, progress)
+            job.name = slug(job.name)
+            size = job.size_mm if job.size_user else max(stats.get("size_mm") or [job.size_mm])
+            job.size_mm = max(10.0, min(300.0, float(size)))
+            job.stage, job.message, job.progress = "blender", "Blender macht es druckfertig", 100
+            with BLENDER_LOCK:
+                # Standflaeche baut Claude selbst; nicht nochmal abschneiden (sonst stimmen die Masse nicht)
+                job.result = blender_runner.prepare(glb, out, job.name, job.size_mm, False)
+            job.stage, job.state, job.progress, job.message = "done", "done", 100, "Fertig"
+            return
 
         # 1) Claude (nur mit Beschreibung)
         if prompt and not DEMO:
@@ -72,9 +105,6 @@ def run(job: Job) -> None:
                     job.size_mm = max(10.0, min(300.0, float(r["size_mm"])))
         elif prompt:
             job.name = slug(prompt[:30])
-
-        glb = os.path.join(job.dir, "meshy.glb")
-        out = os.path.join(job.dir, "out")
 
         if DEMO:
             job.stage, job.message = "analyse", "Demo: Beschreibung wird verstanden"
@@ -103,7 +133,7 @@ def run(job: Job) -> None:
                 job.result = blender_runner.prepare(glb, out, job.name, job.size_mm, job.flat_base)
 
         job.stage, job.state, job.progress, job.message = "done", "done", 100, "Fertig"
-    except (meshy.MeshyError, blender_runner.BlenderError, RuntimeError) as e:
+    except (meshy.MeshyError, blender_runner.BlenderError, cad_generator.CadError, RuntimeError) as e:
         log.warning("Job %s fehlgeschlagen: %s", job.id, e)
         job.state, job.message = "error", str(e).split("\n")[0]
     except Exception:  # noqa: BLE001

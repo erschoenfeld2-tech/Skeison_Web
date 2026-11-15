@@ -28,20 +28,21 @@ import requests  # noqa: E402
 
 import blender_runner  # noqa: E402
 import claude_step  # noqa: E402
-from pipeline import DEMO, Job, run  # noqa: E402
+from pipeline import DEMO, Job, generator, run  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("skeison3d.worker")
 
-VERSION = "w1"
+VERSION = "w2"
+SERVER_NAME = (os.getenv("SERVER_NAME") or socket.gethostname()).strip()[:40]  # z. B. HW_01, HW_02
 DATA_DIR = os.path.abspath(os.getenv("DATA_DIR", os.path.join(HERE, "data")))
 BUCKET = "p3d"
 POLL_S = float(os.getenv("POLL_SECONDS", "4"))          # so oft wird nach neuen Auftraegen gefragt
 HEARTBEAT_S = 60                                         # Lebenszeichen; die Seite gilt nach 3 min ohne als offline
 PUSH_S = 2                                               # Fortschritt hoechstens alle 2 s melden
 JOB_TTL_H = float(os.getenv("JOB_TTL_HOURS", "24"))
-PER_IP = int(os.getenv("JOBS_PER_IP_PER_DAY", "10"))
-PER_DAY = int(os.getenv("JOBS_TOTAL_PER_DAY", "40"))
+PER_IP = int(os.getenv("JOBS_PER_IP_PER_DAY", "3"))
+PER_DAY = int(os.getenv("JOBS_TOTAL_PER_DAY", "10"))  # schont das Claude-Abo (KI-Bot nutzt es mit)
 ACCESS_CODE = os.getenv("ACCESS_CODE", "").strip()
 LOCK_PORT = int(os.getenv("S3D_PORT", "8095"))           # nur als Sperre gegen doppelten Start, nimmt nichts an
 EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
@@ -102,7 +103,8 @@ def remove_files(job_ids: list[str]) -> None:
 
 
 def heartbeat_loop() -> None:
-    info = {"demo": DEMO, "claude": claude_step.backend(), "blender": blender_runner.MODE, "version": VERSION}
+    info = {"demo": DEMO, "claude": claude_step.backend(), "blender": blender_runner.MODE, "version": VERSION,
+            "server": SERVER_NAME, "generator": "demo" if DEMO else generator()}
     last_cleanup = 0.0
     while True:
         try:
@@ -174,8 +176,16 @@ def main() -> None:
     except OSError:
         sys.exit(f"Der 3D-Worker laeuft schon (Port {LOCK_PORT} belegt).")
     os.makedirs(DATA_DIR, exist_ok=True)
-    log.info("3D-Worker %s gestartet: Demo=%s, Claude=%s, Blender=%s, Limits %d/IP, %d gesamt pro Tag.",
-             VERSION, DEMO, claude_step.backend(), blender_runner.MODE, PER_IP, PER_DAY)
+    # Umzug HW_01 -> HW_02: nie zwei Server-PCs gleichzeitig (beide wuerden Auftraege abholen)
+    try:
+        st = rpc("p3d_status") or {}
+        if st.get("online") and st.get("server") and st.get("server") != SERVER_NAME and os.getenv("WORKER_TAKEOVER") != "1":
+            sys.exit(f"Auf {st['server']} laeuft noch ein 3D-Worker (Lebenszeichen < 3 min). Erst dort beenden, "
+                     "3 Minuten warten oder WORKER_TAKEOVER=1 setzen.")
+    except (requests.RequestException, SupabaseError) as e:
+        log.warning("Status nicht lesbar: %s", e)
+    log.info("3D-Worker %s auf %s gestartet: Demo=%s, Erzeugung=%s, Claude=%s, Blender=%s, Limits %d/IP, %d gesamt pro Tag.",
+             VERSION, SERVER_NAME, DEMO, generator(), claude_step.backend(), blender_runner.MODE, PER_IP, PER_DAY)
     try:
         n = rpc("p3d_reset_running")
         if n:

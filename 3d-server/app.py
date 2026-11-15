@@ -27,7 +27,7 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 import blender_runner  # noqa: E402
 import claude_step  # noqa: E402
-from pipeline import DEMO, Job, run  # noqa: E402
+from pipeline import DEMO, Job, generator, run  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("skeison3d")
@@ -35,8 +35,8 @@ log = logging.getLogger("skeison3d")
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.getenv("DATA_DIR", os.path.join(HERE, "data")))
 ACCESS_CODE = os.getenv("ACCESS_CODE", "").strip()
-JOBS_PER_DAY = int(os.getenv("JOBS_PER_IP_PER_DAY", "10"))
-JOBS_TOTAL_PER_DAY = int(os.getenv("JOBS_TOTAL_PER_DAY", "40"))  # alle Besucher zusammen (Meshy-Guthaben)
+JOBS_PER_DAY = int(os.getenv("JOBS_PER_IP_PER_DAY", "3"))
+JOBS_TOTAL_PER_DAY = int(os.getenv("JOBS_TOTAL_PER_DAY", "10"))  # alle Besucher zusammen (Claude-Abo, Meshy-Guthaben)
 JOB_TTL_H = float(os.getenv("JOB_TTL_HOURS", "24"))
 MAX_IMG_MB = 10
 ALLOWED_IMG = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
@@ -82,6 +82,7 @@ def health():
     return {
         "ok": True,
         "demo": DEMO,
+        "generator": "demo" if DEMO else generator(),
         "claude": claude_step.backend(),
         "meshy": bool(os.getenv("MESHY_API_KEY")),
         "blender_mode": blender_runner.MODE,

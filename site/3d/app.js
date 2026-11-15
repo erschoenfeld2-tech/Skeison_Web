@@ -180,7 +180,8 @@ async function checkHealth() {
     if (!health?.online) throw new Error("offline");
     if (health.needs_code) { $("codeField").hidden = false; $("code").value = store.get("s3d-code") || ""; }
     if (health.demo) { n.hidden = false; n.className = "notice warn"; n.textContent = "Demo-Modus: Es wird eine Beispiel-Vase erzeugt, keine echte KI."; }
-    $("limitInfo").textContent = `Bis zu ${health.limit_per_day} Modelle pro Tag · Dauer meist 1–4 Minuten`;
+    $("limitInfo").textContent = `Bis zu ${health.limit_per_day} Modelle pro Tag · Dauer meist 2–5 Minuten`;
+    $("genInfo").hidden = health.generator !== "claude";
   } catch {
     n.hidden = false; n.className = "notice bad";
     n.textContent = "Der 3D-Server ist gerade offline. Bitte später nochmal versuchen.";
