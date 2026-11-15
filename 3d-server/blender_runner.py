@@ -24,16 +24,17 @@ CAD_TIMEOUT = int(os.getenv("BLENDER_CAD_TIMEOUT", "180"))
 THREADS = int(os.getenv("BLENDER_THREADS", "0"))  # 0 = Blender entscheidet
 LOW_PRIORITY = os.getenv("BLENDER_LOW_PRIORITY", "1") == "1"
 MAX_RAM_MB = int(os.getenv("BLENDER_MAX_RAM_MB", "3072"))  # nur Windows; 0 = ohne Grenze
-MAX_TRIS = int(os.getenv("PRINT_MAX_TRIANGLES", "150000"))  # mehr braucht ein FDM-Drucker nicht, STL bleibt klein
+MAX_TRIS = int(os.getenv("PRINT_MAX_TRIANGLES", "0"))  # 0 = aus dem Detailgrad der Druckeinstellungen
 
 
 class BlenderError(RuntimeError):
     pass
 
 
-def _args(glb: str, out_dir: str, name: str, size_mm: float, flat_base: bool) -> list[str]:
+def _args(glb: str, out_dir: str, name: str, size_mm: float, flat_base: bool, settings: dict | None) -> list[str]:
     return ["--in", glb, "--out-dir", out_dir, "--name", name, "--size", str(size_mm),
-            "--flat-base", "1" if flat_base else "0", "--max-tris", str(MAX_TRIS)]
+            "--flat-base", "1" if flat_base else "0", "--max-tris", str(MAX_TRIS),
+            "--settings", json.dumps(settings or {})]
 
 
 def _parse(output: str) -> dict:
@@ -139,14 +140,15 @@ def _run_mcp(args: list[str]) -> dict:
     return _parse(out)
 
 
-def prepare(glb: str, out_dir: str, name: str, size_mm: float, flat_base: bool) -> dict:
-    args = _args(glb, out_dir, name, size_mm, flat_base)
+def prepare(glb: str, out_dir: str, name: str, size_mm: float, flat_base: bool, settings: dict | None = None) -> dict:
+    """settings: Druckeinstellungen (print_settings.normalize), steuern Aufloesung, Ausrichtung, Schrumpf, Analyse."""
+    args = _args(glb, out_dir, name, size_mm, flat_base, settings)
     return _run_mcp(args) if MODE == "mcp" else _run_cli(SCRIPT, args, TIMEOUT)
 
 
-def build(script_file: str, out_glb: str, preview_png: str = "") -> dict:
+def build(script_file: str, out_glb: str, preview_png: str = "", settings: dict | None = None) -> dict:
     """Fuehrt Claudes Modellier-Skript in einem eigenen Blender aus. Ergebnis: {"ok": ..., "error"| Statistik}."""
-    args = ["--script", script_file, "--out-glb", out_glb]
+    args = ["--script", script_file, "--out-glb", out_glb, "--settings", json.dumps(settings or {})]
     if preview_png:
         args += ["--preview", preview_png]
     return _run_cli(CAD_SCRIPT, args, CAD_TIMEOUT)

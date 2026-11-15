@@ -12,7 +12,7 @@ site/3d/ (GitHub Pages) ──p3d_create_job──►  Supabase  ◄──holt a
                                                                              │ 3. Blender – druckfertig: Voxel-Remesh (wasserdicht), Größe in mm, auf z=0 -> STL + 3MF
 ```
 
-Der Server-PC ist von außen nicht erreichbar und braucht keinen Tunnel und keine Domain: Er baut nur Verbindungen nach außen auf, wie das Admin-Panel und `sync-github.js`. Supabase ist der Briefkasten dazwischen (Tabellen und Funktionen in `supabase/druck3d.sql`, ergänzt durch `druck3d_server.sql`; Dateien im privaten Bucket `p3d`).
+Der Server-PC ist von außen nicht erreichbar und braucht keinen Tunnel und keine Domain: Er baut nur Verbindungen nach außen auf, wie das Admin-Panel und `sync-github.js`. Supabase ist der Briefkasten dazwischen (Tabellen und Funktionen in `supabase/druck3d.sql`, ergänzt durch `druck3d_server.sql` und `druck3d_settings.sql`; Dateien im privaten Bucket `p3d`).
 
 | Datei | Inhalt |
 |---|---|
@@ -20,7 +20,9 @@ Der Server-PC ist von außen nicht erreichbar und braucht keinen Tunnel und kein
 | `pipeline.py` | Ein Auftrag von Anfang bis Ende (genutzt von `worker.py`, `app.py` und `test_modell.py`); `GENERATOR` wählt Claude-Modellierung oder Meshy |
 | `cad_generator.py` | Claude modelliert in Blender: Entwurf, Bau, Kontrolle an Vorschaubildern, Nachbessern |
 | `blender/cadmodel.py`, `blender/cad_sandbox.py` | Baut Claudes Skript in Blender und rendert die Ansichten; die Sandbox prüft das Skript vorher (nur Geometrie, kein `bpy.ops`, keine Dateien, keine Imports außer bpy/bmesh/math) |
-| `test_modell.py` | Ein Modell direkt auf dem PC erzeugen, ohne Webseite und Supabase |
+| `test_modell.py` | Ein Modell direkt auf dem PC erzeugen, ohne Webseite und Supabase (`--einstellungen` für Druckeinstellungen als JSON) |
+| `print_settings.py` | Druckeinstellungen wie im Slicer (Druckbett, Düse, Schichthöhe, Material, Detailgrad, Passungsspiel, Überhang, Ausrichtung, Schrumpf): prüft sie und rechnet sie in Mindestwand, Auflösung, Vorgaben für Claude und Slicer-Empfehlungen um |
+| `blender/analyse.py` | Druckprüfung wie im Slicer: Wandstärken und Spalte (Strahltest), Überhänge, Auflagefläche, Druckbett, Schichten; wählt die beste von 6 Ausrichtungen |
 | `app.py` | Direktbetrieb über HTTP zum lokalen Testen: `/api/health`, `POST /api/jobs`, `GET /api/jobs/{id}`, `GET /api/jobs/{id}/file?format=stl\|3mf`; liefert `site/` mit aus und stellt die Seite per `/3d/config.js` auf sich selbst um |
 | `claude_step.py` | Claude-Aufrufe: lokal angemeldetes Claude Code wie der KI-Bot (`CLAUDE_BACKEND=cli`, Standard, nur Abo) oder API-Key (`api`, kostet Geld). Claude Code läuft ohne Werkzeuge, nur mit Lesen der Bilder im eigenen Ordner (`--restricted`) |
 | `start-3d-server.bat` | Start des Workers auf dem Windows-Server-PC (Log in `data\logs\worker.log`; `S3D_PORT`, Standard 8095, nur als Sperre gegen doppelten Start) |
@@ -31,6 +33,15 @@ Der Server-PC ist von außen nicht erreichbar und braucht keinen Tunnel und kein
 | `SERVER-SETUP.md` | **Fertige Prompts** für Claude Code auf dem Windows-11-Server-PC (neben MCSManager, Minecraft und den `tools\`) |
 
 Die Seite `site/3d/` liest die Verbindung aus `site/3d/config.js` (`window.SKEISON_3D`): `api: "supabase"` mit der Supabase-Adresse und dem öffentlichen Schlüssel wie bei der Wunschliste. Fotos verkleinert die Seite vor dem Senden (längste Seite 1536 px, JPEG).
+
+## Genauigkeit
+
+- **Druckeinstellungen** (auf der Seite unter 05, im Browser gespeichert): Drucker bzw. Druckbett, Düse, Schichthöhe, Material, Detailgrad, Passungsspiel, maximaler Überhang, Maßachse (längste Seite, Höhe, Breite oder Tiefe), Ausrichtung optimieren, ohne Stützen konstruieren, Schrumpf ausgleichen. Der Worker prüft und begrenzt alle Werte selbst (`print_settings.normalize`).
+- **Claude konstruiert danach:** Mindestwand = 2 Linienbreiten, kleinste Details, Höhen als Vielfache der Schichthöhe, Löcher und Steckteile mit Passungsspiel, Überhänge höchstens im erlaubten Winkel.
+- **Bauplan mit Sollmaßen:** Claude legt die Maße zuerst fest; nach dem Bau wird nachgemessen, Abweichungen über 3 % gehen zur Korrektur zurück.
+- **Exakte Geometrie:** Claudes Teile werden mit Boolean (Solver EXACT) zu einem Körper vereint. Ist er geschlossen, bleibt er exakt (scharfe Kanten, genaue Maße, wenige Dreiecke); nur offene Modelle (z. B. von Meshy) laufen durch den Voxel-Remesh mit einer Auflösung aus Düse und Detailgrad.
+- **Druckprüfung** nach jedem Bau und im fertigen Modell: dünnste Wand und ihre Lage, zu dünne Fläche, Spalte, Überhang (in den Ansichten rot), Auflagefläche, Druckbett. Claude bekommt das als Text, der Besucher als Prüfliste und Slicer-Empfehlungen (Wände, Füllung, Stützen, Brim, Temperatur); die 3MF enthält die Empfehlungen in den Metadaten.
+- **Fotos:** Claude bestimmt die Aufnahmerichtung jedes Fotos, misst Proportionen, plant Sollmaße und vergleicht danach die maßstabsgetreuen Ansichten vorne/rechts/oben (ein Bild mit Bildbreite in mm) mit den Fotos. Fotos gehen mit bis zu 1024 px an Claude.
 
 ## Lokal testen
 

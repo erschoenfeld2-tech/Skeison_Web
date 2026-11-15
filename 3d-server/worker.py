@@ -132,8 +132,9 @@ def process(row: dict) -> None:
         paths.append(p)
     job = Job(id=jid, dir=jdir, description=row.get("description") or "", images=paths,
               size_mm=float(row.get("size_mm") or 80), size_user=bool(row.get("size_user")),
-              flat_base=bool(row.get("flat_base", True)))
-    log.info("Auftrag %s: %s, %d Foto(s)", jid, "Text" if job.description else "ohne Text", len(paths))
+              flat_base=bool(row.get("flat_base", True)), settings=row.get("settings") or {})
+    log.info("Auftrag %s: %s, %d Foto(s), Duese %s, Schicht %s, %s", jid, "Text" if job.description else "ohne Text",
+             len(paths), job.settings["nozzle"], job.settings["layer"], job.settings["material"])
 
     t = threading.Thread(target=run, args=(job,), daemon=True)
     t.start()

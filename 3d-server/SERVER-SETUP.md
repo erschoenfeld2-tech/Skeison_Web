@@ -153,8 +153,9 @@ Prüfung am Ende: SKEISON_RESULT-Zeile, Dauer, höchste CPU-Last von Blender, un
 Prüfe, ob Claude auf diesem PC Modelle in Blender bauen kann (GENERATOR=claude, CLAUDE_BACKEND=cli).
 Unter dem Windows-Benutzer, unter dem auch der Dienst laufen wird, GENAU EINEN Test ausführen:
 cd repo\3d-server
-$env:DEMO_MODE = '0'; .venv\Scripts\python test_modell.py "Runder Stifthalter, 90 mm hoch, mit dem Schriftzug SKEISON"
-Erwartet: state "done", watertight true, Maße um 90 mm. Zeig mir die Dauer, die Zeilen von skeison3d.cad
+$env:DEMO_MODE = '0'; .venv\Scripts\python test_modell.py "Runder Stifthalter, 90 mm hoch, mit dem Schriftzug SKEISON" `
+  --einstellungen '{"nozzle": 0.4, "layer": 0.2, "material": "PLA"}'
+Erwartet: state "done", watertight true, exact true, Maße um 90 mm, Prüfwerte (wall_p05, overhang_pct) und recommend. Zeig mir die Dauer, die Zeilen von skeison3d.cad
 (wie viele Claude-Aufrufe, ob ein Skript abgelehnt wurde) und schau dir die Vorschaubilder ansicht_*.png im
 ausgegebenen Ordner an: Ist es ein Stifthalter mit Schriftzug?
 Wenn "Not logged in" kommt: Mir sagen, dass ich die Anmeldung wie beim KI-Bot einmal selbst erledige

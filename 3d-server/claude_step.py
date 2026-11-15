@@ -106,7 +106,8 @@ def _has_restricted(exe: str) -> bool:
         return False
 
 
-def _ask_cli(system: str, text: str, images: list[str], schema: dict, model: str, work_dir: str, timeout: int) -> dict:
+def _ask_cli(system: str, text: str, images: list[str], schema: dict, model: str, work_dir: str, timeout: int,
+             max_px: int = 768) -> dict:
     exe = find_claude()
     if not exe:
         raise ClaudeError("claude.exe nicht gefunden (CLAUDE_EXE setzen)")
@@ -118,7 +119,7 @@ def _ask_cli(system: str, text: str, images: list[str], schema: dict, model: str
     for i, p in enumerate(images[:6]):
         name = f"bild{i + 1}.jpg"
         with open(os.path.join(box, name), "wb") as f:
-            f.write(thumb(p, 768))
+            f.write(thumb(p, max_px))
         names.append(name)
     tools = ""
     if names:
@@ -155,12 +156,12 @@ def _ask_cli(system: str, text: str, images: list[str], schema: dict, model: str
 
 # ---------- API-Key ----------
 
-def _ask_api(system: str, text: str, images: list[str], schema: dict, timeout: int) -> dict:
+def _ask_api(system: str, text: str, images: list[str], schema: dict, timeout: int, max_px: int = 768) -> dict:
     import anthropic  # nur noetig, wenn die API genutzt wird
 
     content: list[dict] = []
     for p in images[:6]:
-        data = base64.standard_b64encode(thumb(p, 768)).decode()
+        data = base64.standard_b64encode(thumb(p, max_px)).decode()
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": data}})
     content.append({"type": "text", "text": text})
     client = anthropic.Anthropic(timeout=float(timeout), max_retries=2)
@@ -207,14 +208,14 @@ def enabled() -> bool:
 
 
 def ask(system: str, text: str, schema: dict, *, images: list[str] | None = None, cli_model: str | None = None,
-        work_dir: str = ".", timeout: int | None = None) -> dict:
+        work_dir: str = ".", timeout: int | None = None, max_px: int = 768) -> dict:
     """Ein Claude-Aufruf mit festem JSON-Schema. Wirft ClaudeError/ClaudeLimit."""
     way = backend()
     timeout = timeout or CLI_TIMEOUT
     if way == "cli":
-        return _ask_cli(system, text, images or [], schema, cli_model or CLI_MODEL, work_dir, timeout)
+        return _ask_cli(system, text, images or [], schema, cli_model or CLI_MODEL, work_dir, timeout, max_px)
     if way == "api":
-        return _ask_api(system, text, images or [], schema, timeout)
+        return _ask_api(system, text, images or [], schema, timeout, max_px)
     raise ClaudeError("Claude ist nicht eingerichtet (CLAUDE_BACKEND)")
 
 

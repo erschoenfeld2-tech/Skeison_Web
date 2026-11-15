@@ -7,6 +7,7 @@ Auf dem Server-PC laeuft stattdessen worker.py: Er holt die Auftraege aus Supaba
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import secrets
@@ -91,6 +92,16 @@ def health():
     }
 
 
+def _settings(raw: str) -> dict:
+    """Druckeinstellungen aus dem Formular (JSON); Fehlerhaftes wird zu Standardwerten (print_settings.normalize)."""
+    if len(raw) > 2000:
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+
+
 @app.post("/api/jobs")
 async def create_job(
     request: Request,
@@ -98,6 +109,7 @@ async def create_job(
     size_mm: float = Form(80.0),
     size_user: int = Form(0),
     flat_base: int = Form(1),
+    settings: str = Form("{}"),
     images: list[UploadFile] = File(default=[]),
 ):
     if ACCESS_CODE and not secrets.compare_digest(request.headers.get("x-access-code", ""), ACCESS_CODE):
@@ -130,7 +142,8 @@ async def create_job(
         paths.append(p)
 
     job = Job(id=jid, dir=jdir, description=description, images=paths,
-              size_mm=max(10.0, min(300.0, size_mm)), size_user=bool(size_user), flat_base=bool(flat_base))
+              size_mm=max(10.0, min(300.0, size_mm)), size_user=bool(size_user), flat_base=bool(flat_base),
+              settings=_settings(settings))
     JOBS[jid] = job
     POOL.submit(run, job)
     return {"id": jid}

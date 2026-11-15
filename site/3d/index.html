@@ -75,7 +75,7 @@
       </div>
 
       <div class="field">
-        <span class="label" id="sizeLabel"><span class="num">03</span>Größe <em>längste Seite</em></span>
+        <span class="label" id="sizeLabel"><span class="num">03</span>Größe <em id="axisName">längste Seite</em></span>
         <div class="size-row">
           <input type="range" id="size" min="20" max="250" step="5" value="80" aria-labelledby="sizeLabel">
           <output id="sizeOut" for="size"><b>80</b> mm</output>
@@ -84,6 +84,12 @@
           <button type="button" data-size="40">Klein · 4 cm</button>
           <button type="button" data-size="80" class="on">Mittel · 8 cm</button>
           <button type="button" data-size="150">Groß · 15 cm</button>
+        </div>
+        <div class="seg seg-sm" id="axis" role="radiogroup" aria-label="Das Maß gilt für">
+          <button type="button" role="radio" data-axis="max" class="on" aria-checked="true">Längste</button>
+          <button type="button" role="radio" data-axis="z" aria-checked="false">Höhe</button>
+          <button type="button" role="radio" data-axis="x" aria-checked="false">Breite</button>
+          <button type="button" role="radio" data-axis="y" aria-checked="false">Tiefe</button>
         </div>
       </div>
 
@@ -99,6 +105,98 @@
           <span>Flache Standfläche <small>damit es sicher auf der Druckplatte steht</small></span>
         </label>
       </div>
+
+      <!-- Druckeinstellungen wie im Slicer: steuern Wandstaerken, Aufloesung, Ausrichtung und die Pruefung -->
+      <details class="field adv" id="adv">
+        <summary class="label"><span class="num">05</span>Druckeinstellungen <em id="advSum">Düse 0,4 · Schicht 0,20 · PLA</em></summary>
+        <div class="adv-body">
+          <div class="adv-row">
+            <label class="mini" for="printer">Drucker</label>
+            <select id="printer">
+              <option value="256,256,256">Bambu Lab A1 / P1S / X1C · 256 mm</option>
+              <option value="180,180,180">Bambu Lab A1 mini · 180 mm</option>
+              <option value="250,210,220">Prusa MK4 · 250 × 210 × 220</option>
+              <option value="180,180,180">Prusa MINI · 180 mm</option>
+              <option value="220,220,250">Creality Ender-3 / K1 · 220 × 220 × 250</option>
+              <option value="custom">Eigenes Druckbett …</option>
+            </select>
+            <div class="bed" id="bedCustom" hidden>
+              <input type="number" id="bedX" min="50" max="1000" step="1" value="256" aria-label="Druckbett Breite in mm">
+              <span>×</span>
+              <input type="number" id="bedY" min="50" max="1000" step="1" value="256" aria-label="Druckbett Tiefe in mm">
+              <span>×</span>
+              <input type="number" id="bedZ" min="50" max="1000" step="1" value="256" aria-label="Druckbett Höhe in mm">
+              <span>mm</span>
+            </div>
+          </div>
+          <div class="adv-row">
+            <span class="mini">Düse</span>
+            <div class="seg seg-sm" id="nozzle" role="radiogroup" aria-label="Düsendurchmesser">
+              <button type="button" role="radio" data-v="0.2">0,2</button>
+              <button type="button" role="radio" data-v="0.4" class="on">0,4</button>
+              <button type="button" role="radio" data-v="0.6">0,6</button>
+              <button type="button" role="radio" data-v="0.8">0,8</button>
+            </div>
+          </div>
+          <div class="adv-row">
+            <span class="mini">Schichthöhe</span>
+            <div class="seg seg-sm" id="layer" role="radiogroup" aria-label="Schichthöhe in mm">
+              <button type="button" role="radio" data-v="0.12">0,12</button>
+              <button type="button" role="radio" data-v="0.16">0,16</button>
+              <button type="button" role="radio" data-v="0.2" class="on">0,20</button>
+              <button type="button" role="radio" data-v="0.28">0,28</button>
+            </div>
+          </div>
+          <div class="adv-row">
+            <span class="mini">Material</span>
+            <div class="seg seg-sm" id="material" role="radiogroup" aria-label="Material">
+              <button type="button" role="radio" data-v="PLA" class="on">PLA</button>
+              <button type="button" role="radio" data-v="PETG">PETG</button>
+              <button type="button" role="radio" data-v="ABS">ABS</button>
+              <button type="button" role="radio" data-v="ASA">ASA</button>
+              <button type="button" role="radio" data-v="TPU">TPU</button>
+            </div>
+          </div>
+          <div class="adv-row">
+            <span class="mini">Detailgrad</span>
+            <div class="seg seg-sm" id="detail" role="radiogroup" aria-label="Detailgrad">
+              <button type="button" role="radio" data-v="standard" class="on">Standard</button>
+              <button type="button" role="radio" data-v="fein">Fein</button>
+              <button type="button" role="radio" data-v="sehr_fein">Sehr fein</button>
+            </div>
+          </div>
+          <div class="adv-row">
+            <label class="mini" for="clearance">Passungsspiel <small>für Löcher und Steckteile</small></label>
+            <div class="size-row">
+              <input type="range" id="clearance" min="0" max="0.6" step="0.05" value="0.2">
+              <output id="clearanceOut" for="clearance"><b>0,20</b> mm</output>
+            </div>
+          </div>
+          <div class="adv-row">
+            <label class="mini" for="overhang">Max. Überhang <small>ohne Stützen, gegen die Senkrechte</small></label>
+            <div class="size-row">
+              <input type="range" id="overhang" min="30" max="70" step="5" value="50">
+              <output id="overhangOut" for="overhang"><b>50</b> °</output>
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="noSupport" checked>
+            <span class="track" aria-hidden="true"></span>
+            <span>Ohne Stützen konstruieren <small>Fasen statt flacher Überhänge, kurze Brücken</small></span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="orient" checked>
+            <span class="track" aria-hidden="true"></span>
+            <span>Ausrichtung optimieren <small>dreht das Modell für weniger Überhang und mehr Auflage</small></span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="shrink">
+            <span class="track" aria-hidden="true"></span>
+            <span>Schrumpf ausgleichen <small>vergrößert um den Richtwert des Materials; nicht zusätzlich im Slicer</small></span>
+          </label>
+          <button type="button" class="btn ghost small" id="advReset">Standard wiederherstellen</button>
+        </div>
+      </details>
 
       <div class="field" id="codeField" hidden>
         <label class="label" for="code">Zugangscode</label>
@@ -131,13 +229,18 @@
       <ol class="steps" id="steps" hidden>
         <li data-step="analyse"><span class="dot"></span><div><b>Idee verstehen</b><small>Beschreibung wird aufbereitet</small></div></li>
         <li data-step="generate"><span class="dot"></span><div><b>3D-Modell erzeugen</b><small>Dauert meist 1–3 Minuten</small><div class="bar"><i id="bar"></i></div></div></li>
-        <li data-step="blender"><span class="dot"></span><div><b>Druckfertig machen</b><small>Blender: wasserdicht, Größe, Standfläche</small></div></li>
+        <li data-step="blender"><span class="dot"></span><div><b>Druckfertig machen</b><small>Blender: Maße, Ausrichtung, Druckprüfung</small></div></li>
       </ol>
       <p class="fine queue" id="queueInfo" hidden></p>
 
       <div class="result" id="result" hidden>
         <div class="stats" id="stats"></div>
+        <ul class="checks-list" id="checks" hidden></ul>
         <p class="hint" id="hint" hidden></p>
+        <details class="rec" id="recBox" hidden>
+          <summary>Empfohlene Slicer-Einstellungen</summary>
+          <dl id="rec"></dl>
+        </details>
         <div class="cta-row">
           <a class="btn" id="dlMain" href="#" download>Herunterladen <span class="arr">↓</span></a>
           <a class="btn ghost" id="dlAlt" href="#" download></a>
