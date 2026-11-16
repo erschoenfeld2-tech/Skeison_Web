@@ -28,10 +28,12 @@ import cad_sandbox  # noqa: E402
 log = logging.getLogger("skeison3d.cad")
 
 CAD_MODEL = os.getenv("CLAUDE_CAD_MODEL", "sonnet")   # Claude Code: Alias fuer das aktuelle Sonnet (im Pro-Abo enthalten)
-MAX_CALLS = max(1, int(os.getenv("CAD_MAX_CALLS", "3")))
+MAX_CALLS = max(1, int(os.getenv("CAD_MAX_CALLS", "4")))
 CAD_TIMEOUT = int(os.getenv("CLAUDE_CAD_TIMEOUT", "300"))
 TOLERANCE_PCT = 1.0  # Abweichung von den Sollmassen, ab der Claude nachbessern soll (Prozent) ...
 TOLERANCE_MM = 0.8   # ... mindestens aber so viel in mm: Ein 1,2 mm hoher Schriftzug fehlt sonst bei 3 % unbemerkt (82,4 statt 80,0 mm)
+THIN_PCT_MAX = 3.0   # Anteil der Oberflaeche unter der Mindestwand, ab dem nachgebessert werden muss
+CRITICAL_PCT_MAX = 0.3  # Anteil unter Duesenbreite (wird gar nicht gedruckt)
 
 
 class CadError(RuntimeError):
@@ -58,13 +60,31 @@ Erlaubt (alles andere wird abgelehnt):
   mesh_object(name, bm) -> Objekt (haengt es in die Szene und gibt bm frei)
   link(obj) -> haengt ein mit bpy.data.objects.new erzeugtes Objekt in die Szene
   boolean(ziel, schneider, "DIFFERENCE"|"UNION"|"INTERSECT") -> Boolean; der Schneider wird ausgeblendet
-  text_object(name, text, size=mm, depth=mm) -> 3D-Text auf z = 0 (liegend), danach rotation_euler/location setzen
+  text_mesh(name, text, size=mm, depth=mm) -> 3D-Text als MESH-Objekt, liegend auf z = 0 (Dicke nach +Z);
+    danach rotation_euler/location setzen. Fuer Schrift IMMER text_mesh nehmen, denn boolean() wirkt nur mit Meshes.
+  text_object(...) -> nur Kurven-Text (kein Boolean-Operand), moeglichst nicht verwenden
+  Vector, Matrix, Euler, Quaternion sind schon vorhanden (Import trotzdem erlaubt).
 Verboten: bpy.ops, bpy.context, Dateien, open/exec/eval/getattr, Namen mit "__", .format(); f-Strings sind erlaubt.
 
 Genauigkeit:
-- Alle sichtbaren Teile werden am Ende exakt zu einem Koerper vereinigt. Jedes Teil muss geschlossen sein
+- Alle sichtbaren Teile werden am Ende exakt zu EINEM Koerper vereinigt. Jedes Teil muss geschlossen sein
   (keine einzelnen Flaechen, keine offenen Kanten), und Teile muessen sich um mindestens 0,5 mm ueberlappen.
-  Nichts schwebt frei.
+  Nichts schwebt frei: Die Pruefung zaehlt die Koerper, mehr als einer gilt als Fehler.
+- boolean() nur mit Mesh-Objekten als Operand (mesh_object, text_mesh, bpy.data.objects.new mit Mesh).
+- Schrift auf runden Waenden (Zylinder, Radius R): flacher Text liegt an den Raendern neben der Wand und schwebt.
+  Deshalb jeden Buchstaben einzeln der Rundung folgen lassen:
+    d = relief + 0.8                       # 0,8 mm stecken in der Wand
+    b = text_mesh(f"b{i}", zeichen, size=hoehe, depth=d)
+    phi = (x_mitte_des_buchstabens) / R    # Winkel aus der Bogenlaenge, Buchstabenabstand etwa 0,85 * hoehe
+    b.rotation_euler = Euler((math.radians(90), 0, phi))
+    rm = R + (relief - 0.8) / 2            # Mitte der Buchstabendicke
+    b.location = (rm * math.sin(phi), -rm * math.cos(phi), z_mitte)
+    boolean(koerper, b, "UNION")
+  Alternativ ein Schild AUSSEN aufsetzen, das selbst der Rundung folgt oder tief genug in der Wand steckt.
+  Ebene Flaechen NIE durch Abschneiden einer runden Wand
+  herstellen: Ein ebener Schnitt der Breite B in einen Zylinder mit Radius R ist s = R - sqrt(R^2 - (B/2)^2) tief
+  (D 84 mm, B 60 mm: s = 12,6 mm) und schneidet damit durch jede uebliche Wand. Vertiefungen und Taschen hoechstens
+  so tief wie Wandstaerke minus Mindestwand.
 - Masse exakt aus dem Bauplan umsetzen; runde Formen mit genug Segmenten (Durchmesser < 20 mm: 48, sonst 64-96).
 - Unter etwa 200000 Flaechen bleiben. Organische Formen stilisiert aus Kugeln, Kegeln, Drehteilen und Huellen.
 
@@ -172,7 +192,7 @@ def generate(job, on_progress: Callable[[int], None]) -> tuple[str, dict]:
     """Baut das Modell. Gibt (GLB-Pfad, Statistik) zurueck; setzt job.name/job.hint. Wirft CadError."""
     settings = job.settings
     wishes = _wishes(job, settings)
-    calls, best, last_script = 0, None, ""
+    calls, best, last_script, last_res = 0, None, "", None
     sheet: list[str] = []
     feedback, target = "", None
 
@@ -199,18 +219,21 @@ def generate(job, on_progress: Callable[[int], None]) -> tuple[str, dict]:
                     "\nPruefe das Ergebnis (Ansichten, Analyse, Masse"
                     + (", Vergleich mit den Fotos" if job.images else "") + "). ok = true nur, wenn Form, Masse und "
                     "Druckbarkeit stimmen (script dann leer lassen). Sonst ok = false, problems kurz nennen und das "
-                    "vollstaendige verbesserte Skript liefern; dimensions_mm = (ggf. korrigierte) Sollmasse.")
+                    "vollstaendige verbesserte Skript liefern. Die Sollmasse stehen fest; dimensions_mm einfach wiederholen.")
             r = _ask(SYSTEM, text, REVIEW_SCHEMA, job.images + sheet, job.dir)
             if r.get("hint"):
                 job.hint = r["hint"]
-            if r.get("dimensions_mm") and not job.size_user:
-                target = r["dimensions_mm"]
-            if r.get("ok") and best:
-                open_w = best[1].get("warnings") or []
-                if not open_w or calls >= MAX_CALLS:
+            # Sollmasse stehen fest (Bauplan bzw. Groessenvorgabe); Claude darf sie in der Kontrolle nicht verschieben
+            if r.get("dimensions_mm") and r["dimensions_mm"] != target:
+                log.info("Auftrag %s: Kontrolle wollte Sollmasse aendern (%s), bleibt bei %s", job.id, r["dimensions_mm"], target)
+            if r.get("ok") and last_res is not None:
+                open_i = issues(last_res, target, settings)
+                if not open_i:
                     break
-                # ok gemeldet, aber die Pruefung hat etwas gefunden, das sicher fehlt: nicht durchwinken, nochmal pruefen lassen
-                feedback += ("\nDu hast ok gemeldet, aber die Pruefung meldet noch: " + " | ".join(open_w) +
+                if calls >= MAX_CALLS:
+                    break
+                # ok gemeldet, aber eine Pflichtpruefung ist offen: nicht durchwinken
+                feedback += ("\nDu hast ok gemeldet, aber diese Pflichtpruefungen sind NICHT bestanden: " + " | ".join(open_i) +
                              " Behebe das (ok = false und das vollstaendige verbesserte Skript).\n")
                 continue
             log.info("Auftrag %s: Kontrolle %d: %s", job.id, calls, (r.get("problems") or "")[:200])
@@ -236,27 +259,76 @@ def generate(job, on_progress: Callable[[int], None]) -> tuple[str, dict]:
             feedback = f"\nBeim Ausfuehren in Blender kam ein Fehler: {res.get('error')}\n"
             log.info("Auftrag %s: Blender-Fehler im Skript (%s)", job.id, res.get("error"))
             continue
-        best = (glb, res)
+        res["open_issues"] = issues(res, target, settings)
+        last_res = res
+        # bestes Ergebnis: wenigste offene Pflichtpruefungen (bei Gleichstand das neuere)
+        if best is None or len(res["open_issues"]) <= len(best[1]["open_issues"]):
+            best = (glb, res)
         previews = res.get("previews") or []
         sheet = [_contact_sheet(previews, res.get("size_mm", [1, 1, 1]), os.path.join(job.dir, f"ansichten_{calls}.png"))] \
             if len(previews) >= 4 else previews
-        feedback = (f"\nErgebnis: {res.get('parts')} Teil(e), {res.get('faces')} Flaechen, "
+        bodies = res.get("bodies")
+        feedback = (f"\nErgebnis: {res.get('parts')} Ausgangsteil(e), "
+                    + (f"{bodies} Koerper nach dem Vereinigen, " if bodies else "")
+                    + f"{res.get('faces')} Flaechen, "
                     + ("exakt vereinigt. " if res.get("exact") else "NICHT exakt vereinigt. ")
                     + (res.get("analysis_text") or "") + " " + _deviation(target, res.get("size_mm", [0, 0, 0]))
                     + (" Die vier Ansichten liegen als letztes Bild bei." if sheet else "") + "\n")
-        warns = res.get("warnings") or []
-        if warns:
-            feedback += "\nWARNUNG, bitte beheben (sonst fehlt etwas im Modell): " + " | ".join(warns) + "\n"
-            log.warning("Auftrag %s: Bau %d: %s", job.id, calls, " | ".join(warns)[:500])
+        if res["open_issues"]:
+            feedback += "\nPFLICHTPRUEFUNGEN NICHT BESTANDEN, bitte beheben: " + " | ".join(res["open_issues"]) + "\n"
+            log.warning("Auftrag %s: Bau %d: %s", job.id, calls, " | ".join(res["open_issues"])[:500])
         log.info("Auftrag %s: Bau %d: %s", job.id, calls, feedback.strip()[:300])
         on_progress(int(100 * calls / (MAX_CALLS + 1)) + 10)
 
     if not best:
         raise CadError("Das Modell konnte nicht gebaut werden. Bitte die Beschreibung etwas einfacher fassen.")
-    if best[1].get("warnings"):   # Claudes Hinweis behauptet sonst vielleicht etwas, das im Modell fehlt
-        job.hint = ("Achtung: Ein Teil des Entwurfs (z. B. ein Schriftzug oder eine Aussparung) konnte nicht umgesetzt werden. "
-                    + (job.hint or "")).strip()
+    if best[1]["open_issues"]:
+        # Claudes Hinweis beschreibt den Plan, nicht das Ergebnis: durch eine ehrliche Meldung ersetzen
+        job.hint = ("Achtung, das Modell hat die Druckprüfung nicht vollständig bestanden: "
+                    + "; ".join(dict.fromkeys(_short(i) for i in best[1]["open_issues"]))
+                    + ". Bitte vor dem Druck im Slicer prüfen oder neu erstellen.")
+        log.warning("Auftrag %s: geliefert mit offenen Pruefungen: %s", job.id, " | ".join(best[1]["open_issues"])[:500])
     return best
+
+
+def issues(res: dict, target: dict | None, settings: dict) -> list[str]:
+    """Pflichtpruefungen. Was hier steht, laesst Claudes ok nicht durch und erscheint am Ende als Warnung."""
+    out = list(res.get("warnings") or [])
+    a = res.get("analysis") or {}
+    if res.get("exact") is False:
+        out.append("Die Teile liessen sich nicht exakt vereinigen (offene oder nicht ueberlappende Teile).")
+    if res.get("bodies") and res["bodies"] > 1 and not any("GETRENNTE KOERPER" in w for w in out):
+        out.append(f"{res['bodies']} getrennte Koerper statt einem.")
+    dev = _deviation(target, res.get("size_mm", [0, 0, 0]))
+    if dev.startswith("Abweichung"):
+        out.append(dev)
+    if (a.get("critical_pct") or 0) > CRITICAL_PCT_MAX:
+        out.append(f"{a['critical_pct']} % der Oberflaeche duenner als die Duese (wird nicht gedruckt)"
+                   + (f", duennste Stelle bei {a.get('thinnest_at')}" if a.get("thinnest_at") else "") + ".")
+    elif (a.get("thin_pct") or 0) > THIN_PCT_MAX:
+        out.append(f"{a['thin_pct']} % der Oberflaeche unter der Mindestwand (duennste 5 %: {a.get('wall_p05')} mm)"
+                   + (f", duennste Stelle bei {a.get('thinnest_at')}" if a.get("thinnest_at") else "") + ".")
+    if a.get("fits_bed") is False:
+        out.append(f"Passt nicht auf das Druckbett {settings.get('bed')}.")
+    return out
+
+
+def _short(issue: str) -> str:
+    """Pflichtpruefung als kurzer deutscher Satz fuer den Besucher."""
+    i = issue.upper()
+    if "GETRENNTE KOERPER" in i:
+        return "lose Teile, die nicht am Modell hängen"
+    if i.startswith("ABWEICHUNG"):
+        return "Maße weichen vom Plan ab"
+    if "DUESE" in i or "MINDESTWAND" in i:
+        return "zu dünne Wände"
+    if "EXAKT" in i:
+        return "Teile nicht sauber verbunden"
+    if "DRUCKBETT" in i:
+        return "passt nicht auf das Druckbett"
+    if "BOOLEAN" in i:
+        return "ein Teil des Entwurfs (z. B. Schriftzug oder Aussparung) fehlt"
+    return issue[:80]
 
 
 def _ask(system: str, text: str, schema: dict, images: list[str], work_dir: str) -> dict:

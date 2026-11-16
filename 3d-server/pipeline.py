@@ -97,6 +97,8 @@ def run(job: Job) -> None:
             with BLENDER_LOCK:
                 # Standflaeche baut Claude selbst; nicht nochmal abschneiden (sonst stimmen die Masse nicht)
                 job.result = blender_runner.prepare(glb, out, job.name, job.size_mm, False, settings)
+            # offene Pflichtpruefungen aus Claudes Bau (z. B. lose Teile, Massabweichung) fuer die Seite mitgeben
+            job.result["open_issues"] = stats.get("open_issues") or []
             job.stage, job.state, job.progress, job.message = "done", "done", 100, "Fertig"
             return
 

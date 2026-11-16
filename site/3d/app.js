@@ -364,6 +364,7 @@ async function finish(j) {
 
   // Druckpruefung in Worten
   const checks = [];
+  if (r.bodies > 1) checks.push(["bad", `${r.bodies} getrennte Teile: ${r.bodies - 1} davon hängen nicht am Modell und würden lose gedruckt.`]);
   if (r.fits_bed === false) checks.push(["bad", "Passt nicht auf dein Druckbett: kleiner wählen oder im Slicer teilen."]);
   else if (r.fits_bed) checks.push(["", "Passt auf dein Druckbett."]);
   if (r.critical_pct > 0.5) checks.push(["bad", `${n1(r.critical_pct)} % der Fläche ist dünner als die Düse und wird nicht gedruckt.`]);

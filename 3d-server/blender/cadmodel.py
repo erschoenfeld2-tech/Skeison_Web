@@ -18,7 +18,7 @@ import traceback
 
 import bpy
 import bmesh
-from mathutils import Vector
+from mathutils import Euler, Matrix, Quaternion, Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -89,6 +89,19 @@ def text_object(name, body, size=10.0, depth=2.0, align="CENTER"):
     cu.align_x = align
     obj = link(bpy.data.objects.new(name, cu))
     obj.location.z = depth / 2
+    return obj
+
+
+def text_mesh(name, body, size=10.0, depth=2.0, align="CENTER"):
+    """Wie text_object, aber gleich als Mesh-Objekt: taugt direkt als boolean()-Operand (Blender nimmt dort nur Meshes).
+    Liegt flach auf z = 0 (Dicke nach oben), danach rotation_euler/location setzen."""
+    font = text_object(name + "_schrift", body, size, depth, align)
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(font.evaluated_get(dg))
+    loc = font.location.copy()
+    bpy.data.objects.remove(font, do_unlink=True)
+    obj = link(bpy.data.objects.new(name, me))
+    obj.location = loc
     return obj
 
 
@@ -164,7 +177,9 @@ def check_boolean_effects(objs, warnings, limit=8):
                        else "Der Schneidkoerper trifft den Koerper nicht (liegt daneben oder in einem Hohlraum)."))
 
 
-HELPERS = {"link": link, "mesh_object": mesh_object, "boolean": boolean, "text_object": text_object, "Vector": Vector}
+HELPERS = {"link": link, "mesh_object": mesh_object, "boolean": boolean, "text_object": text_object, "text_mesh": text_mesh,
+           # vorab bereitgestellt: ein vergessener Import soll nicht den ganzen Bau abbrechen
+           "Vector": Vector, "Matrix": Matrix, "Euler": Euler, "Quaternion": Quaternion}
 
 
 # ---------- Vereinen ----------
@@ -440,6 +455,11 @@ def main():
     try:
         an = analyse.analyse(bm, cfg)
         stats["analysis"] = an
+        # Nach exakter Vereinigung muss genau ein Koerper uebrig sein; sonst schwebt etwas frei (z. B. Schrift in einem
+        # durchgeschnittenen Fenster). Ohne exakte Vereinigung ueberlappen die Teile evtl. nur, das zaehlt hier nicht.
+        stats["bodies"] = an.get("bodies", 1) if exact else None
+        if exact and an.get("bodies", 1) > 1:
+            warnings.append(analyse.describe_loose(an))
         stats["analysis_text"] = analyse.describe(an, cfg) + ("" if exact else
             " Die Teile liessen sich nicht exakt vereinen (Luecken oder offene Teile); sie werden spaeter per Voxel "
             "verschmolzen, Kanten werden weniger scharf. Teile besser ueberlappen lassen und geschlossen bauen.")
