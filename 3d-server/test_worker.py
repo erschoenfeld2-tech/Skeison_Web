@@ -381,6 +381,15 @@ cg.blender_runner.build = lambda *a: next(it3)
 glb, res = cg.generate(FakeJob(), lambda p: None)
 check("Bestes Ergebnis wird geliefert (wenigste offene Pruefungen), nicht das letzte", res is better and not res["open_issues"])
 
+# Weiterbearbeiten: Verweis auf das vorherige Modell nur aus dem eigenen Datenordner
+import pipeline as pl
+for pid, want in (("../../etc/x1", "Ungültiger Verweis"), ("gibt-es-nicht-123", "nicht mehr verfügbar")):
+    jb = pl.Job(id="e1", dir=os.path.join(tempfile.mkdtemp(prefix="w3d-edit-"), "e1"), description="x", images=[], size_mm=80,
+                size_user=False, flat_base=True, parent=pid, edit="rebuild")
+    pl.DEMO = False
+    pl.run(jb)
+    check(f"Folgeauftrag mit Vorgaenger '{pid}' wird abgewiesen", jb.state == "error" and want in jb.message)
+
 import test_blender   # 5. echter Blender (uebersprungen, wenn keiner da ist)
 FAILED.extend(test_blender.FAILED)
 print("\nERGEBNIS:", "alle Pruefungen bestanden" if not FAILED else f"{len(FAILED)} FEHLER: " + "; ".join(FAILED))

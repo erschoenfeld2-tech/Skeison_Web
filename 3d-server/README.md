@@ -44,6 +44,21 @@ Die Seite `site/3d/` liest die Verbindung aus `site/3d/config.js` (`window.SKEIS
 - **Druckprüfung** nach jedem Bau und im fertigen Modell: dünnste Wand und ihre Lage, zu dünne Fläche, Spalte, Überhang (in den Ansichten rot), Auflagefläche, Druckbett. Claude bekommt das als Text, der Besucher als Prüfliste und Slicer-Empfehlungen (Wände, Füllung, Stützen, Brim, Temperatur); die 3MF enthält die Empfehlungen in den Metadaten.
 - **Fotos:** Claude bestimmt die Aufnahmerichtung jedes Fotos, misst Proportionen, plant Sollmaße und vergleicht danach die maßstabsgetreuen Ansichten vorne/rechts/oben (ein Bild mit Bildbreite in mm) mit den Fotos. Fotos gehen mit bis zu 1024 px an Claude.
 
+## Weiterbearbeiten
+
+Unter jedem fertigen Modell gibt es auf der Seite „Weiter bearbeiten“ und eine Versionsliste (V1, V2, …; im Browser gespeichert, Links gelten 24 h).
+- **Änderung anwenden** (`edit: "claude"`): Claude bekommt das bisherige Skript, die Sollmaße und den Änderungswunsch und ändert gezielt nur das Gewünschte; danach dieselbe Prüfung wie beim ersten Bau. Meist 2 Claude-Aufrufe.
+- **Nur neu berechnen** (`edit: "rebuild"`): gleiches Modell mit neuer Größe oder neuen Druckeinstellungen (Düse, Material, Detailgrad, Ausrichtung …), ganz ohne Claude, nur Blender (wenige Sekunden).
+- Technik: Jeder Auftrag legt `final.json` (Skript, Bauplan, Sollmaße, Verlauf) und `final.glb` in seinem Ordner auf dem Server-PC ab. Ein Folgeauftrag nennt ihn in `settings.parent`; der Worker liest nur aus dem eigenen Datenordner (`pipeline.load_base`). Nach `JOB_TTL_HOURS` (24 h) ist der Stand weg, dann heißt es neu erstellen. Folgeaufträge zählen zum Tageslimit.
+
+## Schrift
+
+`blender/cadtext.py` stellt Claude `text_on_cylinder(...)` und `text_on_plane(...)` bereit: Buchstaben nach echter Breite gesetzt, Striche automatisch mindestens zwei Linienbreiten dick (Kurven-Offset), erhabene Schrift 0,8 mm in der Fläche, Gravur mit echter Tiefe, auf Zylindern jeder Buchstabe entlang der Rundung. Was wirklich gebaut wurde (Höhe, Strich, Tiefe), kommt als Tatsache in die Rückmeldung an Claude und in den Hinweis für den Besucher.
+
+## Verbrauch
+
+Der Worker schreibt pro Claude-Aufruf und pro Auftrag Tokens (Eingabe, Cache, Ausgabe) und den Dollar-Gegenwert ins Log, den Claude Code mitliefert; `test_modell.py` zeigt ihn als `claude_verbrauch`. Beim Pro-Abo ist das kein echtes Geld, sondern Nutzung des Abo-Kontingents.
+
 ## Lokal testen
 
 ```bash

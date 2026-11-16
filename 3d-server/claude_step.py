@@ -41,6 +41,20 @@ class ClaudeError(RuntimeError):
     pass
 
 
+USAGE: list[dict] = []   # Verbrauch je Aufruf (cad_generator summiert ihn pro Auftrag)
+
+
+def _record(way: str, model: str, u: dict, cost: float | None, secs: float) -> None:
+    rec = {"weg": way, "modell": model, "sekunden": round(secs, 1),
+           "input": int(u.get("input_tokens") or 0), "cache_write": int(u.get("cache_creation_input_tokens") or 0),
+           "cache_read": int(u.get("cache_read_input_tokens") or 0), "output": int(u.get("output_tokens") or 0),
+           "usd": round(float(cost), 4) if cost is not None else None}
+    USAGE.append(rec)
+    log.info("Claude (%s) %s: %.0f s, Eingabe %d (+%d Cache-Schreiben, %d Cache-Lesen), Ausgabe %d Tokens%s", way, model,
+             secs, rec["input"], rec["cache_write"], rec["cache_read"], rec["output"],
+             f", Gegenwert {rec['usd']} USD" if rec["usd"] is not None else "")
+
+
 class ClaudeLimit(ClaudeError):
     """Kontingent des Abos erreicht oder nicht angemeldet."""
 
@@ -150,7 +164,7 @@ def _ask_cli(system: str, text: str, images: list[str], schema: dict, model: str
         data = _parse_json(out.get("result", ""))
     if not isinstance(data, dict):
         raise ClaudeError("Antwort war kein JSON")
-    log.info("Claude (cli) %s: fertig in %.0f s", model, (out.get("duration_ms") or 0) / 1000)
+    _record("cli", model, out.get("usage") or {}, out.get("total_cost_usd"), (out.get("duration_ms") or 0) / 1000)
     return data
 
 
@@ -180,7 +194,9 @@ def _ask_api(system: str, text: str, images: list[str], schema: dict, timeout: i
     if resp.stop_reason == "refusal":
         return {"refused": True}
     u = resp.usage
-    log.info("Claude (api) %s: in=%s out=%s", MODEL, u.input_tokens, u.output_tokens)
+    _record("api", MODEL, {"input_tokens": u.input_tokens, "output_tokens": u.output_tokens,
+                           "cache_creation_input_tokens": getattr(u, "cache_creation_input_tokens", 0) or 0,
+                           "cache_read_input_tokens": getattr(u, "cache_read_input_tokens", 0) or 0}, None, 0)
     data = _parse_json(next((b.text for b in resp.content if b.type == "text"), ""))
     if not isinstance(data, dict):
         raise ClaudeError("Antwort war kein JSON")

@@ -109,6 +109,32 @@ boolean(body, t, "UNION")
 """)
     check("Fall HW_02 (ebene Flaeche durch die Wand geschnitten, Schrift im Fenster): getrennte Koerper werden gemeldet",
           (res.get("bodies") or 0) > 1 and any("GETRENNTE KOERPER" in w for w in res.get("warnings", [])))
+
+    # Schrift-Hilfen (cadtext.py): erhaben und graviert auf dem Zylinder, eben auf einer Platte
+    res, _ = run(tmp, "hilfe", BODY + """
+text_on_cylinder(body, "SKEISON", radius=40, z=60, height=9, relief=1.2)
+text_on_cylinder(body, "2026", radius=40, z=25, height=7, engrave=1.0)
+bm2 = bmesh.new(); bmesh.ops.create_cube(bm2, size=1)
+bmesh.ops.scale(bm2, verts=bm2.verts, vec=Vector((50, 6, 20)))
+bmesh.ops.translate(bm2, verts=bm2.verts, vec=Vector((55, -27, 10)))
+schild = mesh_object("schild", bm2)
+text_on_plane(schild, "Lena", center=(55, -30, 10), normal="-Y", height=8, relief=1.0)
+""")
+    log = res.get("text") or []
+    check("text_on_cylinder/text_on_plane: ein Koerper, exakt, keine Warnung",
+          res.get("bodies") == 1 and res.get("exact") is True and not res.get("warnings"))
+    check("Schrift-Hilfen: erhaben 1,2 mm steht ueber (Tiefe 81,2 mm), Gravur aendert die Aussenmasse nicht",
+          abs((res.get("size_mm") or [0, 0])[1] - 81.2) < 0.3)
+    check("Schrift-Hilfen melden, was gebaut wurde (3 Eintraege, Strich mind. 0,9 mm, Gravur 1,0 mm)",
+          len(log) == 3 and all(t["strich_mm"] >= 0.89 for t in log) and log[1]["modus"] == "graviert" and log[1]["tiefe_mm"] == 1.0)
+    res, _ = run(tmp, "beruehrt", BODY + """
+bm2 = bmesh.new(); bmesh.ops.create_cube(bm2, size=1)
+bmesh.ops.scale(bm2, verts=bm2.verts, vec=Vector((20, 20, 20)))
+bmesh.ops.translate(bm2, verts=bm2.verts, vec=Vector((50, 0, 10)))   # beruehrt den Zylinder (R 40) nur an einer Linie
+mesh_object("block", bm2)
+""")
+    check("Vereinigung scheitert an einer Beruehrung: Meldung nennt beteiligte Teile",
+          res.get("exact") is False and any("beruehrt" in w or "GETRENNTE" in w for w in res.get("warnings", [])))
     res, _ = run(tmp, "innen", BODY + """
 bm2 = bmesh.new(); bmesh.ops.create_cube(bm2, size=5)
 bmesh.ops.translate(bm2, verts=bm2.verts, vec=Vector((0, 0, 45)))

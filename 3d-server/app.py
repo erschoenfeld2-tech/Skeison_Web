@@ -97,9 +97,10 @@ def _settings(raw: str) -> dict:
     if len(raw) > 2000:
         return {}
     try:
-        return json.loads(raw)
+        data = json.loads(raw)
     except json.JSONDecodeError:
         return {}
+    return data if isinstance(data, dict) else {}
 
 
 @app.post("/api/jobs")
@@ -143,7 +144,8 @@ async def create_job(
 
     job = Job(id=jid, dir=jdir, description=description, images=paths,
               size_mm=max(10.0, min(300.0, size_mm)), size_user=bool(size_user), flat_base=bool(flat_base),
-              settings=_settings(settings))
+              settings=(st := _settings(settings)), parent=str(st.get("parent") or "")[:64],
+              edit=str(st.get("edit") or "")[:16])
     JOBS[jid] = job
     POOL.submit(run, job)
     return {"id": jid}

@@ -307,22 +307,68 @@ $("form").addEventListener("submit", async (e) => {
   const desc = $("desc").value.trim();
   if (!desc && !state.files.length) { formError("Beschreibe kurz, was du drucken willst, oder lade ein Foto hoch."); $("desc").focus(); return; }
 
+  setVersions([]);
+  await submitOrder(desc, state.files.map((f) => f.file), {}, "Original");
+});
+
+// Gemeinsamer Weg fuer neue Modelle und Aenderungen. extra: {parent, edit} fuer Folgeauftraege.
+async function submitOrder(description, files, extra, label) {
   const order = {
-    description: desc, size: size.value, sizeUser: state.sizeTouched, flat: $("flat").checked,
-    files: state.files.map((f) => f.file), code: health?.needs_code ? $("code").value : null,
-    settings: settingsPayload(),
+    description, size: size.value, sizeUser: state.sizeTouched, flat: $("flat").checked,
+    files, code: health?.needs_code ? $("code").value : null,
+    settings: { ...settingsPayload(), ...extra },
   };
   if (health?.needs_code) store.set("s3d-code", $("code").value);
-
+  state.pendingLabel = label;
+  store.set("s3d-label", label);
   showStage("run");
   markSteps("queued", 0);
   if (matchMedia("(max-width: 900px)").matches) $("stage").scrollIntoView({ behavior: "smooth", block: "start" });
   try {
     startPolling(await backend.create(order));
   } catch (err) {
-    showStage("idle");
+    if (state.versions.length) showVersion(state.versions.at(-1)); else showStage("idle");
     formError(err.message === "Failed to fetch" ? "Keine Verbindung zum 3D-Server." : err.message);
   }
+}
+
+/* ---------- Versionen und Weiterbearbeiten ---------- */
+state.versions = [];
+try { state.versions = JSON.parse(store.get("s3d-versions") || "[]"); } catch { state.versions = []; }
+function setVersions(list) {
+  state.versions = list.slice(-12);
+  store.set("s3d-versions", list.length ? JSON.stringify(state.versions) : null);
+  renderVersions();
+}
+function renderVersions() {
+  $("versions").innerHTML = state.versions.map((v, i) =>
+    `<li><button type="button" data-i="${i}" class="${v.id === state.current ? "on" : ""}" title="${esc(v.label)}">V${i + 1} · ${esc(v.label)}</button></li>`).join("");
+  const i = state.versions.findIndex((v) => v.id === state.current);
+  $("verLabel").textContent = `Version ${i + 1 || state.versions.length || 1}`;
+}
+$("versions").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-i]");
+  if (b) showVersion(state.versions[+b.dataset.i]);
+});
+$("editChips").addEventListener("click", (e) => {
+  const b = e.target.closest(".chip");
+  if (!b) return;
+  const t = $("editText");
+  t.value = t.value.trim() ? `${t.value.trim()}, ${b.textContent.toLowerCase()}` : b.textContent;
+  t.focus();
+});
+$("editGo").addEventListener("click", () => {
+  formError("");
+  const text = $("editText").value.trim();
+  if (!state.current) return;
+  if (text.length < 3) { toast("Beschreibe kurz, was anders werden soll", true); $("editText").focus(); return; }
+  submitOrder(text, [], { parent: state.current, edit: "claude" }, text.slice(0, 40));
+});
+$("rebuildGo").addEventListener("click", () => {
+  formError("");
+  if (!state.current) return;
+  submitOrder("Neu berechnen", [], { parent: state.current, edit: "rebuild" },
+    `Neu: ${state.sizeTouched ? `${size.value} mm` : "gleiche Größe"} · Düse ${de(ps.nozzle, 1)} · ${ps.material}`);
 });
 
 function startPolling(id) {
@@ -338,14 +384,34 @@ function startPolling(id) {
       q.hidden = !(j.state === "queued" && j.position > 0);
       q.textContent = `Platz ${(j.position || 0) + 1} in der Warteschlange – vor dir ${j.position === 1 ? "ist 1 Auftrag" : `sind ${j.position} Aufträge`}.`;
       if (j.state === "done") { clearInterval(state.poll); finish(j); }
-      if (j.state === "error") { clearInterval(state.poll); store.set("s3d-job", null); showStage("idle"); formError(j.message); toast(j.message, true); }
+      if (j.state === "error") {
+        clearInterval(state.poll);
+        store.set("s3d-job", null);
+        const cur = state.versions.find((v) => v.id === state.current) || state.versions.at(-1);
+        if (cur) showVersion(cur); else showStage("idle");   // bei einer Aenderung: zurueck zur letzten Version
+        formError(j.message);
+        toast(j.message, true);
+      }
     } catch { /* kurzer Netzaussetzer: weiter versuchen */ }
   };
   tick();
   state.poll = setInterval(tick, 2500);
 }
 
-async function finish(j) {
+// Fertiger Auftrag: als neue Version merken und anzeigen
+function finish(j) {
+  store.set("s3d-job", null);
+  const label = state.pendingLabel || store.get("s3d-label") || "Original";
+  state.pendingLabel = null;
+  if (!state.versions.some((v) => v.id === j.id)) setVersions([...state.versions, { ...j, label }]);
+  $("editText").value = "";
+  toast("Dein Modell ist fertig");
+  return showVersion(j);
+}
+
+async function showVersion(j) {
+  state.current = j.id;
+  renderVersions();
   showStage("done");
   markSteps("done", 100);
   const r = j.result || {};
@@ -388,7 +454,6 @@ async function finish(j) {
   alt.href = backend.file(j, other);
   alt.setAttribute("download", `${j.name}.${other}`);
   alt.textContent = `Als ${other.toUpperCase()}`;
-  toast("Dein Modell ist fertig");
   try {
     await ensureViewer();
     await viewer.load(backend.file(j, "stl", true));
@@ -397,6 +462,8 @@ async function finish(j) {
 
 $("again").addEventListener("click", () => {
   store.set("s3d-job", null);
+  setVersions([]);
+  state.current = null;
   state.jobId = null;
   viewer?.clear();
   showStage("idle");
@@ -479,3 +546,4 @@ showStage("idle");
 checkHealth();
 const pending = store.get("s3d-job");
 if (pending) { showStage("run"); startPolling(pending); }
+else if (state.versions.length) showVersion(state.versions.at(-1));   // Sitzung fortsetzen (Links gelten 24 h)

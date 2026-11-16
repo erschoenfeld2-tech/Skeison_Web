@@ -47,7 +47,8 @@ def main() -> None:
     print(f"Erzeugung: {'demo' if pipeline.DEMO else pipeline.generator()} - Ordner: {jdir}", flush=True)
     t = time.time()
     pipeline.run(job)
-    print(json.dumps({**job.public(), "sekunden": round(time.time() - t)}, ensure_ascii=False, indent=2))
+    print(json.dumps({**job.public(), "sekunden": round(time.time() - t), "claude_verbrauch": job.usage},
+                     ensure_ascii=False, indent=2))
     if job.state == "done":
         print("Dateien:", os.path.join(jdir, "out"))
         print("Vorschaubilder (ansicht_*.png) und Claudes Skripte (modell_*.py) liegen im Ordner.")
