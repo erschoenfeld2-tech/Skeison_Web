@@ -34,7 +34,7 @@
     <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
     <div class="links" id="navLinks">
       <span class="nav-ind" aria-hidden="true"></span>
-      <a href="#erstellen">Erstellen</a><a href="#ablauf">Ablauf</a><a href="../#projekte">Projekte</a>
+      <a href="#erstellen">Erstellen</a><a href="#ablauf">Ablauf</a><a href="#tipp">Tipp</a><a href="../#projekte">Projekte</a>
       <a class="nav-cta" href="../">Hauptseite <span class="arr">↗</span></a>
     </div>
   </nav>
@@ -257,6 +257,40 @@
       <li><span class="how-n">02</span><h3>Erzeugen</h3><p class="muted">Claude baut das Modell in Blender, prüft es an Vorschaubildern und bessert bei Bedarf nach.</p></li>
       <li><span class="how-n">03</span><h3>Drucken</h3><p class="muted">Blender schließt Löcher, skaliert auf Millimeter und stellt das Modell gerade auf die Platte.</p></li>
     </ol>
+  </section>
+
+  <!-- Projekt-Tipp: Wordclock_Multi von butchooka (CC BY-NC-SA 4.0); Bilder direkt aus dessen Repository -->
+  <section class="tip" id="tipp" aria-labelledby="tippTitel">
+    <div class="sec-head" data-reveal><h2 id="tippTitel">Projekt-Tipp</h2><p class="eyebrow">Zum Selberdrucken · Open Source</p></div>
+    <article class="tip-card" data-reveal>
+      <figure class="tip-fig">
+        <img id="wcImg" src="https://raw.githubusercontent.com/butchooka/Wordclock_Multi/main/docs/render_dark/Wordclock_Render_DE_1022.png"
+             width="800" height="800" loading="lazy" decoding="async"
+             alt="Wortuhr Wordclock_Multi mit deutscher Front: Es ist zwanzig nach zehn, plus zwei Minuten">
+        <figcaption>Render: butchooka · CC BY-NC-SA 4.0</figcaption>
+      </figure>
+      <div class="tip-text">
+        <span class="tag">Wortuhr · ESP32</span>
+        <h3>Wordclock_Multi</h3>
+        <p class="lead">Eine Wortuhr zum Selberbauen von butchooka: 16 × 16 LEDs hinter einer gedruckten Front zeigen die Uhrzeit in Worten, in 31 Sprachen und Dialekten.</p>
+        <div class="seg seg-sm" id="wcLang" role="radiogroup" aria-label="Sprache der Front">
+          <button type="button" role="radio" data-lang="DE" class="on" aria-checked="true">Deutsch</button>
+          <button type="button" role="radio" data-lang="dialect_BAD" aria-checked="false">Badisch</button>
+          <button type="button" role="radio" data-lang="dialect_SWG" aria-checked="false">Schwäbisch</button>
+          <button type="button" role="radio" data-lang="GB" aria-checked="false">English</button>
+        </div>
+        <ul class="tip-list">
+          <li>Gehäuse, Front je Sprache, Ständer, Wand- und Skadis-Halter oder Version für den Bilderrahmen (RIBBA, SANNAHED)</li>
+          <li>ESP32 mit WS2812-Matrix: eigene Weboberfläche oder Home Assistant über ESPHome</li>
+          <li>Effekte, Laufschrift, Nachtmodus nach Sonnenstand, Temperatur und Lüften-Hinweis</li>
+        </ul>
+        <div class="cta-row">
+          <a class="btn" href="https://github.com/butchooka/Wordclock_Multi" target="_blank" rel="noopener">Zum Projekt <span class="arr">↗</span></a>
+          <a class="btn ghost" href="https://github.com/butchooka/Wordclock_Multi/blob/main/README_DE.md" target="_blank" rel="noopener">Anleitung auf Deutsch <span class="arr">↗</span></a>
+        </div>
+        <p class="fine tip-note">Die Druckdateien erscheinen auf MakerWorld. Nur für nicht kommerzielle Nutzung.</p>
+      </div>
+    </article>
   </section>
 </main>
 
