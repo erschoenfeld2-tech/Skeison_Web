@@ -111,6 +111,31 @@ def thickness(bm, min_wall, critical, samples=4000):
     }
 
 
+def bodies(bm, show=5):
+    """Getrennte Koerper (zusammenhaengende Teile ueber Kanten). Ein druckbares Objekt hat genau einen.
+    Liefert (Anzahl, Liste der kleineren Koerper mit Umgrenzung), groesster Koerper zuerst."""
+    seen, comps = set(), []
+    for v in bm.verts:
+        if v in seen:
+            continue
+        seen.add(v)
+        stack, comp = [v], []
+        while stack:
+            x = stack.pop()
+            comp.append(x)
+            for e in x.link_edges:
+                w = e.other_vert(x)
+                if w not in seen:
+                    seen.add(w)
+                    stack.append(w)
+        lo = [min(p.co[i] for p in comp) for i in range(3)]
+        hi = [max(p.co[i] for p in comp) for i in range(3)]
+        comps.append((len(comp), lo, hi))
+    comps.sort(key=lambda c: -c[0])
+    loose = [{"von": [round(x, 1) for x in lo], "bis": [round(x, 1) for x in hi]} for _, lo, hi in comps[1:1 + show]]
+    return len(comps), loose
+
+
 def analyse(bm, cfg):
     """Komplette Analyse eines druckfertigen BMesh (auf z = 0). cfg: Werte aus print_settings.blender_args."""
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
@@ -122,7 +147,10 @@ def analyse(bm, cfg):
     fits = (dims.x <= bed[0] and dims.y <= bed[1] or dims.y <= bed[0] and dims.x <= bed[1]) and dims.z <= bed[2]
     layer = cfg.get("layer", 0.2)
     non_manifold = sum(1 for e in bm.edges if not e.is_manifold)
+    n_bodies, loose = bodies(bm)
     return {
+        "bodies": n_bodies,
+        "loose_parts": loose,
         "size_mm": [round(dims.x, 2), round(dims.y, 2), round(dims.z, 2)],
         "layers": int(math.ceil(dims.z / layer - 1e-6)) if layer else None,
         "overhang_pct": round(100 * st["overhang"] / st["total"], 1) if st["total"] else 0.0,
@@ -135,9 +163,19 @@ def analyse(bm, cfg):
     }
 
 
+def describe_loose(a):
+    """Text zu losen Teilen (fuer Claude und als Warnung)."""
+    where = "; ".join(f"x {p['von'][0]}..{p['bis'][0]}, y {p['von'][1]}..{p['bis'][1]}, z {p['von'][2]}..{p['bis'][2]}"
+                      for p in a.get("loose_parts") or [])
+    return (f"{a['bodies']} GETRENNTE KOERPER statt einem: {a['bodies'] - 1} Teil(e) haengen nicht am Hauptkoerper "
+            f"(schweben frei oder beruehren ihn nur ohne Ueberlappung)" + (f", z. B. bei {where}" if where else "") + ".")
+
+
 def describe(a, cfg):
     """Kurzer deutscher Text fuer Claudes Kontrolle."""
     parts = [f"Masse {a['size_mm'][0]} x {a['size_mm'][1]} x {a['size_mm'][2]} mm, {a['layers']} Schichten."]
+    if a.get("bodies", 1) > 1:
+        parts.append(describe_loose(a))
     if a.get("wall_p05") is not None:
         parts.append(f"Wandstaerke: duennste 5 % {a['wall_p05']} mm, Median {a['wall_median']} mm "
                      f"(Minimum {cfg.get('min_wall')} mm); {a['thin_pct']} % der Flaeche zu duenn, "

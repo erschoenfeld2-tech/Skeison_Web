@@ -245,6 +245,24 @@
           <a class="btn" id="dlMain" href="#" download>Herunterladen <span class="arr">↓</span></a>
           <a class="btn ghost" id="dlAlt" href="#" download></a>
         </div>
+
+        <!-- Weiter bearbeiten: Aenderung per KI oder nur neu berechnen (Groesse/Druckeinstellungen aus dem Formular) -->
+        <div class="edit" id="editBox">
+          <label class="label" for="editText"><span class="num">+</span>Weiter bearbeiten <em id="verLabel">Version 1</em></label>
+          <textarea id="editText" rows="2" maxlength="1000" placeholder="z. B. Schrift 2 mm größer und graviert, Wand 3 mm dick, Loch 1 mm weiter links"></textarea>
+          <div class="chips" id="editChips" aria-label="Beispiele für Änderungen">
+            <button type="button" class="chip">Schrift größer</button>
+            <button type="button" class="chip">Wände 1 mm dicker</button>
+            <button type="button" class="chip">Kanten abrunden</button>
+            <button type="button" class="chip">Boden stabiler</button>
+          </div>
+          <div class="cta-row">
+            <button class="btn" id="editGo" type="button">Änderung anwenden <span class="arr">→</span></button>
+            <button class="btn ghost" id="rebuildGo" type="button">Nur neu berechnen</button>
+          </div>
+          <p class="fine edit-note">„Nur neu berechnen“ übernimmt Größe und Druckeinstellungen aus dem Formular, ohne KI. Änderungen gehen innerhalb von 24 Stunden.</p>
+          <ol class="versions" id="versions" aria-label="Versionen"></ol>
+        </div>
         <button class="btn ghost small" id="again" type="button">Neues Modell</button>
       </div>
     </div>

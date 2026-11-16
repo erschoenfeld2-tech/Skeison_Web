@@ -18,13 +18,14 @@ import traceback
 
 import bpy
 import bmesh
-from mathutils import Vector
+from mathutils import Euler, Matrix, Quaternion, Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.dirname(HERE))
 import analyse  # noqa: E402
 import cad_sandbox  # noqa: E402
+import cadtext  # noqa: E402
 import print_settings  # noqa: E402
 
 
@@ -89,6 +90,19 @@ def text_object(name, body, size=10.0, depth=2.0, align="CENTER"):
     cu.align_x = align
     obj = link(bpy.data.objects.new(name, cu))
     obj.location.z = depth / 2
+    return obj
+
+
+def text_mesh(name, body, size=10.0, depth=2.0, align="CENTER"):
+    """Wie text_object, aber gleich als Mesh-Objekt: taugt direkt als boolean()-Operand (Blender nimmt dort nur Meshes).
+    Liegt flach auf z = 0 (Dicke nach oben), danach rotation_euler/location setzen."""
+    font = text_object(name + "_schrift", body, size, depth, align)
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(font.evaluated_get(dg))
+    loc = font.location.copy()
+    bpy.data.objects.remove(font, do_unlink=True)
+    obj = link(bpy.data.objects.new(name, me))
+    obj.location = loc
     return obj
 
 
@@ -164,7 +178,10 @@ def check_boolean_effects(objs, warnings, limit=8):
                        else "Der Schneidkoerper trifft den Koerper nicht (liegt daneben oder in einem Hohlraum)."))
 
 
-HELPERS = {"link": link, "mesh_object": mesh_object, "boolean": boolean, "text_object": text_object, "Vector": Vector}
+HELPERS = {"link": link, "mesh_object": mesh_object, "boolean": boolean, "text_object": text_object, "text_mesh": text_mesh,
+           # vorab bereitgestellt: ein vergessener Import soll nicht den ganzen Bau abbrechen
+           "Vector": Vector, "Matrix": Matrix, "Euler": Euler, "Quaternion": Quaternion,
+           "text_on_plane": cadtext.text_on_plane, "text_on_cylinder": cadtext.text_on_cylinder}
 
 
 # ---------- Vereinen ----------
@@ -181,11 +198,25 @@ def to_mesh_objects(objs):
         me = bpy.data.meshes.new_from_object(o.evaluated_get(dg))
         me.transform(o.matrix_world)
         if len(me.polygons):
-            meshes.append(me)
+            meshes.append((o.name, me))
         else:
             bpy.data.meshes.remove(me)
     clear_scene()
-    return [link(bpy.data.objects.new("teil", me)) for me in meshes]
+    return [link(bpy.data.objects.new(name, me)) for name, me in meshes]   # Namen behalten: Meldungen nennen das Teil
+
+
+def open_parts(parts):
+    """Teile mit offenen oder ueberzaehligen Kanten (verhindern die exakte Vereinigung), mit Anzahl der Kanten."""
+    out = []
+    for o in parts:
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        bad = sum(1 for e in bm.edges if not e.is_manifold)
+        loose = sum(1 for v in bm.verts if not v.link_faces)
+        bm.free()
+        if bad or loose:
+            out.append(f"'{o.name}' ({bad} offene Kanten" + (f", {loose} lose Punkte" if loose else "") + ")")
+    return out
 
 
 def closed(me):
@@ -194,6 +225,43 @@ def closed(me):
     ok = len(bm.faces) > 3 and all(e.is_manifold for e in bm.edges)
     bm.free()
     return ok
+
+
+UNION_FAILED = []   # Teile, an denen die schrittweise Vereinigung gescheitert ist (fuer die Meldung an Claude)
+
+
+def union_steps(parts):
+    """Zweiter Versuch: Teil fuer Teil vereinigen (manchmal klappt das, wo die Sammel-Vereinigung scheitert).
+    Ein Teil, nach dem das Ergebnis nicht mehr geschlossen ist, wird uebersprungen und gemeldet."""
+    acc, failed = parts[0].data.copy(), []
+    for o in parts[1:]:
+        tmp = link(bpy.data.objects.new("schritt", acc))
+        mod = tmp.modifiers.new("v", "BOOLEAN")
+        mod.operation, mod.solver, mod.object = "UNION", "EXACT", o
+        try:
+            me = bpy.data.meshes.new_from_object(tmp.evaluated_get(bpy.context.evaluated_depsgraph_get()))
+        except Exception:  # noqa: BLE001
+            me = None
+        bpy.data.objects.remove(tmp, do_unlink=True)
+        if me is not None and len(me.polygons) and closed(me):
+            bpy.data.meshes.remove(acc)
+            acc = me
+        else:
+            near = [p.name for p in parts if p is not o and _boxes_touch(p, o)]
+            failed.append(o.name + (f" (beruehrt {', '.join(repr(n) for n in near[:4])})" if near else ""))
+            if me is not None:
+                bpy.data.meshes.remove(me)
+    return acc, failed
+
+
+def _box(o):
+    vs = [v.co for v in o.data.vertices]
+    return [min(v[i] for v in vs) for i in range(3)], [max(v[i] for v in vs) for i in range(3)]
+
+
+def _boxes_touch(a, b, eps=0.05):
+    (alo, ahi), (blo, bhi) = _box(a), _box(b)
+    return all(alo[i] <= bhi[i] + eps and blo[i] <= ahi[i] + eps for i in range(3))
 
 
 def union(parts, max_parts=120):
@@ -219,6 +287,12 @@ def union(parts, max_parts=120):
             bpy.data.meshes.remove(me)
         except Exception as e:  # noqa: BLE001
             print("Vereinigung fehlgeschlagen:", e)
+        me, failed = union_steps(parts)
+        UNION_FAILED[:] = failed
+        if me is not None and not failed:
+            return me, True
+        if me is not None:
+            bpy.data.meshes.remove(me)
     bm = bmesh.new()
     for o in parts:
         bm.from_mesh(o.data)
@@ -398,6 +472,9 @@ def result(data):
 def main():
     a = parse_args()
     clear_scene()
+    s = print_settings.normalize(json.loads(a.settings or "{}"))
+    d = print_settings.derived(s, 100.0)
+    cadtext.CFG.update(line_width=d["line_width"], min_wall=d["min_wall"])
     with open(a.script, encoding="utf-8") as f:
         code = f.read()
     try:
@@ -420,7 +497,16 @@ def main():
     parts = to_mesh_objects(objs)
     if not parts:
         return result({"ok": False, "error": "Das Modell hat keine Flaechen."})
+    not_closed = open_parts(parts)
     me, exact = union(parts)
+    if not exact:
+        warnings.append(("Nicht geschlossene Teile verhindern die exakte Vereinigung: " + ", ".join(not_closed) +
+                         ". Jedes Teil muss ein geschlossener Koerper sein.") if not_closed else
+                        "Die exakte Vereinigung ist gescheitert, obwohl alle Teile geschlossen sind"
+                        + (f", und zwar beim Hinzufuegen von {'; '.join(UNION_FAILED[:6])}" if UNION_FAILED else "")
+                        + ". Ursache sind meist Flaechen, die genau aufeinander oder in einer Ebene mit einer Aussenflaeche "
+                        "liegen (z. B. Seitenwand buendig mit dem Plattenrand), oder Teile, die sich nur an einer Kante "
+                        "beruehren. Teile 0,5 mm ineinander schieben bzw. 0,2 mm nach innen versetzen.")
     clear_scene()
     obj = link(bpy.data.objects.new("modell", me))
 
@@ -432,15 +518,22 @@ def main():
     stats["warnings"] = warnings
     stats["blender"] = bpy.app.version_string
 
+    stats["text"] = cadtext.TEXT_LOG
     # Analyse wie im Slicer (modellierte Groesse und Lage)
-    s = print_settings.normalize(json.loads(a.settings or "{}"))
     cfg = print_settings.blender_args(s, max(stats["size_mm"]))
     bm = bmesh.new()
     bm.from_mesh(me)
     try:
         an = analyse.analyse(bm, cfg)
         stats["analysis"] = an
-        stats["analysis_text"] = analyse.describe(an, cfg) + ("" if exact else
+        # Nach exakter Vereinigung muss genau ein Koerper uebrig sein; sonst schwebt etwas frei (z. B. Schrift in einem
+        # durchgeschnittenen Fenster). Ohne exakte Vereinigung ueberlappen die Teile evtl. nur, das zaehlt hier nicht.
+        stats["bodies"] = an.get("bodies", 1) if exact else None
+        if exact and an.get("bodies", 1) > 1:
+            warnings.append(analyse.describe_loose(an))
+        # ohne exakte Vereinigung liegen die Teile nur uebereinander: keine "getrennten Koerper" melden
+        stats["analysis_text"] = analyse.describe(an if exact else dict(an, bodies=1), cfg) \
+            + "".join(" " + t + "." for t in cadtext.summary()) + ("" if exact else
             " Die Teile liessen sich nicht exakt vereinen (Luecken oder offene Teile); sie werden spaeter per Voxel "
             "verschmolzen, Kanten werden weniger scharf. Teile besser ueberlappen lassen und geschlossen bauen.")
     except Exception as e:  # noqa: BLE001

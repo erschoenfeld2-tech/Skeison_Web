@@ -343,13 +343,52 @@ def run_generate(builds):
 
 
 bad = {"ok": True, "parts": 1, "faces": 10, "exact": True, "size_mm": [80, 80.0, 90], "warnings": ["Boolean UNION ... KEINE Wirkung"]}
-(glb, res), job, asks = run_generate([bad, bad, bad])
-check("ok trotz offener Warnung wird nicht durchgewinkt (Claude wird erneut gefragt)", len(asks) == 3)
-check("Rueckmeldung an Claude nennt Warnung und Sollabweichung", "WARNUNG" in asks[1] and "Y ist 80.0 mm statt 82.4" in asks[1])
-check("Hinweis fuer den Besucher warnt, dass etwas nicht umgesetzt wurde", job.hint.startswith("Achtung:"))
+(glb, res), job, asks = run_generate([bad] * cg.MAX_CALLS)
+check("ok trotz offener Pflichtpruefung wird nicht durchgewinkt (Claude wird bis CAD_MAX_CALLS gefragt)", len(asks) == cg.MAX_CALLS)
+check("Rueckmeldung an Claude nennt Warnung und Sollabweichung",
+      "PFLICHTPRUEFUNGEN NICHT BESTANDEN" in asks[1] and "Y ist 80.0 mm statt 82.4" in asks[1])
+check("Hinweis fuer den Besucher ist ehrlich (nicht Claudes Behauptung 'mit Schriftzug')",
+      job.hint.startswith("Achtung") and "mit Schriftzug" not in job.hint)
+check("Offene Pruefungen werden mitgegeben", bool(res.get("open_issues")))
 good = dict(bad, size_mm=[80, 82.4, 90], warnings=[])
 (glb, res), job, asks = run_generate([good])
 check("Sauberes Ergebnis: eine Kontrolle genuegt, kein Warnhinweis", len(asks) == 2 and not job.hint.startswith("Achtung"))
+
+# Fall HW_02: 92 x 92 statt 80 x 82,4, lose Teile; Claude meldet ok und schiebt die Sollmasse auf das Ergebnis
+loose = dict(good, size_mm=[92, 92, 90], bodies=8, warnings=["8 GETRENNTE KOERPER statt einem: ..."])
+moved = {"ok": True, "problems": "", "dimensions_mm": {"x": 92, "y": 92, "z": 90}, "script": "", "hint": "Schrift erhaben"}
+asks2, it2 = [], iter([loose] * cg.MAX_CALLS)
+cg._ask = lambda system, text, schema, imgs, wd: (asks2.append(text) or (
+    {"refused": False, "plan": {"object": "Halter", "dimensions_mm": {"x": 80, "y": 82.4, "z": 90}}, "name": "halter",
+     "hint": "Schrift 1,2 mm erhaben", "script": "x = 1"} if "refused" in schema["required"] else moved))
+cg.blender_runner.build = lambda *a: next(it2)
+job = FakeJob()
+glb, res = cg.generate(job, lambda p: None)
+check("Kontrolle kann die Sollmasse nicht verschieben: 92 statt 80/82,4 bleibt eine Abweichung",
+      any("X ist 92" in i for i in res["open_issues"]) and "statt 80" in " ".join(res["open_issues"]))
+check("Lose Teile sind eine Pflichtpruefung und gehen nicht durch", len(asks2) == cg.MAX_CALLS
+      and any("GETRENNTE KOERPER" in i for i in res["open_issues"]))
+check("Hinweis nennt lose Teile und Masse statt 'Schrift erhaben'",
+      "lose Teile" in job.hint and "Maße" in job.hint and "erhaben" not in job.hint)
+# Bestes Ergebnis: ein spaeterer schlechterer Bau verdraengt einen besseren nicht
+better = dict(good, warnings=[], bodies=1)
+asks3, it3 = [], iter([loose, better, loose, loose])
+cg._ask = lambda system, text, schema, imgs, wd: (asks3.append(text) or (
+    {"refused": False, "plan": {"object": "Halter", "dimensions_mm": {"x": 80, "y": 82.4, "z": 90}}, "name": "halter",
+     "hint": "", "script": "x = 1"} if "refused" in schema["required"]
+    else {"ok": False, "problems": "x", "dimensions_mm": {"x": 80, "y": 82.4, "z": 90}, "script": "x = 2", "hint": ""}))
+cg.blender_runner.build = lambda *a: next(it3)
+glb, res = cg.generate(FakeJob(), lambda p: None)
+check("Bestes Ergebnis wird geliefert (wenigste offene Pruefungen), nicht das letzte", res is better and not res["open_issues"])
+
+# Weiterbearbeiten: Verweis auf das vorherige Modell nur aus dem eigenen Datenordner
+import pipeline as pl
+for pid, want in (("../../etc/x1", "Ungültiger Verweis"), ("gibt-es-nicht-123", "nicht mehr verfügbar")):
+    jb = pl.Job(id="e1", dir=os.path.join(tempfile.mkdtemp(prefix="w3d-edit-"), "e1"), description="x", images=[], size_mm=80,
+                size_user=False, flat_base=True, parent=pid, edit="rebuild")
+    pl.DEMO = False
+    pl.run(jb)
+    check(f"Folgeauftrag mit Vorgaenger '{pid}' wird abgewiesen", jb.state == "error" and want in jb.message)
 
 import test_blender   # 5. echter Blender (uebersprungen, wenn keiner da ist)
 FAILED.extend(test_blender.FAILED)

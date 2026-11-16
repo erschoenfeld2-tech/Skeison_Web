@@ -265,7 +265,9 @@ def process(row: dict) -> None:
         paths.append(p)
     job = Job(id=jid, dir=jdir, description=row.get("description") or "", images=paths,
               size_mm=float(row.get("size_mm") or 80), size_user=bool(row.get("size_user")),
-              flat_base=bool(row.get("flat_base", True)), settings=row.get("settings") or {})
+              flat_base=bool(row.get("flat_base", True)), settings=row.get("settings") or {},
+              parent=str((row.get("settings") or {}).get("parent") or "")[:64],
+              edit=str((row.get("settings") or {}).get("edit") or "")[:16])
     log.info("Auftrag %s: %s, %d Foto(s), Duese %s, Schicht %s, %s", jid, "Text" if job.description else "ohne Text",
              len(paths), job.settings["nozzle"], job.settings["layer"], job.settings["material"])
 

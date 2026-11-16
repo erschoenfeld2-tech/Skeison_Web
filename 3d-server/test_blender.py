@@ -74,7 +74,67 @@ boolean(body, txt, "UNION")
     print("  Blender", res.get("blender"))
     size = res.get("size_mm") or [0, 0, 0]
     check("Schrift (Kurve) als Boolean-Operand: ragt 1,2 mm aus der Wand (Tiefe 81,2 statt 80,0)", abs(size[1] - 81.2) < 0.3)
-    check("Schrift: keine Warnung, Modell geschlossen", not res.get("warnings") and res.get("exact") is True)
+    # Flache, gut 50 mm breite Schrift auf einem Zylinder mit R 40: an den Raendern liegt sie neben der Wand und schwebt
+    check("Flache Schrift auf Zylinder: lose Buchstaben werden als getrennte Koerper gemeldet",
+          (res.get("bodies") or 0) > 1 and any("GETRENNTE KOERPER" in w for w in res.get("warnings", [])))
+
+    res, _ = run(tmp, "rundung", BODY + """
+from mathutils import Euler
+R, relief, d = 40, 1.2, 2.0
+for i, ch in enumerate("SKEISON"):
+    phi = (-3 + i) * 0.85 * 8 / R
+    b = text_mesh(f"b{i}", ch, size=8, depth=d)
+    b.rotation_euler = Euler((math.pi / 2, 0, phi))
+    rm = R + (relief - 0.8) / 2
+    b.location = (rm * math.sin(phi), -rm * math.cos(phi), 55)
+    boolean(body, b, "UNION")
+""")
+    check("Schrift entlang der Rundung (text_mesh, Rezept aus dem Prompt): ein Koerper, keine Warnung, exakt",
+          res.get("bodies") == 1 and not res.get("warnings") and res.get("exact") is True)
+    check("Schrift entlang der Rundung: 1,2 mm erhaben (Tiefe 81,2 mm)", abs((res.get("size_mm") or [0, 0])[1] - 81.2) < 0.3)
+
+    res, _ = run(tmp, "fenster", BODY + """
+bm2 = bmesh.new(); bmesh.ops.create_cone(bm2, cap_ends=True, segments=64, radius1=37, radius2=37, depth=90)
+bmesh.ops.translate(bm2, verts=bm2.verts, vec=Vector((0, 0, 48)))
+boolean(body, mesh_object("innen", bm2))
+yf = -math.sqrt(40 * 40 - 30 * 30)   # ebene Flaeche 60 mm breit: Schnitt 13,5 mm tief, die Wand ist 3 mm
+bm3 = bmesh.new(); bmesh.ops.create_cube(bm3, size=1)
+bmesh.ops.scale(bm3, verts=bm3.verts, vec=Vector((60, 20, 30)))
+bmesh.ops.translate(bm3, verts=bm3.verts, vec=Vector((0, yf - 10, 45)))
+boolean(body, mesh_object("ebene", bm3))
+t = text_mesh("schrift", "SKEISON", size=8, depth=1.2)
+t.rotation_euler = (math.pi / 2, 0, 0)
+t.location = (0, yf - 0.6, 42)
+boolean(body, t, "UNION")
+""")
+    check("Fall HW_02 (ebene Flaeche durch die Wand geschnitten, Schrift im Fenster): getrennte Koerper werden gemeldet",
+          (res.get("bodies") or 0) > 1 and any("GETRENNTE KOERPER" in w for w in res.get("warnings", [])))
+
+    # Schrift-Hilfen (cadtext.py): erhaben und graviert auf dem Zylinder, eben auf einer Platte
+    res, _ = run(tmp, "hilfe", BODY + """
+text_on_cylinder(body, "SKEISON", radius=40, z=60, height=9, relief=1.2)
+text_on_cylinder(body, "2026", radius=40, z=25, height=7, engrave=1.0)
+bm2 = bmesh.new(); bmesh.ops.create_cube(bm2, size=1)
+bmesh.ops.scale(bm2, verts=bm2.verts, vec=Vector((50, 6, 20)))
+bmesh.ops.translate(bm2, verts=bm2.verts, vec=Vector((55, -27, 10)))
+schild = mesh_object("schild", bm2)
+text_on_plane(schild, "Lena", center=(55, -30, 10), normal="-Y", height=8, relief=1.0)
+""")
+    log = res.get("text") or []
+    check("text_on_cylinder/text_on_plane: ein Koerper, exakt, keine Warnung",
+          res.get("bodies") == 1 and res.get("exact") is True and not res.get("warnings"))
+    check("Schrift-Hilfen: erhaben 1,2 mm steht ueber (Tiefe 81,2 mm), Gravur aendert die Aussenmasse nicht",
+          abs((res.get("size_mm") or [0, 0])[1] - 81.2) < 0.3)
+    check("Schrift-Hilfen melden, was gebaut wurde (3 Eintraege, Strich mind. 0,9 mm, Gravur 1,0 mm)",
+          len(log) == 3 and all(t["strich_mm"] >= 0.89 for t in log) and log[1]["modus"] == "graviert" and log[1]["tiefe_mm"] == 1.0)
+    res, _ = run(tmp, "beruehrt", BODY + """
+bm2 = bmesh.new(); bmesh.ops.create_cube(bm2, size=1)
+bmesh.ops.scale(bm2, verts=bm2.verts, vec=Vector((20, 20, 20)))
+bmesh.ops.translate(bm2, verts=bm2.verts, vec=Vector((50, 0, 10)))   # beruehrt den Zylinder (R 40) nur an einer Linie
+mesh_object("block", bm2)
+""")
+    check("Vereinigung scheitert an einer Beruehrung: Meldung nennt beteiligte Teile",
+          res.get("exact") is False and any("beruehrt" in w or "GETRENNTE" in w for w in res.get("warnings", [])))
     res, _ = run(tmp, "innen", BODY + """
 bm2 = bmesh.new(); bmesh.ops.create_cube(bm2, size=5)
 bmesh.ops.translate(bm2, verts=bm2.verts, vec=Vector((0, 0, 45)))

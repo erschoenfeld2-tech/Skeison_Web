@@ -2,6 +2,8 @@
 
   .venv\\Scripts\\python test_modell.py "Runder Stifthalter mit dem Schriftzug SKEISON"
   .venv\\Scripts\\python test_modell.py "Handyständer" --size 120 --foto bild.jpg
+  .venv\\Scripts\\python test_modell.py "Schrift 2 mm größer" --vorher 20261116-171200            (Änderung per Claude)
+  .venv\\Scripts\\python test_modell.py "-" --vorher 20261116-171200 --modus rebuild --size 60  (ohne Claude)
 
 Nutzt die Einstellungen aus .env (GENERATOR, CLAUDE_*, BLENDER_*). Ergebnis unter data\\test\\<zeit>\\out.
 """
@@ -32,6 +34,9 @@ def main() -> None:
     p.add_argument("--ohne-standflaeche", action="store_true")
     p.add_argument("--einstellungen", default="{}",
                    help='Druckeinstellungen als JSON, z. B. {"nozzle": 0.4, "layer": 0.2, "material": "PETG"}')
+    p.add_argument("--vorher", default="", help="Ordnername eines frueheren Tests unter data\\test (Weiterbearbeiten)")
+    p.add_argument("--modus", choices=["claude", "rebuild"], default="claude",
+                   help="mit --vorher: claude = Beschreibung ist die Aenderung, rebuild = nur neu berechnen (ohne Claude)")
     a = p.parse_args()
 
     jdir = os.path.join(HERE, "data", "test", time.strftime("%Y%m%d-%H%M%S"))
@@ -43,11 +48,12 @@ def main() -> None:
         fotos.append(dst)
     job = pipeline.Job(id="test", dir=jdir, description=a.beschreibung, images=fotos, size_mm=a.size or 80,
                        size_user=bool(a.size), flat_base=not a.ohne_standflaeche,
-                       settings=json.loads(a.einstellungen))
+                       settings=json.loads(a.einstellungen), parent=a.vorher, edit=a.modus if a.vorher else "")
     print(f"Erzeugung: {'demo' if pipeline.DEMO else pipeline.generator()} - Ordner: {jdir}", flush=True)
     t = time.time()
     pipeline.run(job)
-    print(json.dumps({**job.public(), "sekunden": round(time.time() - t)}, ensure_ascii=False, indent=2))
+    print(json.dumps({**job.public(), "sekunden": round(time.time() - t), "claude_verbrauch": job.usage},
+                     ensure_ascii=False, indent=2))
     if job.state == "done":
         print("Dateien:", os.path.join(jdir, "out"))
         print("Vorschaubilder (ansicht_*.png) und Claudes Skripte (modell_*.py) liegen im Ordner.")

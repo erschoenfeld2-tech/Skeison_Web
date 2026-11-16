@@ -158,7 +158,8 @@ Unter dem Windows-Benutzer, unter dem auch der Dienst laufen wird, GENAU EINEN T
 cd repo\3d-server
 $env:DEMO_MODE = '0'; .venv\Scripts\python test_modell.py "Runder Stifthalter, 90 mm hoch, mit dem Schriftzug SKEISON" `
   --einstellungen '{"nozzle": 0.4, "layer": 0.2, "material": "PLA"}'
-Erwartet: state "done", watertight true, exact true, Maße um 90 mm, Prüfwerte (wall_p05, overhang_pct) und recommend. Zeig mir die Dauer, die Zeilen von skeison3d.cad
+Erwartet: state "done", watertight true, exact true, Maße um 90 mm, Prüfwerte (wall_p05, overhang_pct) und recommend.
+Zeig mir auch claude_verbrauch (Aufrufe, Tokens, Dollar-Gegenwert). Zeig mir die Dauer, die Zeilen von skeison3d.cad
 (wie viele Claude-Aufrufe, ob ein Skript abgelehnt wurde) und schau dir die Vorschaubilder ansicht_*.png im
 ausgegebenen Ordner an: Ist es ein Stifthalter mit Schriftzug?
 Wenn "Not logged in" kommt: Mir sagen, dass ich die Anmeldung wie beim KI-Bot einmal selbst erledige
