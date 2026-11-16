@@ -88,36 +88,7 @@ const store = {
 const state = { files: [], fmt: store.get("s3d-fmt") || "3mf", sizeTouched: false, jobId: null, poll: null };
 
 /* ---------- Hell / Dunkel (assets/mode.js meldet den Wechsel) ---------- */
-document.addEventListener("wl:mode", () => { viewer?.retheme(); wordclock(); });
-
-/* ---------- Projekt-Tipp: Wordclock_Multi (Bilder aus dem Repository von butchooka, hell/dunkel passend) ---------- */
-const WC_BASE = "https://raw.githubusercontent.com/butchooka/Wordclock_Multi/main/docs/";
-const WC_ALT = { DE: "deutsche", dialect_BAD: "badische", dialect_SWG: "schwäbische", GB: "englische" };
-let wcLang = "DE";
-function wordclock() {
-  const img = $("wcImg");
-  if (!img) return;
-  const dark = document.documentElement.getAttribute("data-mode") !== "light";
-  const src = `${WC_BASE}${dark ? "render_dark" : "render"}/Wordclock_Render_${wcLang}_1022.png`;
-  if (img.src === src) return;
-  img.classList.add("swap");
-  const pre = new Image();
-  pre.onload = pre.onerror = () => { img.src = src; img.classList.remove("swap"); };
-  pre.src = src;
-  img.alt = `Wortuhr Wordclock_Multi mit ${WC_ALT[wcLang]} Front, 10:22 Uhr`;
-}
-$("wcLang")?.addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-lang]");
-  if (!b) return;
-  wcLang = b.dataset.lang;
-  document.querySelectorAll("#wcLang button").forEach((x) => {
-    const on = x === b;
-    x.classList.toggle("on", on);
-    x.setAttribute("aria-checked", on);
-  });
-  wordclock();
-});
-wordclock();
+document.addEventListener("wl:mode", () => viewer?.retheme());
 
 /* ---------- Meldung unten (assets/fx.js) ---------- */
 function toast(msg, bad = false) {
