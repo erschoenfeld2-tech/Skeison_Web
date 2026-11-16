@@ -3,7 +3,7 @@
 -- Der Worker erkennt damit beim Start und im Betrieb einen zweiten Rechner auch dann, wenn beide denselben SERVER_NAME
 -- haben (z. B. ein auf HW_02 stehengebliebenes SERVER_NAME=HW_01 aus der Vorlage).
 -- Abwaertskompatibel: nur ein zusaetzliches Feld. Ohne diese Datei laeuft alles wie bisher, nur die Rechner-Pruefung fehlt.
--- Zustand: NOCH NICHT angewendet (im Supabase-SQL-Editor ausfuehren, wenn der neue Worker laeuft).
+-- Zustand: angewendet (zur Dokumentation).
 create or replace function public.p3d_status() returns jsonb
 language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
