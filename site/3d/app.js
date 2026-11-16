@@ -3,6 +3,7 @@
 // Verbindung laut config.js: ueber Supabase (Live-Seite) oder direkt per HTTP (lokaler Testserver app.py).
 const CFG = window.SKEISON_3D || { api: "" };
 const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 /* ---------- Verbindung ---------- */
 function httpBackend(API) {
@@ -18,6 +19,7 @@ function httpBackend(API) {
       fd.append("size_mm", d.size);
       fd.append("size_user", d.sizeUser ? "1" : "0");
       fd.append("flat_base", d.flat ? "1" : "0");
+      fd.append("settings", JSON.stringify(d.settings || {}));
       d.files.forEach((f) => fd.append("images", f, f.name));
       const r = await fetch(`${API}/api/jobs`, { method: "POST", body: fd, headers: d.code != null ? { "X-Access-Code": d.code } : {} });
       const data = await r.json().catch(() => ({}));
@@ -65,6 +67,7 @@ function supabaseBackend({ url, key }) {
       const images = await Promise.all(d.files.map((f) => shrink(f)));
       return rpc("p3d_create_job", {
         p_description: d.description, p_size_mm: +d.size, p_size_user: d.sizeUser, p_flat_base: d.flat,
+        p_settings: d.settings || {},
         p_images: images, p_code: d.code || "",
       });
     },
@@ -171,6 +174,83 @@ function setFmt(f) {
 $("fmt").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setFmt(b.dataset.fmt); });
 setFmt(state.fmt);
 
+/* ---------- Druckeinstellungen (wie im Slicer; Server prueft und begrenzt sie, 3d-server/print_settings.py) ---------- */
+const MAT_OVERHANG = { PLA: 50, PETG: 45, ABS: 45, ASA: 45, TPU: 40 };
+const DEFAULTS = { nozzle: 0.4, layer: 0.2, material: "PLA", bed: [256, 256, 256], printer: "256,256,256", size_axis: "max",
+  clearance: 0.2, overhang: 50, orient: true, no_support: true, shrink: false, detail: "standard" };
+const AXIS_NAME = { max: "längste Seite", z: "Höhe", x: "Breite", y: "Tiefe" };
+let ps = { ...DEFAULTS };
+try { ps = { ...DEFAULTS, ...JSON.parse(store.get("s3d-settings") || "{}") }; } catch { /* Standard */ }
+const de = (n, d = 2) => Number(n).toFixed(d).replace(".", ",");
+
+function segValue(id, v) {
+  document.querySelectorAll(`#${id} button`).forEach((b) => {
+    const on = b.dataset.v === String(v);
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-checked", on);
+  });
+}
+function setRange(id, v, text) {
+  const el = $(id);
+  el.value = v;
+  el.style.setProperty("--p", `${((v - el.min) / (el.max - el.min)) * 100}%`);
+  $(`${id}Out`).innerHTML = text;
+}
+function renderSettings() {
+  segValue("nozzle", ps.nozzle);
+  segValue("layer", ps.layer);
+  segValue("material", ps.material);
+  segValue("detail", ps.detail);
+  // Schichthoehe hoechstens 80 % der Duese
+  document.querySelectorAll("#layer button").forEach((b) => { b.disabled = +b.dataset.v > ps.nozzle * 0.8 + 1e-9; });
+  document.querySelectorAll("#axis button").forEach((b) => {
+    const on = b.dataset.axis === ps.size_axis;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-checked", on);
+  });
+  $("axisName").textContent = AXIS_NAME[ps.size_axis];
+  setRange("clearance", ps.clearance, `<b>${de(ps.clearance)}</b> mm`);
+  setRange("overhang", ps.overhang, `<b>${ps.overhang}</b> °`);
+  $("noSupport").checked = ps.no_support;
+  $("orient").checked = ps.orient;
+  $("shrink").checked = ps.shrink;
+  const known = [...$("printer").options].some((o) => o.value === ps.printer);
+  $("printer").value = known ? ps.printer : "custom";
+  $("bedCustom").hidden = $("printer").value !== "custom";
+  [$("bedX").value, $("bedY").value, $("bedZ").value] = ps.bed;
+  $("advSum").textContent = `Düse ${de(ps.nozzle, 1)} · Schicht ${de(ps.layer)} · ${ps.material}`;
+}
+function saveSettings() { store.set("s3d-settings", JSON.stringify(ps)); renderSettings(); }
+
+[["nozzle", (v) => { ps.nozzle = +v; if (ps.layer > ps.nozzle * 0.8) ps.layer = [0.28, 0.2, 0.16, 0.12].find((l) => l <= ps.nozzle * 0.8) || 0.12; }],
+ ["layer", (v) => { ps.layer = +v; }],
+ ["material", (v) => { ps.material = v; ps.overhang = MAT_OVERHANG[v]; }],
+ ["detail", (v) => { ps.detail = v; }]].forEach(([id, apply]) => {
+  $(id).addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && !b.disabled) { apply(b.dataset.v); saveSettings(); } });
+});
+$("axis").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { ps.size_axis = b.dataset.axis; saveSettings(); } });
+$("clearance").addEventListener("input", (e) => { ps.clearance = +e.target.value; saveSettings(); });
+$("overhang").addEventListener("input", (e) => { ps.overhang = +e.target.value; saveSettings(); });
+[["noSupport", "no_support"], ["orient", "orient"], ["shrink", "shrink"]].forEach(([id, key]) => {
+  $(id).addEventListener("change", (e) => { ps[key] = e.target.checked; saveSettings(); });
+});
+$("printer").addEventListener("change", (e) => {
+  ps.printer = e.target.value;
+  if (ps.printer !== "custom") ps.bed = ps.printer.split(",").map(Number);
+  saveSettings();
+});
+["bedX", "bedY", "bedZ"].forEach((id, i) => $(id).addEventListener("change", (e) => {
+  ps.bed[i] = Math.max(50, Math.min(1000, +e.target.value || 256));
+  saveSettings();
+}));
+$("advReset").addEventListener("click", () => { ps = { ...DEFAULTS, bed: [...DEFAULTS.bed] }; saveSettings(); toast("Standard-Druckeinstellungen"); });
+renderSettings();
+
+function settingsPayload() {
+  const { printer, ...rest } = ps; // Druckername bleibt im Browser
+  return rest;
+}
+
 /* ---------- Server-Status ---------- */
 let health = null;
 async function checkHealth() {
@@ -180,7 +260,8 @@ async function checkHealth() {
     if (!health?.online) throw new Error("offline");
     if (health.needs_code) { $("codeField").hidden = false; $("code").value = store.get("s3d-code") || ""; }
     if (health.demo) { n.hidden = false; n.className = "notice warn"; n.textContent = "Demo-Modus: Es wird eine Beispiel-Vase erzeugt, keine echte KI."; }
-    $("limitInfo").textContent = `Bis zu ${health.limit_per_day} Modelle pro Tag · Dauer meist 1–4 Minuten`;
+    $("limitInfo").textContent = `Bis zu ${health.limit_per_day} Modelle pro Tag · Dauer meist 2–5 Minuten`;
+    $("genInfo").hidden = health.generator !== "claude";
   } catch {
     n.hidden = false; n.className = "notice bad";
     n.textContent = "Der 3D-Server ist gerade offline. Bitte später nochmal versuchen.";
@@ -229,6 +310,7 @@ $("form").addEventListener("submit", async (e) => {
   const order = {
     description: desc, size: size.value, sizeUser: state.sizeTouched, flat: $("flat").checked,
     files: state.files.map((f) => f.file), code: health?.needs_code ? $("code").value : null,
+    settings: settingsPayload(),
   };
   if (health?.needs_code) store.set("s3d-code", $("code").value);
 
@@ -268,11 +350,33 @@ async function finish(j) {
   markSteps("done", 100);
   const r = j.result || {};
   const [x, y, z] = r.size_mm || [0, 0, 0];
-  $("stats").innerHTML = `
-    <div><b>${Math.round(x)}×${Math.round(y)}×${Math.round(z)}</b><span>mm</span></div>
-    <div><b>${(r.triangles || 0).toLocaleString("de-DE")}</b><span>Dreiecke</span></div>
-    <div><b class="${r.watertight ? "ok" : ""}">${r.watertight ? "Ja ✓" : "Prüfen"}</b><span>Wasserdicht</span></div>`;
+  const n1 = (v) => Number(v).toLocaleString("de-DE", { maximumFractionDigits: 1 });
+  const tiles = [
+    [`${n1(x)}×${n1(y)}×${n1(z)}`, "mm"],
+    [(r.triangles || 0).toLocaleString("de-DE"), r.exact ? "Dreiecke · exakt" : "Dreiecke"],
+    [r.watertight ? "Ja ✓" : "Prüfen", "Wasserdicht", r.watertight ? "ok" : ""],
+  ];
+  if (r.layers) tiles.push([r.layers.toLocaleString("de-DE"), "Schichten"]);
+  if (r.wall_p05 != null) tiles.push([`${n1(r.wall_p05)} mm`, "Dünnste Wand"]);
+  if (r.overhang_pct != null) tiles.push([`${n1(r.overhang_pct)} %`, "Überhang"]);
+  $("stats").innerHTML = tiles.map(([b, s, c]) => `<div><b class="${c || ""}">${esc(b)}</b><span>${esc(s)}</span></div>`).join("");
   fadeIn([...$("stats").children]);
+
+  // Druckpruefung in Worten
+  const checks = [];
+  if (r.fits_bed === false) checks.push(["bad", "Passt nicht auf dein Druckbett: kleiner wählen oder im Slicer teilen."]);
+  else if (r.fits_bed) checks.push(["", "Passt auf dein Druckbett."]);
+  if (r.critical_pct > 0.5) checks.push(["bad", `${n1(r.critical_pct)} % der Fläche ist dünner als die Düse und wird nicht gedruckt.`]);
+  else if (r.thin_pct > 1) checks.push(["warn", `${n1(r.thin_pct)} % der Fläche hat sehr dünne Wände (unter zwei Linien).`]);
+  if (r.overhang_pct > 5) checks.push(["warn", `Deutliche Überhänge (${n1(r.overhang_pct)} %): mit Stützen drucken.`]);
+  else if (r.overhang_pct != null) checks.push(["", "Kaum Überhänge, ohne Stützen druckbar."]);
+  if (r.orientation && r.orientation !== "wie modelliert") checks.push(["", `Ausrichtung optimiert: ${r.orientation}.`]);
+  if (r.shrink_pct) checks.push(["", `Schrumpf ausgeglichen: +${n1(r.shrink_pct)} %.`]);
+  $("checks").innerHTML = checks.map(([c, t]) => `<li class="${c}">${esc(t)}</li>`).join("");
+  $("checks").hidden = !checks.length;
+  const rec = r.recommend || [];
+  $("rec").innerHTML = rec.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  $("recBox").hidden = !rec.length;
   $("hint").hidden = !j.hint;
   $("hint").textContent = j.hint || "";
   const other = state.fmt === "3mf" ? "stl" : "3mf";

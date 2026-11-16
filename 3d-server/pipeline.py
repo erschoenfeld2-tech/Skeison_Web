@@ -1,4 +1,10 @@
-"""Ein Auftrag von Anfang bis Ende: (Claude) -> Meshy -> Blender -> STL / 3MF.
+"""Ein Auftrag von Anfang bis Ende -> STL / 3MF.
+
+GENERATOR=claude: Claude modelliert in Blender (cad_generator.py), nur ueber das Claude-Abo, ohne Meshy.
+GENERATOR=meshy:  Claude formuliert einen Prompt, Meshy erzeugt das Modell (kostet Meshy-Credits).
+GENERATOR=auto (Standard): meshy, wenn MESHY_API_KEY gesetzt ist, sonst claude.
+Danach immer blender/printprep.py: wasserdicht, Groesse, Standflaeche, Ausrichtung, Analyse wie im Slicer.
+Druckeinstellungen des Besuchers (Duese, Schicht, Material ...) stehen in job.settings (print_settings.py).
 
 Wird von app.py (Direktbetrieb ueber HTTP) und worker.py (Auftraege aus Supabase) genutzt.
 """
@@ -12,14 +18,23 @@ import time
 from dataclasses import dataclass, field
 
 import blender_runner
+import cad_generator
 import claude_step
 import meshy
 import mesh_io
+import print_settings
 
 log = logging.getLogger("skeison3d")
 
 DEMO = os.getenv("DEMO_MODE", "0") == "1"
 BLENDER_LOCK = threading.Semaphore(int(os.getenv("BLENDER_PARALLEL", "1")))
+GENERATOR = os.getenv("GENERATOR", "auto").strip().lower()
+
+
+def generator() -> str:
+    if GENERATOR in ("claude", "meshy"):
+        return GENERATOR
+    return "meshy" if os.getenv("MESHY_API_KEY") else "claude"
 
 
 @dataclass
@@ -39,6 +54,10 @@ class Job:
     name: str = "modell"
     hint: str = ""
     result: dict | None = None
+    settings: dict = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.settings = print_settings.normalize(self.settings)
 
     def public(self) -> dict:
         return {
@@ -57,6 +76,29 @@ def run(job: Job) -> None:
     job.state = "running"
     try:
         prompt = job.description.strip()
+        glb = os.path.join(job.dir, "meshy.glb")
+        out = os.path.join(job.dir, "out")
+
+        if not DEMO and generator() == "claude":
+            # Claude modelliert selbst in Blender (nur Abo, kein Meshy)
+            job.stage, job.message = "analyse", "Claude entwirft das Modell"
+
+            def progress(p: int) -> None:
+                job.stage, job.message, job.progress = "generate", "Claude baut und prüft das Modell", p
+
+            glb, stats = cad_generator.generate(job, progress)
+            job.name = slug(job.name)
+            settings = dict(job.settings)
+            if not job.size_user:  # Claudes Masse unveraendert uebernehmen
+                settings["size_axis"] = "max"
+                job.size_mm = max(stats.get("size_mm") or [job.size_mm])
+            job.size_mm = max(10.0, min(300.0, float(job.size_mm)))  # Grenzen wie in der Datenbank (p3d_jobs.size_mm)
+            job.stage, job.message, job.progress = "blender", "Blender macht es druckfertig", 100
+            with BLENDER_LOCK:
+                # Standflaeche baut Claude selbst; nicht nochmal abschneiden (sonst stimmen die Masse nicht)
+                job.result = blender_runner.prepare(glb, out, job.name, job.size_mm, False, settings)
+            job.stage, job.state, job.progress, job.message = "done", "done", 100, "Fertig"
+            return
 
         # 1) Claude (nur mit Beschreibung)
         if prompt and not DEMO:
@@ -73,9 +115,6 @@ def run(job: Job) -> None:
         elif prompt:
             job.name = slug(prompt[:30])
 
-        glb = os.path.join(job.dir, "meshy.glb")
-        out = os.path.join(job.dir, "out")
-
         if DEMO:
             job.stage, job.message = "analyse", "Demo: Beschreibung wird verstanden"
             time.sleep(1.2)
@@ -91,7 +130,11 @@ def run(job: Job) -> None:
             time.sleep(0.8)
             r = 0.32 * job.size_mm * 2
             job.result = {"triangles": len(tris), "size_mm": [round(r, 1), round(r, 1), job.size_mm],
-                          "watertight": True, "non_manifold_edges": 0, "demo": True}
+                          "watertight": True, "non_manifold_edges": 0, "demo": True, "exact": False,
+                          "layers": int(job.size_mm / job.settings["layer"]), "overhang_pct": 0.0, "fits_bed": True,
+                          "wall_p05": 1.6, "wall_median": 2.0, "bed_area_mm2": round(3.14 * (0.2 * job.size_mm) ** 2, 1),
+                          "orientation": "wie modelliert"}
+            job.result["recommend"] = print_settings.recommendations(job.settings, job.result)
         else:
             # 2) Meshy
             job.stage, job.message, job.progress = "generate", "3D-Modell entsteht", 0
@@ -100,10 +143,10 @@ def run(job: Job) -> None:
             # 3) Blender
             job.stage, job.message = "blender", "Blender macht es druckfertig"
             with BLENDER_LOCK:
-                job.result = blender_runner.prepare(glb, out, job.name, job.size_mm, job.flat_base)
+                job.result = blender_runner.prepare(glb, out, job.name, job.size_mm, job.flat_base, job.settings)
 
         job.stage, job.state, job.progress, job.message = "done", "done", 100, "Fertig"
-    except (meshy.MeshyError, blender_runner.BlenderError, RuntimeError) as e:
+    except (meshy.MeshyError, blender_runner.BlenderError, cad_generator.CadError, RuntimeError) as e:
         log.warning("Job %s fehlgeschlagen: %s", job.id, e)
         job.state, job.message = "error", str(e).split("\n")[0]
     except Exception:  # noqa: BLE001

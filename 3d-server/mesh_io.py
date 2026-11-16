@@ -58,13 +58,17 @@ def _xml_escape(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
-def write_3mf(path: str, verts: Sequence[Vec], tris: Iterable[Tri], name: str = "skeison") -> None:
+def write_3mf(path: str, verts: Sequence[Vec], tris: Iterable[Tri], name: str = "skeison",
+              meta: dict | None = None) -> None:
+    """meta: weitere Standard-Metadaten des 3MF-Kerns (z. B. Description, Designer); Slicer zeigen sie an."""
+    extra = "".join(f'<metadata name="{_xml_escape(k)}">{_xml_escape(str(v))}</metadata>'
+                    for k, v in (meta or {}).items() if k in {"Description", "Designer", "Copyright", "LicenseTerms"})
     parts = [
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<model unit="millimeter" xml:lang="de-DE" '
         'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">'
         f'<metadata name="Title">{_xml_escape(name)}</metadata>'
-        '<metadata name="Application">Skeison 3D</metadata>'
+        '<metadata name="Application">Skeison 3D</metadata>' + extra +
         f'<resources><object id="1" type="model" name="{_xml_escape(name)}"><mesh><vertices>'
     ]
     parts.extend(f'<vertex x="{v[0]:.4f}" y="{v[1]:.4f}" z="{v[2]:.4f}"/>' for v in verts)

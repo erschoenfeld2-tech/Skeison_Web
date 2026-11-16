@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Skeison · Projekte und Seiten</title>
-<meta name="description" content="Projekte und Seiten von Skeison: Wunschliste, Raumbuchungssystem (Hausmesse am 24.11., Stand 23), Kurslot und weitere GitHub-Projekte.">
+<meta name="description" content="Projekte und Seiten von Skeison: Wunschliste, 3D-Druck, Raumbuchungssystem (Hausmesse am 24.11., Stand 23), Kurslot und weitere GitHub-Projekte.">
 <meta name="theme-color" content="#0f0f0e">
 <meta property="og:title" content="Skeison · Projekte und Seiten">
 <meta property="og:description" content="Wunschliste, Raumbuchungssystem auf der Hausmesse (Stand 23), Kurslot und weitere Projekte.">
@@ -27,7 +27,7 @@
     <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
     <div class="links" id="navLinks">
       <span class="nav-ind" aria-hidden="true"></span>
-      <a href="#wunschliste">Wunschliste</a><a href="#hausmesse">Hausmesse</a><a href="#projekte">Projekte</a><a href="#gaming">Gaming</a>
+      <a href="#wunschliste">Wunschliste</a><a href="#druck3d">3D-Druck</a><a href="#hausmesse">Hausmesse</a><a href="#projekte">Projekte</a><a href="#gaming">Gaming</a>
       <a class="nav-cta" href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">GitHub <span class="arr">↗</span></a>
     </div>
   </nav>
@@ -63,6 +63,38 @@
       <div class="wl-item" aria-hidden="true"><span class="wl-img">🎧</span><span class="wl-t"><b>Kopfhörer</b><small>129,00 €</small></span><span class="wl-st free">Frei</span></div>
       <div class="wl-item" aria-hidden="true"><span class="wl-img">📚</span><span class="wl-t"><b>Buch-Reihe</b><small>34,90 €</small></span><span class="wl-flip"><span class="wl-st free">Frei</span><span class="wl-st res">Reserviert</span></span></div>
       <div class="wl-item" aria-hidden="true"><span class="wl-img">🪴</span><span class="wl-t"><b>Zimmerpflanze</b><small>24,50 €</small></span><span class="wl-st res">Reserviert</span></div>
+    </div>
+  </section>
+
+  <!-- Neu: 3D-Druck (im Hauptdesign: Schwarz, Grau, Gold, eckig) -->
+  <section id="druck3d" class="feature p3d" data-reveal>
+    <div class="feature-text">
+      <span class="tag pink">Neu</span>
+      <h2>3D-Druck</h2>
+      <p class="lead">Beschreib, was du drucken willst, oder lade ein Foto hoch. Daraus entsteht in Blender ein druckfertiges Modell für deinen 3D-Drucker.</p>
+      <ul class="checks">
+        <li>Beschreibung auf Deutsch, dazu bis zu vier Fotos</li>
+        <li>Größe in Millimetern, flache Standfläche, wasserdicht</li>
+        <li>3D-Vorschau im Browser, Download als STL oder 3MF</li>
+      </ul>
+      <div class="cta-row">
+        <a class="btn" href="3d/">3D-Druck öffnen <span class="arr">→</span></a>
+      </div>
+    </div>
+    <!-- Druckt Schicht fuer Schicht eine Vase (Pause-Knopf ueber data-loops) -->
+    <div class="p3d-demo" data-loops>
+      <svg viewBox="0 0 240 200" aria-hidden="true">
+        <g class="p3d-layers">
+          <rect x="90" y="164" width="60" height="7"/><rect x="84" y="156" width="72" height="7"/><rect x="80" y="148" width="80" height="7"/>
+          <rect x="78" y="140" width="84" height="7"/><rect x="79" y="132" width="82" height="7"/><rect x="82" y="124" width="76" height="7"/>
+          <rect x="87" y="116" width="66" height="7"/><rect x="92" y="108" width="56" height="7"/><rect x="96" y="100" width="48" height="7"/>
+          <rect x="97" y="92" width="46" height="7"/><rect x="94" y="84" width="52" height="7"/><rect x="90" y="76" width="60" height="7"/>
+        </g>
+        <rect class="p3d-cover" x="70" y="72" width="100" height="100"/>
+        <line class="p3d-bed" x1="30" y1="172" x2="210" y2="172"/>
+        <g class="p3d-head"><g class="p3d-sweep"><rect x="112" y="151" width="16" height="14"/><path d="M114 165h12l-6 7z"/></g></g>
+      </svg>
+      <p class="p3d-cap" aria-hidden="true"><span>vase.3mf</span><span>80 mm · 0,2 mm Schicht</span></p>
     </div>
   </section>
 
@@ -142,7 +174,7 @@
       <p class="muted">Projekte, Tools und Seiten.</p>
     </div>
     <nav class="foot-links" aria-label="Fußzeile">
-      <a href="wunschliste/">Wunschliste</a><a href="#hausmesse">Hausmesse</a><a href="#projekte">Projekte</a><a href="gaming/">Gaming-Profil</a><a href="cobblemon/">Cobblemon Server</a>
+      <a href="wunschliste/">Wunschliste</a><a href="3d/">3D-Druck</a><a href="#hausmesse">Hausmesse</a><a href="#projekte">Projekte</a><a href="gaming/">Gaming-Profil</a><a href="cobblemon/">Cobblemon Server</a>
       <a href="https://github.com/erschoenfeld2-tech" target="_blank" rel="noopener">GitHub ↗</a><a href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Discord ↗</a>
     </nav>
   </div>

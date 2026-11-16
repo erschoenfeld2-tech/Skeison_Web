@@ -179,3 +179,21 @@ main#inhalt > section.look { margin: clamp(28px, 5vw, 56px) 0; padding: clamp(24
 
 /* Projekt-Kacheln im eigenen Aussehen: beim Zeigen Kante in der Projektfarbe */
 .project.look:hover { background: var(--b-surface); border-color: var(--b-accent); }
+
+/* 3D-Druck (neu): im Hauptdesign selbst, ohne eigenes Aussehen. Grafik druckt Schicht fuer Schicht eine Vase.
+   Grundzustand ist die fertige Vase, damit sie bei "Bewegung reduzieren" (fx.css) vollstaendig stehen bleibt;
+   Start bei -5 s, damit auch eine pausierte Grafik (fx-idle, Pause-Knopf) eine halbe Vase zeigt statt einer leeren Platte. */
+.p3d-demo { position: relative; border: 1px solid var(--line); background: var(--panel); padding: 14px 14px 10px; }
+.p3d-demo::before { content: ""; position: absolute; left: -1px; top: -1px; width: 56px; height: 2px; background: var(--accent); }
+.p3d-demo svg { display: block; width: 100%; height: auto; }
+.p3d-layers rect { fill: var(--accent); }
+.p3d-layers rect:nth-child(even) { fill: color-mix(in srgb, var(--accent) 82%, var(--panel)); }
+.p3d-cover { fill: var(--panel); transform-box: fill-box; transform-origin: top; transform: scaleY(0); animation: p3d-build 9s steps(12, end) -5s infinite; }
+.p3d-bed { stroke: var(--line); stroke-width: 2; }
+.p3d-head { transform: translateY(-96px); animation: p3d-rise 9s steps(12, end) -5s infinite; }
+.p3d-head rect, .p3d-head path { fill: var(--muted); }
+.p3d-sweep { animation: p3d-sweep .75s ease-in-out infinite alternate; }
+.p3d-cap { display: flex; justify-content: space-between; gap: 12px; margin: 6px 0 0; font-family: var(--mono); font-size: .72rem; letter-spacing: .04em; color: var(--muted); }
+@keyframes p3d-build { 0% { transform: scaleY(1); } 75%, 100% { transform: scaleY(0); } }
+@keyframes p3d-rise { 0% { transform: translateY(0); } 75%, 100% { transform: translateY(-96px); } }
+@keyframes p3d-sweep { from { transform: translateX(-26px); } to { transform: translateX(26px); } }

@@ -7,6 +7,7 @@ Auf dem Server-PC laeuft stattdessen worker.py: Er holt die Auftraege aus Supaba
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import secrets
@@ -27,7 +28,7 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 import blender_runner  # noqa: E402
 import claude_step  # noqa: E402
-from pipeline import DEMO, Job, run  # noqa: E402
+from pipeline import DEMO, Job, generator, run  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("skeison3d")
@@ -35,8 +36,8 @@ log = logging.getLogger("skeison3d")
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.getenv("DATA_DIR", os.path.join(HERE, "data")))
 ACCESS_CODE = os.getenv("ACCESS_CODE", "").strip()
-JOBS_PER_DAY = int(os.getenv("JOBS_PER_IP_PER_DAY", "10"))
-JOBS_TOTAL_PER_DAY = int(os.getenv("JOBS_TOTAL_PER_DAY", "40"))  # alle Besucher zusammen (Meshy-Guthaben)
+JOBS_PER_DAY = int(os.getenv("JOBS_PER_IP_PER_DAY", "3"))
+JOBS_TOTAL_PER_DAY = int(os.getenv("JOBS_TOTAL_PER_DAY", "10"))  # alle Besucher zusammen (Claude-Abo, Meshy-Guthaben)
 JOB_TTL_H = float(os.getenv("JOB_TTL_HOURS", "24"))
 MAX_IMG_MB = 10
 ALLOWED_IMG = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
@@ -82,12 +83,23 @@ def health():
     return {
         "ok": True,
         "demo": DEMO,
+        "generator": "demo" if DEMO else generator(),
         "claude": claude_step.backend(),
         "meshy": bool(os.getenv("MESHY_API_KEY")),
         "blender_mode": blender_runner.MODE,
         "needs_code": bool(ACCESS_CODE),
         "limit_per_day": JOBS_PER_DAY,
     }
+
+
+def _settings(raw: str) -> dict:
+    """Druckeinstellungen aus dem Formular (JSON); Fehlerhaftes wird zu Standardwerten (print_settings.normalize)."""
+    if len(raw) > 2000:
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
 
 
 @app.post("/api/jobs")
@@ -97,6 +109,7 @@ async def create_job(
     size_mm: float = Form(80.0),
     size_user: int = Form(0),
     flat_base: int = Form(1),
+    settings: str = Form("{}"),
     images: list[UploadFile] = File(default=[]),
 ):
     if ACCESS_CODE and not secrets.compare_digest(request.headers.get("x-access-code", ""), ACCESS_CODE):
@@ -129,7 +142,8 @@ async def create_job(
         paths.append(p)
 
     job = Job(id=jid, dir=jdir, description=description, images=paths,
-              size_mm=max(10.0, min(300.0, size_mm)), size_user=bool(size_user), flat_base=bool(flat_base))
+              size_mm=max(10.0, min(300.0, size_mm)), size_user=bool(size_user), flat_base=bool(flat_base),
+              settings=_settings(settings))
     JOBS[jid] = job
     POOL.submit(run, job)
     return {"id": jid}
