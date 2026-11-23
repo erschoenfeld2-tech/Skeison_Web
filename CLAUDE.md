@@ -10,3 +10,4 @@
 - **Datenbank:** Jede Änderung zusätzlich als Datei unter `supabase/` ablegen (Zustand zur Dokumentation) und im README in die Reihenfolge der Ergänzungen eintragen. Änderungen abwärtskompatibel halten: Die Live-Seite läuft bis zum Merge mit dem alten Code weiter.
 - **Testen ohne Netz:** Die Cloud-Umgebung erreicht weder Supabase noch die Bildquellen (valorant-api, Steam). Die Wunschliste lässt sich mit Playwright und abgefangenen Supabase-Aufrufen prüfen.
 - **Neue einmalige Animationen** in `site/assets/fx.css` bei `:is(.fx-idle, .fx-still) …` eintragen (siehe README, Animationen).
+- **Bereiche:** Hauptseite, Wunschliste, Gaming, 3D-Druck, Skeison-Account (README, Ordnung auf GitHub). Neue Ordner in `.github/labeler.yml` einem Bereich zuordnen. Einen selbst angelegten Branch nach Bereich und Thema benennen (`claude/gaming-…`).

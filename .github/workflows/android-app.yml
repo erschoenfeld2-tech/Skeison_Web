@@ -5,7 +5,7 @@ name: Android-App
 # Die App laedt die Webseite live. Aenderungen an site/wunschliste/ brauchen daher KEINEN neuen App-Build.
 on:
   push:
-    branches: [main, 'claude/**']
+    branches: ['**']   # main = Release, alle anderen Branches = Vorabversion
     paths: ['android-app/**', '.github/workflows/android-app.yml']
   workflow_dispatch:
 

@@ -1,0 +1,48 @@
+# Ordner -> Bereich. Der Workflow "PR-Labels" setzt danach die Labels an jedem Pull Request automatisch.
+# Ein PR, der mehrere Bereiche beruehrt, bekommt mehrere Labels. Labels selbst: .github/labels.yml
+"bereich: hauptseite":
+  - changed-files:
+      - any-glob-to-any-file:
+          - site/index.html
+          - site/main.css
+          - site/main.js
+          - site/home.css
+          - site/favicon.svg
+          - site/apple-touch-icon.png
+          - site/assets/**
+          - .github/workflows/pages.yml
+          - README.md
+
+"bereich: wunschliste":
+  - changed-files:
+      - any-glob-to-any-file:
+          - site/wunschliste/**
+          - android-app/**
+          - .github/workflows/android-app.yml
+          - supabase/wunschliste*.sql
+          - supabase/functions/wl-*/**
+
+"bereich: gaming":
+  - changed-files:
+      - any-glob-to-any-file:
+          - site/gaming/**
+          - site/cobblemon/**
+          - site/skin/**
+          - server/**
+          - tools/**
+          - supabase/whitelist.sql
+          - supabase/functions/notify-application/**
+
+"bereich: 3d-druck":
+  - changed-files:
+      - any-glob-to-any-file:
+          - site/3d/**
+          - 3d-server/**
+          - supabase/druck3d*.sql
+
+# Anmeldung und Konten (heute noch Teil der Wunschliste, spaeter fuer alle Apps)
+"bereich: skeison-account":
+  - changed-files:
+      - any-glob-to-any-file:
+          - supabase/functions/wl-signup/**
+          - supabase/functions/wl-account/**
