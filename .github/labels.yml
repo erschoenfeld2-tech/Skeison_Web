@@ -1,0 +1,18 @@
+# Labels des Repos. Der Workflow "Repo aufraeumen" legt sie an bzw. gleicht Farbe und Beschreibung an
+# (laeuft automatisch, wenn diese Datei auf main geaendert wird). Umbenennen: alten Namen bei "from" eintragen.
+# Welche Ordner zu welchem Bereich gehoeren, steht in .github/labeler.yml.
+- name: "bereich: hauptseite"
+  color: "d4a72c"
+  description: "Startseite, gemeinsame Basis (main.css, assets/), GitHub Pages"
+- name: "bereich: wunschliste"
+  color: "e05d8c"
+  description: "Wunschliste, Android-App, Wunschliste-Datenbank"
+- name: "bereich: gaming"
+  color: "7c3aed"
+  description: "Gaming-Profil, Cobblemon Server, Minecraft-Server, tools/"
+- name: "bereich: 3d-druck"
+  color: "6e7781"
+  description: "3D-Druck-Seite und 3D-Server"
+- name: "bereich: skeison-account"
+  color: "1f6feb"
+  description: "Gemeinsame Anmeldung fuer alle Apps (Konten, Freunde, Gruppen)"

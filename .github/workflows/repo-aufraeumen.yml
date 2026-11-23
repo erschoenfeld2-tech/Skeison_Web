@@ -1,0 +1,91 @@
+name: Repo aufraeumen
+# 1. Labels aus .github/labels.yml anlegen bzw. angleichen (auch automatisch, wenn die Datei auf main geaendert wird).
+# 2. Nur beim Start von Hand (Actions -> Repo aufraeumen -> Run workflow): alte Branches loeschen.
+#    - gemergt: Branches, deren Commits alle schon in main sind. Nie: main, data, Branches mit offenem PR
+#      und frisch angelegte Branches ohne eigenen Commit (zeigen noch genau auf main).
+#    - zusaetzlich: Namen, die auch ohne Merge weg sollen (durch Leerzeichen getrennt), z. B. verworfene Versuche.
+#    Mit "nur anzeigen" wird nichts geloescht, das Protokoll listet nur auf, was weg wuerde.
+on:
+  workflow_dispatch:
+    inputs:
+      branches:
+        description: 'Alte Branches'
+        type: choice
+        options: ['nur anzeigen', 'loeschen']
+        default: 'nur anzeigen'
+      zusaetzlich:
+        description: 'Zusaetzlich loeschen (nicht gemergt, durch Leerzeichen getrennt)'
+        type: string
+        default: ''
+  push:
+    branches: [main]
+    paths: ['.github/labels.yml']
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: repo-aufraeumen
+
+jobs:
+  aufraeumen:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Labels anlegen
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || pip install -q pyyaml
+          python3 - <<'PY' > labels.tsv
+          import yaml
+          for l in yaml.safe_load(open('.github/labels.yml')):
+              print('\t'.join([l['name'], l['color'], l.get('description', ''), l.get('from', '')]))
+          PY
+          while IFS=$'\t' read -r name color desc from <&3; do
+            if [ -n "$from" ] && gh label list --limit 200 --json name -q '.[].name' | grep -qxF "$from"; then
+              gh label edit "$from" --name "$name" --color "$color" --description "$desc"
+            else
+              gh label create "$name" --color "$color" --description "$desc" --force
+            fi
+            echo "Label: $name"
+          done 3< labels.tsv
+
+      - name: Alte Branches
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          MODUS: ${{ inputs.branches }}
+          ZUSAETZLICH: ${{ inputs.zusaetzlich }}
+        run: |
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          offen=$(gh pr list --state open --limit 200 --json headRefName -q '.[].headRefName')
+          main=$(git rev-parse origin/main)
+          weg=()
+          for ref in $(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin); do
+            case "$ref" in main|data|HEAD) continue;; esac
+            if grep -qxF "$ref" <<<"$offen"; then echo "bleibt (offener PR): $ref"; continue; fi
+            if [ "$(git rev-parse "origin/$ref")" = "$main" ]; then echo "bleibt (noch ohne eigenen Commit): $ref"; continue; fi
+            if [ "$(git rev-list --count "origin/main..origin/$ref")" = 0 ]; then weg+=("$ref"); fi
+          done
+          for ref in $ZUSAETZLICH; do
+            case "$ref" in main|data) echo "::warning::$ref wird nie geloescht"; continue;; esac
+            if git show-ref --verify --quiet "refs/remotes/origin/$ref"; then weg+=("$ref"); else echo "::warning::Branch $ref gibt es nicht"; fi
+          done
+          if [ ${#weg[@]} = 0 ]; then echo "Nichts zu loeschen."; exit 0; fi
+          printf 'weg: %s\n' "${weg[@]}" | sort -u
+          {
+            echo "### Alte Branches ($MODUS)"
+            printf -- '- `%s`\n' "${weg[@]}" | sort -u
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$MODUS" = loeschen ]; then
+            printf '%s\n' "${weg[@]}" | sort -u | xargs git push origin --delete
+          else
+            echo "Nur angezeigt. Zum Loeschen erneut starten und bei 'Alte Branches' loeschen waehlen."
+          fi

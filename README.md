@@ -62,6 +62,22 @@ Hauptwebseite (GitHub Pages, Ordner `site/`): Übersicht aller Projekte und Seit
   3. Unter *Actions → Deploy GitHub Pages → Run workflow* einmal starten.
   Bis dahin zeigt die Seite „Valorant-Statistik folgt“. Ob der Abruf klappt, steht nach jedem Lauf in der *Summary* im Abschnitt „Valorant“. Scheitert ein Abruf, bleibt wie bei Steam der letzte erfolgreiche Stand stehen. Rang- und Agentenbilder kommen von `media.valorant-api.com`; lädt eines nicht, wird es ausgeblendet.
 
+## Ordnung auf GitHub: Bereiche, Branches, Labels
+Das Repo ist in Bereiche gegliedert. Jeder Bereich hat ein Label, eine Issue-Vorlage und feste Ordner:
+
+| Bereich | Ordner |
+| --- | --- |
+| `bereich: hauptseite` | `site/index.html`, `main.css`, `main.js`, `home.css`, `site/assets/`, `pages.yml` |
+| `bereich: wunschliste` | `site/wunschliste/`, `android-app/`, `supabase/wunschliste*.sql`, `supabase/functions/wl-*` |
+| `bereich: gaming` | `site/gaming/`, `site/cobblemon/`, `site/skin/`, `server/`, `tools/`, `supabase/whitelist.sql`, Branch `data` |
+| `bereich: 3d-druck` | `site/3d/`, `3d-server/`, `supabase/druck3d*.sql` |
+| `bereich: skeison-account` | Anmeldung und Konten (heute `wl-signup`, `wl-account`), später gemeinsam für alle Apps |
+
+- **Branches:** Pro Aufgabe ein kurzer Branch, benannt nach Bereich und Thema, z. B. `gaming/valorant-skins` oder `wunschliste/teilen-fix` (Claude-Sitzungen: `claude/gaming-…`). Nach dem Merge wird er gelöscht. Dauerhaft bleiben nur `main` (wird veröffentlicht) und `data` (Daten des Minecraft-Servers).
+- **Labels:** stehen in `.github/labels.yml`. Der Workflow *PR-Labels* setzt sie an jedem Pull Request nach den geänderten Ordnern (`.github/labeler.yml`). Ein neuer Ordner muss dort einem Bereich zugeordnet werden.
+- **Issues:** *Issues → New issue* bietet eine Vorlage je Bereich, das Label ist dann schon gesetzt.
+- **Aufräumen:** *Actions → Repo aufraeumen → Run workflow* legt die Labels an und löscht alte Branches. Mit „nur anzeigen“ wird nur aufgelistet, mit „loeschen“ wird gelöscht. Gelöscht werden gemergte Branches, nie `main`, `data` oder Branches mit offenem PR. Nicht gemergte Branches werden nur gelöscht, wenn sie bei „Zusaetzlich loeschen“ eingetragen sind. Ein gelöschter Branch lässt sich im zugehörigen PR mit *Restore branch* zurückholen.
+
 ## Wunschliste (`site/wunschliste/`)
 Läuft komplett über das Supabase-Projekt `skeison-whitelist`; die Seite selbst bleibt statisch auf GitHub Pages.
 - **Konten:** Supabase Auth. Passwörter liegen nur als Hash bei Supabase, nie im Repo. Registriert wird über die Edge Function `wl-signup` (legt das Konto direkt bestätigt an, es wird keine Mail verschickt).

@@ -1,0 +1,26 @@
+name: Gaming
+description: Gaming-Profil, Cobblemon, Minecraft-Server
+labels: ["bereich: gaming"]
+body:
+  - type: dropdown
+    id: art
+    attributes:
+      label: Art
+      options:
+        - Idee / Ausbau
+        - Fehler
+        - Aufgabe / Aufräumen
+    validations:
+      required: true
+  - type: textarea
+    id: beschreibung
+    attributes:
+      label: Worum geht es?
+      description: Was soll passieren bzw. was ist kaputt? Bei Fehlern gern Gerät, Browser und Schritte.
+    validations:
+      required: true
+  - type: input
+    id: seite
+    attributes:
+      label: Seite oder Datei (optional)
+      placeholder: z. B. wunschliste/?liste=… oder site/gaming/gaming.js
