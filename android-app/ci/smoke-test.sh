@@ -99,10 +99,27 @@ adb logcat -c
 sleep 10
 adb shell am start -W -n $PKG/.MainActivity >/dev/null
 wait_for 7-debug-start "Konto erstellen" 90
-sleep 3
-APP_PID=$(adb shell pidof $PKG | tr -d '\r')
-SOCK=$(adb shell cat /proc/net/unix | grep -o "webview_devtools_remote_${APP_PID}\b" | head -1)
+# Den DevTools-Socket gibt es erst, wenn die WebView bereit ist, und nur solange die App laeuft. Beendet der Emulator
+# die App (Neustart der Google-Dienste), hat sie danach eine neue Prozessnummer. Deshalb bis zu 30 s suchen, die
+# Nummer jedes Mal neu lesen und die App notfalls einmal neu starten.
+SOCK=""; restarted=0
+for i in $(seq 1 30); do
+  APP_PID=$(adb shell pidof $PKG 2>/dev/null | tr -d '\r' | awk '{print $1}')
+  if [ -z "$APP_PID" ]; then
+    if [ $restarted -eq 0 ]; then
+      restarted=1; log "HINWEIS 7: App vom System beendet (kein Absturz), neuer Start"
+      adb shell am start -W -n $PKG/.MainActivity >/dev/null
+      wait_for 7-debug-neustart "Konto erstellen" 60
+    fi
+    sleep 1; continue
+  fi
+  SOCK=$(adb shell cat /proc/net/unix 2>/dev/null | tr -d '\r' | grep -o "webview_devtools_remote_${APP_PID}\b" | head -1)
+  [ -n "$SOCK" ] && break
+  sleep 1
+done
 if [ -z "$SOCK" ]; then
+  adb shell cat /proc/net/unix 2>/dev/null | grep -o "webview_devtools_remote_[0-9]*" | sort -u > "$OUT/devtools-sockets.txt"
+  log "HINWEIS 7: App-Prozess ${APP_PID:-keiner}, gefundene DevTools-Sockets: $(tr '\n' ' ' < "$OUT/devtools-sockets.txt")"
   log "FEHLER  7: DevTools-Socket der WebView nicht gefunden"; FAIL=1
 else
   adb forward tcp:9222 localabstract:$SOCK >/dev/null
