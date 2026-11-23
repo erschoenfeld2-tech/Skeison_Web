@@ -17,6 +17,8 @@
   // Steam: Pionier im Schutzanzug als 3D-Figur. Die Designs sind eigene Pixel-Skins (tools/pioneer-skins.py malt sie nach site/skin/);
   // [Datei, Name, Farbe des Auswahlpunkts]. Das zuletzt gewaehlte Design merkt sich das Geraet.
   var PIONEERS = [['pionier-gruen', 'Grün', '#7c9a62'], ['pionier-schwarz', 'Schwarz', '#34343a'], ['pionier-blau', 'Blau', '#97a3e6'], ['pionier-weiss', 'Weiß', '#ececf0'], ['pionier-gelb', 'Gelb', '#e9db4d']];
+  // Zusaetzliches Design als echtes 3D-Modell (site/gaming/3d/void-pionier.glb, pionier3d.js), letzter Farbpunkt
+  var VOID = ['void', 'Void (3D-Modell)', '#5b85ff'];
   var GAMES = ['val', 'steam', 'mc'];
   var WORDS = { val: 'VALORANT', steam: 'STEAM', mc: 'MINECRAFT' };
   var HASH = { valorant: 'val', steam: 'steam', minecraft: 'mc', server: 'mc' };
@@ -325,6 +327,7 @@
       var setAnim = function (name) {
         v.animation = o.anims[name]();
         applyStill();
+        if (o.onAnim) o.onAnim(name, chosen);
         Array.prototype.forEach.call(chips.querySelectorAll('.chip'), function (c) { var on = c.getAttribute('data-anim') === name; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
       };
       setAnim('idle');
@@ -333,7 +336,12 @@
       var load = function (url) { return Promise.resolve(v.loadSkin(url)).then(function () { canvas.classList.add('ready'); }, function () { canvas.classList.add('ready'); }); };
       load(o.skin);
       // Rendern nur, wenn dieses Spiel gewaehlt und die Buehne im Bild ist (spart Akku), und nicht im Hintergrund (fx:idle aus assets/fx.js)
-      var onScreen = true, bg = !!FX.idle, sync = function () { v.renderPaused = !onScreen || bg || cur !== o.game; };
+      // o.paused: Figur ist gerade ausgeblendet (z. B. Pionier-Design "Void"); o.onSync bekommt, ob dieses Spiel sichtbar ist
+      var onScreen = true, bg = !!FX.idle, sync = function () {
+        var shown = onScreen && !bg && cur === o.game;
+        v.renderPaused = !shown || !!(o.paused && o.paused());
+        if (o.onSync) o.onSync(shown);
+      };
       if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { onScreen = es[0].isIntersecting; sync(); }).observe(stage);
       document.addEventListener('fx:idle', function (e) { bg = e.detail; sync(); }); sync();
       syncers.push(sync);
@@ -343,7 +351,7 @@
         if (calm() || chosen || !o.enter) return;
         setAnim(o.enter); enterT = setTimeout(function () { if (!chosen) setAnim('idle'); }, 2600);
       };
-      return { load: load };
+      return { load: load, sync: sync };
     } catch (e) {
       chips.hidden = true;
       canvas.replaceWith(el('p', 'muted', '3D-Ansicht wird von diesem Browser nicht unterstützt.'));
@@ -387,20 +395,49 @@
   };
   (function () {
     var KEY = 'gaming-pionier', pick = PIONEERS[0][0];
-    try { var saved = localStorage.getItem(KEY); if (PIONEERS.some(function (x) { return x[0] === saved; })) pick = saved; } catch (e) { /* Standard */ }
-    var fig = figure3d({ canvas: 'pioneerCanvas', chips: 'pioneerAnims', skin: '../skin/' + pick + '.png', game: 'steam', anims: PIONEER_ANIMS, enter: 'wave' });
+    try { var saved = localStorage.getItem(KEY); if (saved === VOID[0] || PIONEERS.some(function (x) { return x[0] === saved; })) pick = saved; } catch (e) { /* Standard */ }
+    // Design "Void": eigenes 3D-Modell statt Pixel-Skin (pionier3d.js, three.js wird erst bei der Wahl geladen).
+    // Die skinview3d-Figur pausiert solange; Animationsknoepfe und Sichtbarkeit werden an das Modell weitergegeben.
+    var voidOn = pick === VOID[0], voidFig = null, voidCanvas = null, lastAnim = 'idle', lastChosen = false, shown = false;
+    var syncVoid = function () { if (voidFig) voidFig.setActive(shown && voidOn); };
+    var fig = figure3d({
+      canvas: 'pioneerCanvas', chips: 'pioneerAnims', skin: '../skin/' + (voidOn ? PIONEERS[0][0] : pick) + '.png', game: 'steam', anims: PIONEER_ANIMS, enter: 'wave',
+      paused: function () { return voidOn; },
+      onSync: function (s) { shown = s; syncVoid(); },
+      onAnim: function (name, byUser) { lastAnim = name; lastChosen = byUser; if (voidFig) voidFig.setAnim(name, byUser); }
+    });
     var box = $('pioneerSkins');
     if (!fig) { box.hidden = true; return; }
-    PIONEERS.forEach(function (x) {
+    function loadVoid() {
+      if (voidCanvas) return;
+      voidCanvas = el('canvas'); voidCanvas.width = 300; voidCanvas.height = 400;
+      voidCanvas.setAttribute('aria-label', '3D-Modell: Void-Pionier im schwarz-blauen Raumanzug (eigenes Design)');
+      $('pioneerCanvas').after(voidCanvas);
+      import('./pionier3d.js')
+        .then(function (m) { return m.mount(voidCanvas, { url: '3d/void-pionier.glb', calm: calm }); })
+        .then(function (c) { voidFig = c; voidFig.setAnim(lastAnim, lastChosen); syncVoid(); })
+        .catch(function () { voidCanvas.replaceWith(el('p', 'muted', '3D-Modell konnte nicht geladen werden.')); });
+    }
+    function showVoid(on) {
+      voidOn = on;
+      $('pioneerCanvas').hidden = on;
+      if (on) loadVoid();
+      if (voidCanvas) voidCanvas.hidden = !on;
+      fig.sync();
+    }
+    PIONEERS.concat([VOID]).forEach(function (x) {
       var b = el('button', 'swatch' + (x[0] === pick ? ' on' : '')); b.type = 'button'; b.title = x[1]; b.setAttribute('aria-label', 'Design ' + x[1]); b.setAttribute('aria-pressed', String(x[0] === pick));
       b.style.setProperty('--c', x[2]);
+      if (x === VOID) b.classList.add('swatch-void');
       b.addEventListener('click', function () {
-        fig.load('../skin/' + x[0] + '.png');
+        if (x === VOID) showVoid(true);
+        else { showVoid(false); fig.load('../skin/' + x[0] + '.png'); }
         try { localStorage.setItem(KEY, x[0]); } catch (e) { /* gilt dann nur fuer diesen Besuch */ }
         Array.prototype.forEach.call(box.children, function (c) { var on = c === b; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
       });
       box.appendChild(b);
     });
+    if (voidOn) showVoid(true);
   })();
 
   // ---------- Steam-Highlights aus steam.json (wird von tools/fetch-steam.js beim Deploy erzeugt) ----------
