@@ -87,6 +87,22 @@ function normMatches(list: any) {
   rows.sort((a: { date: string }, b: { date: string }) => (a.date < b.date ? 1 : -1));
   return rows;
 }
+// Valorant liefert keine Gesamtspielzeit. Geschaetzt wird aus allen bei HenrikDev gespeicherten Spielen (die Liste hat Luecken)
+// mal einer ueblichen Dauer je Modus in Minuten. Genauer ist die Spielzeit, die man im Editor selbst eintraegt (extra.hours).
+const MODE_MIN: Record<string, number> = { competitive: 38, premier: 38, unrated: 34, swiftplay: 16, spikerush: 12, deathmatch: 8,
+  teamdeathmatch: 10, escalation: 12, replication: 16, snowball: 12, custom: 30, newmap: 34 };
+// deno-lint-ignore no-explicit-any
+function valPlaytime(list: any) {
+  if (!Array.isArray(list) || !list.length) return null;
+  let min = 0;
+  const by: Record<string, number> = {};
+  // deno-lint-ignore no-explicit-any
+  list.forEach((m: any) => {
+    const mode = String(m?.meta?.mode || '').toLowerCase().replace(/[^a-z]/g, '') || 'unrated';
+    min += MODE_MIN[mode] ?? 25; by[mode] = (by[mode] || 0) + 1;
+  });
+  return { hours: Math.round(min / 6) / 10, matches: list.length, byMode: by, estimate: true };
+}
 async function valorant(handle: string, region: string) {
   const m = handle.trim().match(/^(.{2,})#(.{2,})$/);
   if (!m) throw new Fail('bad_handle');
@@ -97,7 +113,12 @@ async function valorant(handle: string, region: string) {
   const api = (p: string) => getJson('https://api.henrikdev.xyz/valorant' + p, H).then((j) => (j && j.data !== undefined ? j.data : j));
   const account = normAccount(await api(`/v2/account/${name}/${tag}`).catch((e) => { if (e.code === 'not_found') throw e; return api(`/v1/account/${name}/${tag}`); }));
   const rank = normRank(await api(`/v3/mmr/${reg}/pc/${name}/${tag}`).catch(() => api(`/v2/mmr/${reg}/${name}/${tag}`)).catch(() => null));
-  const matches = normMatches(await api(`/v1/stored-matches/${reg}/${name}/${tag}?mode=competitive&size=30`).catch(() => []));
+  const [stored, all] = await Promise.all([
+    api(`/v1/stored-matches/${reg}/${name}/${tag}?mode=competitive&size=30`).catch(() => []),
+    api(`/v1/stored-matches/${reg}/${name}/${tag}`).catch(() => null),
+  ]);
+  const matches = normMatches(stored);
+  const playtime = valPlaytime(all);
   const sum = (f: (x: typeof matches[0]) => number) => matches.reduce((n: number, x: typeof matches[0]) => n + f(x), 0);
   const k = sum((x) => x.k), d = sum((x) => x.d), a = sum((x) => x.a), shots = sum((x) => x.head + x.body + x.leg), rounds = sum((x) => x.rounds);
   const wins = matches.filter((x: { won: boolean }) => x.won).length;
@@ -106,7 +127,7 @@ async function valorant(handle: string, region: string) {
   const riot = `${account.name || m[1].trim()}#${account.tag || m[2].trim()}`;
   return {
     riotId: riot, name: account.name || m[1].trim(), tag: account.tag || m[2].trim(), region: reg,
-    url: 'https://tracker.gg/valorant/profile/riot/' + encodeURIComponent(riot) + '/overview', level: account.level ?? null, card: account.card || null, rank,
+    url: 'https://tracker.gg/valorant/profile/riot/' + encodeURIComponent(riot) + '/overview', level: account.level ?? null, card: account.card || null, rank, playtime,
     stats: matches.length ? { matches: matches.length, wins, winrate: Math.round(wins / matches.length * 100), kd: round(k / Math.max(1, d), 2), kda: round((k + a) / Math.max(1, d), 2),
       hs: shots ? Math.round(sum((x) => x.head) / shots * 100) : null, adr: rounds ? Math.round(sum((x) => x.dmg) / rounds) : null } : null,
     agents: Object.values(by).sort((x, y) => y.games - x.games || y.wins - x.wins).slice(0, 3).map((x) => ({
@@ -387,6 +408,7 @@ Deno.serve(async (req: Request) => {
         if (!c) return true;
         if ((c.data?._key ?? '') !== keyOf(j)) return true;                         // Konto oder Region geaendert
         if (baseKind(j.kind) === 'steam' && c.data && !('value' in c.data) && !(c.error && now - ts(c.tried_at) < RETRY_GAP)) return true;   // Stand von vor der Wertberechnung
+        if (baseKind(j.kind) === 'valorant' && c.data && !('playtime' in c.data) && !(c.error && now - ts(c.tried_at) < RETRY_GAP)) return true;   // Stand von vor der Spielzeit-Schaetzung
         const fetched = ts(c.fetched_at), tried = ts(c.tried_at ?? c.fetched_at);
         if (force && now - Math.max(ts(c.forced_at), 0) > FORCE_GAP) return true;
         if (c.error && now - tried < RETRY_GAP) return false;

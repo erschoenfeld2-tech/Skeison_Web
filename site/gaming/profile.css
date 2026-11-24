@@ -289,7 +289,7 @@ a.team-game:hover b { color: var(--accent); }
 .acc-group { --c: var(--acc); display: grid; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); border-left: 4px solid var(--c); background: color-mix(in srgb, var(--bg) 70%, transparent); }
 .acc-group .acc-edit { border-left-width: 1px; }
 .acc-edit-head [data-more] { margin-left: auto; }
-.acc-edit-row .acc-label { flex: 0 1 170px; }
+.acc-edit-row .acc-label { flex: 0 1 170px; } .acc-edit-row .acc-hours { flex: 0 1 140px; }
 .gform label.aud-l, .acc-edit label.aud-l { display: inline-flex; align-items: center; gap: 6px; }
 .acc-add { margin: 4px 0 12px; } .acc-add label { display: grid; gap: 4px; max-width: 360px; font-weight: 700; font-size: .86rem; color: var(--muted); }
 .aud-list { display: grid; gap: 6px; }
