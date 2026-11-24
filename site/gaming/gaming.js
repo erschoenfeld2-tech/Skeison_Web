@@ -410,9 +410,11 @@
   // Pionier mit Farbpunkten; Design "Void" ist ein eigenes 3D-Modell statt Pixel-Skin (pionier3d.js, three.js erst bei Wahl).
   // Die skinview3d-Figur pausiert solange; Animationsknoepfe und Sichtbarkeit werden an das Modell weitergegeben.
   // select(id) waehlt ein Design (aus dem Profil); pioneer.onPick meldet eine Wahl per Klick (profile.js speichert sie).
+  // "Void" ist der Standard. Das Modell (rund 1,5 MB plus three.js) wird erst geladen, wenn der Steam-Reiter zu sehen ist;
+  // klappt das nicht (kein WebGL, CDN nicht erreichbar), steht wieder der Pixel-Pionier da.
   var pioneer = (function () {
-    var current = PIONEERS[0][0], voidOn = false, voidFig = null, voidCanvas = null, lastAnim = 'idle', lastChosen = false, shown = false;
-    var syncVoid = function () { if (voidFig) voidFig.setActive(shown && voidOn); };
+    var current = PIONEERS[0][0], voidOn = false, voidFig = null, voidCanvas = null, voidFailed = false, lastAnim = 'idle', lastChosen = false, shown = false;
+    var syncVoid = function () { if (shown && voidOn) loadVoid(); if (voidFig) voidFig.setActive(shown && voidOn); };
     var fig = figure3d({
       canvas: 'pioneerCanvas', chips: 'pioneerAnims', skin: '../skin/' + PIONEERS[0][0] + '.png', game: 'steam', anims: PIONEER_ANIMS, enter: 'wave',
       paused: function () { return voidOn; },
@@ -422,24 +424,23 @@
     var box = $('pioneerSkins'), api = { select: function () {}, onPick: null };
     if (!fig) { box.hidden = true; return api; }
     function loadVoid() {
-      if (voidCanvas) return;
+      if (voidCanvas || voidFailed) return;
       voidCanvas = el('canvas'); voidCanvas.width = 300; voidCanvas.height = 400;
       voidCanvas.setAttribute('aria-label', '3D-Modell: Void-Pionier im schwarz-blauen Raumanzug (eigenes Design)');
       $('pioneerCanvas').after(voidCanvas);
       import('./pionier3d.js')
         .then(function (m) { return m.mount(voidCanvas, { url: '3d/void-pionier.glb', calm: calm }); })
         .then(function (c) { voidFig = c; voidFig.setAnim(lastAnim, lastChosen); syncVoid(); })
-        .catch(function () { voidCanvas.replaceWith(el('p', 'muted', '3D-Modell konnte nicht geladen werden.')); });
+        .catch(function () { voidFailed = true; voidCanvas.remove(); voidCanvas = null; if (voidOn) showVoid(false); });
     }
     function showVoid(on) {
-      voidOn = on;
-      $('pioneerCanvas').hidden = on;
-      if (on) loadVoid();
-      if (voidCanvas) voidCanvas.hidden = !on;
+      voidOn = on && !voidFailed;
+      $('pioneerCanvas').hidden = voidOn;
+      if (voidCanvas) voidCanvas.hidden = !voidOn;
       fig.sync();
     }
     function select(id) {
-      if (id !== VOID[0] && !PIONEERS.some(function (x) { return x[0] === id; })) id = PIONEERS[0][0];
+      if (id !== VOID[0] && !PIONEERS.some(function (x) { return x[0] === id; })) id = VOID[0];
       if (id === VOID[0]) showVoid(true);
       else { showVoid(false); if (id !== current) fig.load('../skin/' + id + '.png'); }
       current = id;
@@ -800,7 +801,7 @@
     setAgent(v.agent);
     renderValorant(v.val, v.valState, v.valSkins);
     renderSteam(v.steam, v.steamState, v.favs);
-    pioneer.select(v.pioneer || PIONEERS[0][0]);
+    pioneer.select(v.pioneer || VOID[0]);
     setMcSkins(v.mcSkins, v.mcActive);
     renderServer(v.server);
     renderAccounts(v.accounts);
@@ -811,7 +812,7 @@
 
   // Beispiel ohne Anmeldung: Erics Daten aus dem Deploy (bisherige Ansicht), abgedunkelt mit "Beispiel"
   function demo() {
-    var base = { demo: true, mine: false, owner: { name: 'Skeison' }, valState: 'loading', valSkins: 'loading', steamState: 'loading', favs: [], pioneer: 'pionier-gruen',
+    var base = { demo: true, mine: false, owner: { name: 'Skeison' }, valState: 'loading', valSkins: 'loading', steamState: 'loading', favs: [], pioneer: VOID[0],
       mcSkins: [{ id: 'skeison', name: 'Skeison', src: '../skin/skeison.png' }], mcName: 'Skeison', server: { kind: 'cobblemon' },
       accounts: [{ kind: 'steam', handle: 'Skeison', extra: {}, data: null }, { kind: 'minecraft', handle: 'Skeison', extra: {} }, { kind: 'discord', handle: 'discord.gg/' + DISCORD_INVITE, extra: {} }] };
     render(base);
