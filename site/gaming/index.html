@@ -108,7 +108,7 @@
           <button type="button" role="tab" id="tab-val" data-game="val" aria-controls="p-val" aria-selected="true"><kbd>1</kbd><span><b>Valorant</b><small id="pkVal">Taktik-Shooter</small></span></button>
           <button type="button" role="tab" id="tab-steam" data-game="steam" aria-controls="p-steam" aria-selected="false" tabindex="-1"><kbd>2</kbd><span><b>Steam</b><small id="pkSteam">Spiele</small></span></button>
           <button type="button" role="tab" id="tab-mc" data-game="mc" aria-controls="p-mc" aria-selected="false" tabindex="-1"><kbd>3</kbd><span><b>Minecraft</b><small id="pkMc">Minecraft</small></span></button>
-          <button type="button" role="tab" id="tab-acc" data-game="acc" aria-controls="p-acc" aria-selected="false" tabindex="-1"><kbd>4</kbd><span><b>Konten</b><small id="pkAcc">Verknüpfungen</small></span></button>
+          <button type="button" role="tab" id="tab-team" data-game="team" aria-controls="p-team" aria-selected="false" tabindex="-1"><kbd>4</kbd><span><b>Zusammen</b><small id="pkTeam">Gemeinsame Spiele</small></span></button>
         </div>
         <div class="panels">
           <!-- Valorant: Lieblingsagent -->
@@ -175,22 +175,22 @@
             </div>
           </article>
 
-          <!-- Konten: alle verknuepften Konten als Karten -->
-          <article class="panel panel-wide" id="p-acc" data-game="acc" role="tabpanel" aria-labelledby="tab-acc" hidden>
+          <!-- Zusammen spielen: Spiele, die ich mit freigegebenen Profilen gemeinsam habe (gp_games), filterbar nach Personen -->
+          <article class="panel panel-wide" id="p-team" data-game="team" role="tabpanel" aria-labelledby="tab-team" hidden>
             <div class="info">
-              <div class="info-head"><h2>Konten</h2></div>
-              <div class="acc-grid" id="accGrid"></div>
+              <div class="info-head"><h2>Zusammen spielen</h2></div>
+              <div class="team" id="team"></div>
             </div>
           </article>
         </div>
         <p class="stage-hint muted" aria-hidden="true"><span class="t-fine">Tasten <kbd>1</kbd>–<kbd>4</kbd> oder <kbd>←</kbd> <kbd>→</kbd> wechseln die Ansicht</span><span class="t-touch">Wischen wechselt die Ansicht</span></p>
       </div>
 
-      <!-- Leiste rechts: verknuepfte Konten (je Konto im Editor ein- oder ausblendbar) -->
-      <aside class="acc-bar" id="accBar" aria-label="Verknüpfte Konten">
+      <!-- Leiste rechts: alle verknuepften Konten (je Konto im Editor ein- oder ausblendbar); unter 1100 px unter der Buehne -->
+      <aside class="acc-bar" id="konten" aria-label="Verknüpfte Konten">
         <h2>Konten</h2>
         <ul class="acc-list" id="accBarList"></ul>
-        <p class="muted" id="accBarEmpty" hidden>Noch keine Konten in der Leiste.</p>
+        <div id="accBarEmpty" hidden></div>
       </aside>
     </div>
   </section>
@@ -218,7 +218,7 @@
       <p class="muted">Gaming-Profile · Valorant, Steam, Minecraft und mehr.</p>
     </div>
     <nav class="foot-links" aria-label="Fußzeile">
-      <a href="../">Startseite</a><a href="#valorant">Valorant</a><a href="#steam">Steam</a><a href="#minecraft">Minecraft</a><a href="#konten">Konten</a><a href="../cobblemon/">Cobblemon Server</a><a href="../wunschliste/">Wunschliste</a>
+      <a href="../">Startseite</a><a href="#valorant">Valorant</a><a href="#steam">Steam</a><a href="#minecraft">Minecraft</a><a href="#zusammen">Zusammen spielen</a><a href="#konten">Konten</a><a href="../cobblemon/">Cobblemon Server</a><a href="../wunschliste/">Wunschliste</a>
     </nav>
   </div>
   <div class="wrap foot-bottom muted">© <span id="year">2026</span> Skeison</div>

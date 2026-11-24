@@ -119,7 +119,7 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
 :is(.fx-idle, .fx-still) .dlg::backdrop { animation-play-state: running !important; }
 :is(.fx-idle, .fx-still) .mon-peek.hop img { animation-play-state: running !important; }
 /* Gaming-Buehne: Einflug der Figur und der Zahlen laeuft zu Ende (Laufschrift und Schweben bleiben angehalten) */
-:is(.fx-idle, .fx-still) .panel.on :is(.fig img, .fig .skin, .fig-name, .info-head, .subtabs, .pages, .page *, .skin-card, .acc-card) { animation-play-state: running !important; }
+:is(.fx-idle, .fx-still) .panel.on :is(.fig img, .fig .skin, .fig-name, .info-head, .subtabs, .pages, .page *, .skin-card) { animation-play-state: running !important; }
 /* 3D-Druck: Einblenden bei Zustandswechsel, Foto-Kacheln, Vorschau (Scanlinie und Atmen bleiben angehalten) */
 :is(.fx-idle, .fx-still) :is(.s3d-in, .thumbs li, #viewer canvas, .adv[open] .adv-body, .rec[open] dl) { animation-play-state: running !important; }
 

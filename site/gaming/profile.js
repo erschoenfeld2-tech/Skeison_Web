@@ -1,7 +1,8 @@
 // Gaming-Profile mit dem Skeison Account (gleiche Anmeldung wie die Wunschliste, Sitzung aus wunschliste/api.js).
 // Ohne Anmeldung: Anmelden/Registrieren, Beispiel-Buehne (Gaming.demo) und Karte zum Cobblemon Server; ein geteilter Link
 // (?profil=<token>) zeigt eine Vorschau (gp_preview). Angemeldet: Profile waehlen (?u=<id>), gp_profile laden, zeichnen
-// (Gaming.render) und die Live-Daten ueber die Edge Function gp-sync nachladen. Bearbeiten und Teilen: editor.js.
+// (Gaming.render) und die Live-Daten ueber die Edge Function gp-sync nachladen; "Zusammen spielen" vergleicht die Spiele
+// aller sichtbaren Profile (gp_games, Gaming.team). Bearbeiten und Teilen: editor.js.
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
@@ -86,6 +87,7 @@
     try { list = await Api.rpc('gp_visible_profiles'); } catch (e) { list = []; note(errText(e)); }
     if (!list.some(function (p) { return p.id === me; })) list.unshift({ id: me, name: 'Ich', avatar: '🎮', color: '#5b85ff', me: true });
     paintBar();
+    loadTeam(true);
     open(wanted && list.some(function (p) { return p.id === wanted; }) ? wanted : me);
   }
   function paintBar() {
@@ -99,7 +101,7 @@
     });
   }
   async function open(id) {
-    current = id; paintBar(); note('');
+    current = id; paintBar(); note(''); Gaming.team(undefined, id);
     var mine = id === me;
     $('btnEdit').hidden = !mine; $('btnShare').hidden = !mine;
     history.replaceState(null, '', location.pathname + (mine ? '' : '?u=' + id) + location.hash);
@@ -158,6 +160,7 @@
       if (r && r.cache) {
         p.cache = r.cache;
         if ((r.updated || []).length) draw(p);
+        if ((r.updated || []).indexOf('steam') >= 0) loadTeam(false);
         if (force) toast((r.updated || []).length ? 'Live-Daten aktualisiert' : 'Schon aktuell (höchstens alle 5 Minuten neu)');
         var missing = [];
         if (r.configured && !r.configured.valorant && (p.accounts || []).some(function (a) { return a.kind === 'valorant'; })) missing.push('Valorant');
@@ -167,12 +170,27 @@
     finally { btn.disabled = false; btn.classList.remove('spin'); }
   }
 
+  // Zusammen spielen: Spiele aller sichtbaren Profile. Fehlt bei jemandem mit Steam die Bibliothek oder ist sie aelter als
+  // einen Tag, holt gp-sync sie einmal je Besuch nach (hoechstens 6 Profile nacheinander), danach wird neu verglichen.
+  async function loadTeam(sync) {
+    var g;
+    try { g = await Api.rpc('gp_games'); } catch (e) { Gaming.team(false); return; }
+    Gaming.team(g);
+    if (!sync) return;
+    var old = Date.now() - 864e5;
+    var todo = g.filter(function (p) { return !p.me && p.has_steam && (!p.steam_at || new Date(p.steam_at).getTime() < old); }).slice(0, 6);
+    if (!todo.length) return;
+    for (var i = 0; i < todo.length; i++) { try { await Api.fn('gp-sync', { action: 'refresh', owner: todo[i].id }); } catch (e) { /* naechstes Profil */ } }
+    loadTeam(false);
+  }
+
   // ---------------------------------------------------------------- Bearbeiten, Teilen, Abmelden
   function edit(tab) {
     if (!shown || !shown.mine) return open(me).then(function () { if (shown && shown.mine) edit(tab); });
     Editor.open(shown, function () {
       // nach dem Bearbeiten neu laden; danach holt gp-sync die Live-Daten fuer neue Konten
       Api.rpc('gp_visible_profiles').then(function (l) { list = l; paintBar(); }).catch(function () {});
+      loadTeam(false);
       open(me);
     }, tab);
   }

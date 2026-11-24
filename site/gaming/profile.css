@@ -1,4 +1,4 @@
-/* Gaming-Profile fuer alle (profile.js, editor.js): Anmeldung, Profilauswahl, Leiste rechts, Konten, Editor */
+/* Gaming-Profile fuer alle (profile.js, editor.js): Anmeldung, Profilauswahl, Leiste rechts (Konten), Zusammen spielen, Editor */
 :root { --acc: #5b85ff; }
 .out-only, .in-only { display: none; }
 body:not(.is-in) .out-only { display: grid; } body.is-in .in-only { display: grid; }
@@ -51,29 +51,48 @@ body.is-demo .demo-badge { display: block; }
 
 /* Buehne + Leiste rechts; vierter Reiter "Konten" */
 .stage-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 16px; align-items: start; }
-.stage[data-game="acc"] { --g: var(--acc); } .stage[data-next="acc"] { --n: var(--acc); }
+.stage[data-game="team"] { --g: var(--acc); } .stage[data-next="team"] { --n: var(--acc); }
 .picker { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.picker button[data-game="acc"] { --c: var(--acc); }
+.picker button[data-game="team"] { --c: var(--acc); }
 .panel-wide { grid-template-columns: 1fr; padding: 0 clamp(14px, 3vw, 30px); min-height: 0; }
 .panel-wide .info { min-height: 420px; }
 .acc-bar { position: sticky; top: 84px; padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
 .acc-bar[hidden] { display: none; }
 .acc-bar h2 { margin: 0 0 10px; font-size: .82rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .acc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.acc-row { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; text-decoration: none; color: var(--text); border: 1px solid transparent; background: var(--bg); transition: border-color .2s; }
-a.acc-row:hover { color: var(--text); border-color: var(--c); }
+.acc-row { --c: var(--acc); display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; color: var(--text); border: 1px solid transparent; background: var(--bg); transition: border-color .2s; }
+.acc-row:hover, .acc-row:focus-within { border-color: color-mix(in srgb, var(--c) 70%, var(--line)); }
 .acc-row .acc-t { display: grid; min-width: 0; flex: 1; } .acc-row .acc-t b { font-size: .9rem; }
-.acc-row .acc-t span { font-size: .8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.acc-row .arr { color: var(--muted); }
+.acc-row .acc-t span, .acc-row .acc-t small { font-size: .8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-row .acc-t small.acc-sum { color: var(--text); font-weight: 700; }
+.acc-act { display: flex; gap: 2px; flex: none; }
+.acc-ic { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; font: inherit; font-size: .95rem; line-height: 1; text-decoration: none; color: var(--muted); background: none; border: 1px solid transparent; cursor: pointer; }
+.acc-ic:hover, .acc-ic:focus-visible { color: var(--text); border-color: var(--line); background: var(--panel2); }
+#accBarEmpty[hidden] { display: none; } #accBarEmpty .empty-state { padding: 12px 14px; }
 .acc-badge { --c: var(--acc); flex: none; display: inline-grid; place-items: center; min-width: 34px; height: 34px; padding: 0 6px; border-radius: 9px; font-size: .74rem; font-weight: 900; letter-spacing: .02em;
   color: #fff; background: linear-gradient(135deg, var(--c), color-mix(in srgb, var(--c) 55%, #000)); box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); text-shadow: 0 1px 1px rgba(0,0,0,.4); }
-.acc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
-.acc-card { --c: var(--acc); display: grid; gap: 8px; align-content: start; padding: 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--c) 40%, var(--line));
-  background: linear-gradient(150deg, color-mix(in srgb, var(--c) 18%, var(--bg)), var(--bg) 70%); animation: skin-in .5s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
-.acc-top { display: flex; gap: 10px; align-items: center; } .acc-t { display: grid; min-width: 0; }
-.acc-card .acc-t span { color: var(--muted); font-size: .86rem; overflow-wrap: anywhere; }
-.acc-sum { margin: 0; font-weight: 700; } .acc-card p { margin: 0; }
-.acc-act { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Zusammen spielen: Filter (Personen, Modus, Suche), gemeinsame Plattformen, Liste der Spiele */
+.team { display: grid; gap: 12px; }
+.team-filter { display: grid; gap: 10px; }
+.team-people { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; padding: 2px; }
+.team-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.team-q { flex: 1 1 200px; max-width: 320px; font: inherit; font-size: .95rem; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; min-width: 0; }
+.team-q:focus { outline: 2px solid var(--acc); outline-offset: 1px; }
+.team-out { display: grid; gap: 10px; justify-items: start; } .team-out > * { width: 100%; } .team-out > .btn { width: auto; }
+.team-plats { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.team-plat { --c: var(--acc); display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--c) 45%, var(--line)); background: var(--bg); font-size: .86rem; }
+.team-plat .acc-badge { min-width: 28px; height: 28px; font-size: .66rem; }
+.team-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 520px; overflow-y: auto; scrollbar-width: thin; }
+.team-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 6px; border-radius: 10px; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 85%, transparent); }
+.team-game { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; text-decoration: none; color: var(--text); }
+a.team-game:hover b { color: var(--accent); }
+.team-im { flex: none; width: 108px; aspect-ratio: 460 / 215; border-radius: 6px; object-fit: cover; background: var(--panel2); }
+.team-ph { --c: var(--acc); display: grid; place-items: center; font-weight: 900; color: #fff; background: linear-gradient(135deg, var(--c), color-mix(in srgb, var(--c) 50%, #000)); text-shadow: 0 1px 1px rgba(0,0,0,.4); }
+.team-t { display: grid; min-width: 0; } .team-t b { font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-t span { font-size: .8rem; color: var(--muted); overflow-wrap: anywhere; }
+.team-avs { display: flex; flex: none; padding-left: 6px; } .team-avs .av { width: 24px; height: 24px; font-size: .85rem; margin-left: -6px; box-shadow: 0 0 0 2px var(--c), 0 0 0 4px var(--bg); }
+.team-note { margin: 0; }
 
 /* Minecraft: Skins als kleine Gesichter, Lieblingsserver */
 .swatches[hidden] { display: none; }
@@ -138,9 +157,9 @@ a.acc-row:hover { color: var(--text); border-color: var(--c); }
   .acc-bar { position: static; } .acc-list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 }
 @media (max-width: 760px) {
+  .team-im { width: 84px; } .team-avs { display: none; }
   .gate { grid-template-columns: 1fr; }
   .pbar { grid-template-columns: 1fr; } .pbar-act { justify-content: flex-start; }
   .share-box { grid-template-columns: 1fr; } .share-qr { max-width: 220px; }
   .demo-badge { top: 76px; }
 }
-@media (prefers-reduced-motion: reduce) { .acc-card { animation: none; } }

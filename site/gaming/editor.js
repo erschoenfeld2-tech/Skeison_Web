@@ -125,7 +125,7 @@
       row.innerHTML = '<div class="acc-edit-head"><span class="acc-badge" style="--c:' + k.color + '">' + esc(k.short) + '</span><b>' + esc(k.name) + '</b>' + (k.live ? '<span class="live" title="wird geprüft, mit Live-Daten">✓</span>' : '') + '</div>' +
         '<div class="acc-edit-row"><input name="handle" aria-label="' + esc(k.label) + '" placeholder="' + esc(k.placeholder) + '" value="' + esc(a ? a.handle : '') + '" autocomplete="off" spellcheck="false">' +
         (k.regions ? '<select name="region" aria-label="Region">' + k.regions.map(function (r) { return '<option value="' + r[0] + '"' + (a && a.extra && a.extra.region === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select>' : '') +
-        '<label class="pick small"><input type="checkbox" name="in_sidebar"' + (!a || a.in_sidebar !== false ? ' checked' : '') + '><span>In Leiste</span></label>' +
+        '<label class="pick small"><input type="checkbox" name="in_sidebar"' + (!a || a.in_sidebar !== false ? ' checked' : '') + '><span>Anzeigen</span></label>' +
         '<button class="btn small" type="submit">' + (a ? 'Speichern' : 'Verknüpfen') + '</button>' +
         (a ? '<button class="link-btn danger-text" type="button" data-act="del">Entfernen</button>' : '') + '</div>' +
         (k.hint ? '<p class="muted small">' + esc(k.hint) + '</p>' : '') + '<p class="msg" hidden></p>';

@@ -23,7 +23,7 @@ create table public.gp_accounts (
                                      'battlenet','ea','ubisoft','lol','twitch','youtube','tiktok')),
   handle text not null check (char_length(btrim(handle)) between 1 and 100),
   extra jsonb not null default '{}' check (jsonb_typeof(extra) = 'object' and octet_length(extra::text) <= 1000),
-  in_sidebar boolean not null default true,
+  in_sidebar boolean not null default true,   -- im Profil zeigen (Leiste rechts) und beim Vergleich "Zusammen spielen" mitzaehlen
   sort int not null default 0,
   checked_at timestamptz,
   created_at timestamptz not null default now(),
@@ -201,6 +201,21 @@ create function public.gp_visible_profiles() returns jsonb language sql stable s
   ) t;
 $$;
 
+-- Zusammen spielen: Spiele aller Profile, die ich sehen darf (und meine eigenen), zum Vergleichen.
+-- Je Profil: Konten-Arten (nur angezeigte), Steam-Lieblingsspiele und die Steam-Bibliothek aus den Live-Daten.
+create function public.gp_games() returns jsonb language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(x order by x->>'me' desc, x->>'name'), '[]'::jsonb) from (
+    select jsonb_build_object('id', w.id, 'name', w.name, 'avatar', w.avatar, 'color', w.color, 'me', w.id = auth.uid(),
+      'kinds', coalesce((select jsonb_agg(a.kind order by a.sort) from public.gp_accounts a where a.owner = w.id and a.in_sidebar), '[]'::jsonb),
+      'favs', coalesce((select jsonb_agg(jsonb_build_object('appid', f.appid, 'name', f.name) order by f.sort) from public.gp_steam_favs f where f.owner = w.id), '[]'::jsonb),
+      'library', coalesce((select c.data->'library' from public.gp_cache c where c.owner = w.id and c.kind = 'steam'), '[]'::jsonb),
+      'steam_at', (select c.fetched_at from public.gp_cache c where c.owner = w.id and c.kind = 'steam'),
+      'has_steam', exists (select 1 from public.gp_accounts a where a.owner = w.id and a.kind = 'steam')) as x
+    from public.wl_profiles w left join public.gp_profiles g on g.id = w.id
+    where auth.uid() is not null and (w.id = auth.uid() or (g.id is not null and private.gp_can_view(w.id, auth.uid())))
+  ) t;
+$$;
+
 -- Sichtbarkeit und Freigaben setzen (legt das Profil bei Bedarf an); p_people null = Personen unveraendert lassen
 create function public.gp_set_shares(p_visibility text, p_groups uuid[], p_people uuid[]) returns void language plpgsql security definer set search_path = '' as $$
 declare me uuid := auth.uid();
@@ -308,10 +323,10 @@ begin
   return o;
 end $$;
 
-revoke all on function public.gp_profile(uuid), public.gp_visible_profiles(), public.gp_set_shares(text, uuid[], uuid[]),
+revoke all on function public.gp_profile(uuid), public.gp_visible_profiles(), public.gp_games(), public.gp_set_shares(text, uuid[], uuid[]),
   public.gp_set_val_items(text[], text[]), public.gp_set_steam_favs(jsonb), public.gp_share_enable(boolean),
   public.gp_share_disable(), public.gp_preview(text), public.gp_redeem(text), private.gp_can_view(uuid, uuid) from public, anon;
-grant execute on function public.gp_profile(uuid), public.gp_visible_profiles(), public.gp_set_shares(text, uuid[], uuid[]),
+grant execute on function public.gp_profile(uuid), public.gp_visible_profiles(), public.gp_games(), public.gp_set_shares(text, uuid[], uuid[]),
   public.gp_set_val_items(text[], text[]), public.gp_set_steam_favs(jsonb), public.gp_share_enable(boolean),
   public.gp_share_disable(), public.gp_redeem(text) to authenticated;
 grant execute on function public.gp_preview(text) to anon, authenticated;

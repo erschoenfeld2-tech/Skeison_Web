@@ -1,5 +1,6 @@
 // Gaming-Profil: eine "Buehne" mit Spielauswahl statt langem Scrollen. Pro Spiel eine Hauptfigur (Valorant: Lieblingsagent,
-// Steam: Pionier, Minecraft: der eigene Skin in 3D) und die Zahlen in Unterseiten; dazu "Konten" und die Leiste rechts.
+// Steam: Pionier, Minecraft: der eigene Skin in 3D) und die Zahlen in Unterseiten; dazu "Zusammen spielen" (gemeinsame
+// Spiele mit Freunden) und rechts die Leiste mit allen verknuepften Konten.
 // Diese Datei zeichnet nur. Die Daten kommen ueber Gaming.render(view): angemeldet aus dem Gaming-Profil (profile.js),
 // ohne Anmeldung als Beispiel aus den Deploy-Dateien (Gaming.demo(): valorant.json, valorant-skins.json, steam.json).
 (function () {
@@ -16,9 +17,9 @@
   var PIONEERS = [['pionier-gruen', 'Grün', '#7c9a62'], ['pionier-schwarz', 'Schwarz', '#34343a'], ['pionier-blau', 'Blau', '#97a3e6'], ['pionier-weiss', 'Weiß', '#ececf0'], ['pionier-gelb', 'Gelb', '#e9db4d']];
   // Zusaetzliches Design als echtes 3D-Modell (site/gaming/3d/void-pionier.glb, pionier3d.js), letzter Farbpunkt
   var VOID = ['void', 'Void (3D-Modell)', '#5b85ff'];
-  var GAMES = ['val', 'steam', 'mc', 'acc'];
-  var WORDS = { val: 'VALORANT', steam: 'STEAM', mc: 'MINECRAFT', acc: 'KONTEN' };
-  var HASH = { valorant: 'val', steam: 'steam', minecraft: 'mc', server: 'mc', konten: 'acc' };
+  var GAMES = ['val', 'steam', 'mc', 'team'];
+  var WORDS = { val: 'VALORANT', steam: 'STEAM', mc: 'MINECRAFT', team: 'ZUSAMMEN' };
+  var HASH = { valorant: 'val', steam: 'steam', minecraft: 'mc', server: 'mc', zusammen: 'team' };
 
   var $ = function (id) { return document.getElementById(id); };
   var FX = window.FX || { reduced: true };
@@ -126,7 +127,7 @@
   }
   function editLink(text) { return view.mine && Gaming.onEdit ? [text, function () { Gaming.onEdit(); }] : null; }
 
-  // ---------- Buehne: Spiel wechseln (Reiter, Tasten 1-4 und Pfeile, Wischen, #valorant/#steam/#minecraft/#konten) ----------
+  // ---------- Buehne: Spiel wechseln (Reiter, Tasten 1-4 und Pfeile, Wischen, #valorant/#steam/#minecraft/#zusammen) ----------
   var stage = $('stage'), cur = 'val', busy = 0, onShow = {};
   var word = stage.querySelector('.stage-word');
   function setWord(g) { Array.prototype.forEach.call(word.children, function (s) { s.textContent = (WORDS[g] + ' · ').repeat(6); }); }
@@ -177,7 +178,7 @@
       if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.8) step(dx < 0 ? 1 : -1);
     }, { passive: true });
   })();
-  // Sprungmarken: #valorant, #steam, #minecraft, #konten waehlen das Spiel und holen die Buehne ins Bild
+  // Sprungmarken: #valorant, #steam, #minecraft, #zusammen waehlen das Spiel und holen die Buehne ins Bild
   function fromHash(scroll) {
     var g = HASH[location.hash.slice(1)]; if (!g) return false;
     show(g, true);
@@ -373,7 +374,7 @@
     }
   }
   var syncers = [], SV = window.skinview3d || {};
-  onShow.val = onShow.acc = function () { syncers.forEach(function (f) { f(); }); };
+  onShow.val = onShow.team = function () { syncers.forEach(function (f) { f(); }); };
   var BASE_ANIMS = {
     idle: function () { return new SV.IdleAnimation(); }, wave: function () { return new SV.WaveAnimation(); },
     walk: function () { return new SV.WalkingAnimation(); }, run: function () { return new SV.RunningAnimation(); }
@@ -597,43 +598,173 @@
     $('pkMc').textContent = d.online ? d.players + ' / ' + d.max + ' online' : srv.address;
   }
 
-  // ---------- Konten: Karten in der Buehne und die Leiste rechts ----------
-  // accounts: [{ kind, handle, extra, in_sidebar, data }]
+  // ---------- Konten: nur in der Leiste rechts (unter 1100 px unter der Buehne) ----------
+  // accounts: [{ kind, handle, extra, in_sidebar, data }]; in_sidebar false = im Editor ausgeblendet
   function accBadge(k) { var b = el('span', 'acc-badge', k.short); b.style.setProperty('--c', k.color); b.setAttribute('aria-hidden', 'true'); return b; }
   function accActions(a, k, link) {
-    var row = el('div', 'acc-act');
-    if (link) { var l = ext(el('a', 'btn ghost small', 'Öffnen ↗'), link); l.setAttribute('aria-label', k.name + ' öffnen'); row.appendChild(l); }
-    var c = el('button', 'btn ghost small', 'Kopieren'); c.type = 'button'; c.setAttribute('aria-label', k.name + ' kopieren');
+    var row = el('span', 'acc-act');
+    if (link) { var l = ext(el('a', 'acc-ic', '↗'), link); l.title = 'Öffnen'; l.setAttribute('aria-label', k.name + ' öffnen'); row.appendChild(l); }
+    var c = el('button', 'acc-ic', '⧉'); c.type = 'button'; c.title = 'Kopieren'; c.setAttribute('aria-label', k.name + ' kopieren');
     c.addEventListener('click', function () {
-      (navigator.clipboard ? navigator.clipboard.writeText(a.handle) : Promise.reject()).then(function () { if (FX.toast) FX.toast(k.name + ' kopiert'); c.textContent = 'Kopiert ✓'; setTimeout(function () { c.textContent = 'Kopieren'; }, 1600); }, function () {});
+      (navigator.clipboard ? navigator.clipboard.writeText(a.handle) : Promise.reject()).then(function () { if (FX.toast) FX.toast(k.name + ' kopiert'); c.textContent = '✓'; setTimeout(function () { c.textContent = '⧉'; }, 1600); }, function () {});
     });
     row.appendChild(c);
     return row;
   }
   function renderAccounts(list) {
-    var GA = window.GAccounts, grid = $('accGrid'), bar = $('accBar'), barList = $('accBarList');
-    grid.textContent = ''; barList.textContent = '';
-    list = (list || []).filter(function (a) { return GA && GA.BY[a.kind]; });
-    $('pkAcc').textContent = list.length ? list.length + (list.length === 1 ? ' Konto' : ' Konten') : 'Verknüpfungen';
-    if (!list.length) grid.appendChild(emptyPage('Noch keine Konten verknüpft', view.mine ? 'Verknüpfe Steam, Valorant, Minecraft, Discord, Konsolen und Kanäle. Sie erscheinen hier und in der Leiste.' : 'Hier sind noch keine Konten hinterlegt.', editLink('Konten verknüpfen')));
-    list.forEach(function (a, i) {
+    var GA = window.GAccounts, barList = $('accBarList'), empty = $('accBarEmpty');
+    barList.textContent = ''; empty.textContent = '';
+    list = (list || []).filter(function (a) { return GA && GA.BY[a.kind] && a.in_sidebar !== false; });
+    list.forEach(function (a) {
       var k = GA.BY[a.kind], link = GA.link(a, a.data), sum = GA.summary(a, a.data);
-      var card = el('div', 'acc-card'); card.style.setProperty('--c', k.color); card.style.setProperty('--i', Math.min(i, 14));
-      var top = el('div', 'acc-top'); top.appendChild(accBadge(k));
-      var t = el('div', 'acc-t'); t.appendChild(el('b', '', k.name)); t.appendChild(el('span', '', a.handle)); top.appendChild(t); card.appendChild(top);
-      if (sum && sum !== a.handle) card.appendChild(el('p', 'acc-sum', sum));
-      if (a.kind === 'discord' && a.data && a.data.name) card.appendChild(el('p', 'muted', a.data.name));
-      card.appendChild(accActions(a, k, link));
-      grid.appendChild(card);
-      if (a.in_sidebar === false) return;
-      var li = el('li'), row = link ? ext(el('a', 'acc-row'), link) : el('div', 'acc-row');
-      row.style.setProperty('--c', k.color); row.appendChild(accBadge(k));
-      var rt = el('span', 'acc-t'); rt.appendChild(el('b', '', k.name)); rt.appendChild(el('span', '', sum || a.handle)); row.appendChild(rt);
-      if (link) row.appendChild(el('span', 'arr', '↗'));
-      li.appendChild(row); barList.appendChild(li);
+      var li = el('li', 'acc-row'); li.style.setProperty('--c', k.color); li.appendChild(accBadge(k));
+      var t = el('span', 'acc-t'); t.appendChild(el('b', '', k.name)); t.appendChild(el('span', '', a.handle));
+      var more = sum && sum !== a.handle ? sum : a.kind === 'discord' && a.data && a.data.name ? a.data.name : '';
+      if (more) t.appendChild(el('small', 'acc-sum', more));
+      li.appendChild(t); li.appendChild(accActions(a, k, link));
+      barList.appendChild(li);
     });
-    bar.hidden = !barList.children.length && !view.mine;
-    $('accBarEmpty').hidden = !!barList.children.length;
+    if (!list.length) empty.appendChild(emptyPage('', view.mine ? 'Verknüpfe Steam, Valorant, Minecraft, Discord, Konsolen und Kanäle. Sie erscheinen hier.' : 'Hier sind noch keine Konten hinterlegt.', editLink('Konten verknüpfen')));
+    empty.hidden = !!list.length;
+    $('konten').hidden = !list.length && !view.mine;
+  }
+
+  // ---------- Zusammen spielen: welche Spiele habe ich mit freigegebenen Profilen gemeinsam? (gp_games, profile.js) ----------
+  // Spiele je Person: Steam-Bibliothek und -Lieblingsspiele, dazu Spiele mit eigenem Konto (Valorant, LoL, Minecraft).
+  // Plattformen (Steam, Konsolen, Launcher, Discord) zaehlen extra: dort findet man sich, auch ohne gleiches Spiel.
+  // Filter: Personen an/aus (mindestens zwei), bei drei und mehr "alle haben es" oder "mindestens zwei", Suche nach Namen.
+  var ACC_GAMES = { valorant: 'Valorant', lol: 'League of Legends', minecraft: 'Minecraft' };
+  var PLATFORMS = ['steam', 'discord', 'epic', 'xbox', 'playstation', 'nintendo', 'battlenet', 'ea', 'ubisoft'];
+  var TEAM_MAX = 48;
+  var team = { people: null, focus: null, sel: null, mode: 'all', q: '', more: false };
+  function teamGames(p) {
+    var map = {};
+    (p.library || []).forEach(function (g) { if (g && g.appid && g.name) map['s' + g.appid] = { key: 's' + g.appid, appid: g.appid, name: g.name, hours: g.hours || 0 }; });
+    (p.favs || []).forEach(function (g) { var k = 's' + g.appid; map[k] = Object.assign(map[k] || { key: k, appid: g.appid, name: g.name, hours: null }, { fav: true }); });
+    (p.kinds || []).forEach(function (k) { if (ACC_GAMES[k]) map['a' + k] = { key: 'a' + k, kind: k, name: ACC_GAMES[k] }; });
+    return map;
+  }
+  // Start-Auswahl: ich und das gerade gezeigte Profil; beim eigenen Profil ich und alle anderen
+  function teamDefault() {
+    var others = team.people.filter(function (p) { return !p.me; }), sel = {};
+    team.people.forEach(function (p) { if (p.me) sel[p.id] = 1; });
+    if (team.focus && others.some(function (p) { return p.id === team.focus; })) sel[team.focus] = 1;
+    else others.forEach(function (p) { sel[p.id] = 1; });
+    team.sel = sel; team.mode = Object.keys(sel).length > 2 ? 'some' : 'all'; team.more = false;
+  }
+  function who(p) { return p.me ? 'Du' : p.name; }
+  function avs(owners) {
+    var span = el('span', 'team-avs');
+    owners.forEach(function (o) {
+      var a = el('span', 'av', o.p.avatar); a.style.setProperty('--c', o.p.color);
+      a.title = who(o.p) + (o.hours ? ' · ' + fmtH(o.hours) : '') + (o.fav ? ' · Lieblingsspiel' : '');
+      span.appendChild(a);
+    });
+    return span;
+  }
+  function renderTeam() {
+    var box = $('team'), pk = $('pkTeam'); box.textContent = '';
+    if (team.people === false && !view.demo) { pk.textContent = 'Mit Freunden'; box.appendChild(emptyPage('', 'Gemeinsame Spiele konnten gerade nicht geladen werden. Bitte später nochmal.')); return; }
+    if (view.demo || !team.people) {
+      pk.textContent = 'Mit Freunden';
+      box.appendChild(emptyPage('Gemeinsame Spiele finden', view.demo
+        ? 'Melde dich an: Dann siehst du, welche Spiele du mit deinen Freunden gemeinsam hast, und filterst nach Personen.'
+        : 'Gemeinsame Spiele werden geladen …', view.demo ? ['Anmelden', function () { $('anmelden').scrollIntoView({ behavior: calm() ? 'auto' : 'smooth' }); }] : null));
+      return;
+    }
+    var people = team.people, others = people.filter(function (p) { return !p.me; });
+    if (!others.length) {
+      pk.textContent = 'Mit Freunden';
+      box.appendChild(emptyPage('Noch niemand zum Vergleichen', 'Sobald Freunde ihr Gaming-Profil für dich freigeben, siehst du hier, welche Spiele ihr gemeinsam habt. Freunde fügst du in der Wunschliste hinzu.', ['Freunde in der Wunschliste', '../wunschliste/']));
+      return;
+    }
+    if (!team.sel) teamDefault();
+    var chosen = people.filter(function (p) { return team.sel[p.id]; }), n = chosen.length;
+
+    // Filterleiste: Personen, Modus, Suche
+    var bar = el('div', 'team-filter');
+    var ppl = el('div', 'team-people hscroll'); ppl.setAttribute('role', 'group'); ppl.setAttribute('aria-label', 'Mit wem vergleichen?');
+    people.forEach(function (p) {
+      var on = !!team.sel[p.id], b = el('button', 'pchip' + (on ? ' on' : '')); b.type = 'button'; b.setAttribute('aria-pressed', String(on));
+      var av = el('span', 'av', p.avatar); av.style.setProperty('--c', p.color); b.appendChild(av); b.appendChild(el('span', '', p.me ? 'Ich' : p.name));
+      b.addEventListener('click', function () { if (team.sel[p.id]) delete team.sel[p.id]; else team.sel[p.id] = 1; team.more = false; renderTeam(); });
+      ppl.appendChild(b);
+    });
+    bar.appendChild(ppl);
+    var tools = el('div', 'team-tools');
+    if (n > 2) {
+      var seg = el('div', 'seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Wer muss das Spiel haben?');
+      [['all', 'Alle haben es'], ['some', 'Mindestens zwei']].forEach(function (m) {
+        var b = el('button', team.mode === m[0] ? 'on' : '', m[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(team.mode === m[0]));
+        b.addEventListener('click', function () { team.mode = m[0]; team.more = false; renderTeam(); });
+        seg.appendChild(b);
+      });
+      tools.appendChild(seg);
+    }
+    var q = el('input', 'team-q'); q.type = 'search'; q.placeholder = 'Spiel suchen'; q.value = team.q; q.setAttribute('aria-label', 'Gemeinsame Spiele durchsuchen');
+    tools.appendChild(q); bar.appendChild(tools); box.appendChild(bar);
+    var out = el('div', 'team-out'); box.appendChild(out);
+    q.addEventListener('input', function () { team.q = q.value; team.more = false; paint(); });
+
+    function paint() {
+      out.textContent = '';
+      if (n < 2) { pk.textContent = 'Mit Freunden'; out.appendChild(emptyPage('', 'Wähle mindestens zwei Personen, dann erscheinen eure gemeinsamen Spiele.')); return; }
+      var need = team.mode === 'all' || n === 2 ? n : 2, all = {}, plats = {};
+      chosen.forEach(function (p) {
+        var g = teamGames(p);
+        Object.keys(g).forEach(function (k) { (all[k] = all[k] || { game: g[k], owners: [] }).owners.push({ p: p, hours: g[k].hours, fav: g[k].fav }); });
+        (p.kinds || []).forEach(function (k) { if (PLATFORMS.indexOf(k) >= 0) (plats[k] = plats[k] || []).push({ p: p }); });
+      });
+      var needle = team.q.trim().toLowerCase();
+      var list = Object.keys(all).map(function (k) { return all[k]; }).filter(function (x) { return x.owners.length >= need && (!needle || x.game.name.toLowerCase().indexOf(needle) >= 0); });
+      var sumH = function (x) { return x.owners.reduce(function (a, o) { return a + (o.hours || 0); }, 0); };
+      var favs = function (x) { return x.owners.filter(function (o) { return o.fav; }).length; };
+      list.sort(function (a, b) { return b.owners.length - a.owners.length || favs(b) - favs(a) || sumH(b) - sumH(a) || a.game.name.localeCompare(b.game.name, 'de'); });
+      pk.textContent = list.length ? list.length + (list.length === 1 ? ' gemeinsames Spiel' : ' gemeinsame Spiele') : 'Mit Freunden';
+
+      // Plattformen, auf denen sich die Gewaehlten finden
+      var GA = window.GAccounts, pl = PLATFORMS.filter(function (k) { return plats[k] && plats[k].length >= need && GA && GA.BY[k]; });
+      if (pl.length) {
+        var pr = el('div', 'team-plats'); pr.appendChild(el('span', 'muted', 'Gemeinsam auf'));
+        pl.forEach(function (k) {
+          var d = GA.BY[k], c = el('span', 'team-plat'); c.style.setProperty('--c', d.color);
+          c.appendChild(accBadge(d)); c.appendChild(el('b', '', d.name)); c.appendChild(avs(plats[k])); pr.appendChild(c);
+        });
+        out.appendChild(pr);
+      }
+
+      if (!list.length) {
+        out.appendChild(emptyPage('', needle ? 'Kein gemeinsames Spiel passt zu „' + team.q.trim() + '“.' : need === n && n > 2 ? 'Kein Spiel haben alle Gewählten. Mit „Mindestens zwei“ oder weniger Personen findest du mehr.' : 'Noch kein gemeinsames Spiel gefunden.'));
+      } else {
+        var ul = el('ul', 'team-list');
+        list.slice(0, team.more ? list.length : TEAM_MAX).forEach(function (x) {
+          var g = x.game, li = el('li', 'team-row'), a = g.appid ? ext(el('a', 'team-game'), 'https://store.steampowered.com/app/' + g.appid) : el('div', 'team-game');
+          if (g.appid) a.appendChild(img(header(g.appid), 'team-im', ''));
+          else { var k = GA && GA.BY[g.kind], ph = el('span', 'team-im team-ph'); if (k) { ph.style.setProperty('--c', k.color); ph.textContent = k.short; } a.appendChild(ph); }
+          var t = el('span', 'team-t'); t.appendChild(el('b', '', g.name));
+          var line = x.owners.map(function (o) { return who(o.p) + (o.hours ? ' ' + fmtH(o.hours) : '') + (o.fav ? ' ★' : ''); }).join(' · ');
+          t.appendChild(el('span', '', x.owners.length < n ? x.owners.length + ' von ' + n + ': ' + line : line));
+          a.appendChild(t); li.appendChild(a); li.appendChild(avs(x.owners)); ul.appendChild(li);
+        });
+        out.appendChild(ul);
+        if (!team.more && list.length > TEAM_MAX) {
+          var mb = el('button', 'btn ghost small', 'Alle ' + list.length + ' zeigen'); mb.type = 'button';
+          mb.addEventListener('click', function () { team.more = true; paint(); }); out.appendChild(mb);
+        }
+      }
+      // Hinweis, wenn von jemandem die Steam-Bibliothek fehlt (nicht verknuepft, nicht oeffentlich oder noch nicht geladen)
+      var noLib = chosen.filter(function (p) { return !(p.library || []).length; });
+      if (noLib.length) out.appendChild(el('p', 'muted small team-note', 'Ohne Steam-Bibliothek: ' + noLib.map(who).join(', ') + '. Dort zählen nur Lieblingsspiele und Konten wie Valorant oder Minecraft' +
+        (noLib.some(function (p) { return p.has_steam; }) ? ' (bei verknüpftem Steam: auf Steam die Spieldetails öffentlich stellen).' : '.')));
+    }
+    paint();
+  }
+  // people: Ergebnis von gp_games (undefined = unveraendert); focus: gerade gezeigtes Profil, wird beim Wechsel mit ausgewaehlt
+  function setTeam(people, focus) {
+    if (people !== undefined) team.people = people;
+    if (focus !== undefined && focus !== team.focus) { team.focus = focus; team.sel = null; }
+    if (team.sel && team.people) Object.keys(team.sel).forEach(function (id) { if (!team.people.some(function (p) { return p.id === id; })) delete team.sel[id]; });
+    renderTeam();
   }
 
   // ---------- Discord-Abschnitt unter der Buehne (Server-Einladung des Profils, im Beispiel der eigene Server) ----------
@@ -673,6 +804,7 @@
     setMcSkins(v.mcSkins, v.mcActive);
     renderServer(v.server);
     renderAccounts(v.accounts);
+    renderTeam();
     renderDiscord(v.discord, v.demo);
     var p = panel(cur); if (p) countUp(p);
   }
@@ -697,7 +829,7 @@
     });
   }
 
-  var Gaming = window.Gaming = { render: render, demo: demo, cobblemon: cobblemon, show: show, onEdit: null, onMcSkin: null,
+  var Gaming = window.Gaming = { render: render, demo: demo, cobblemon: cobblemon, show: show, team: setTeam, onEdit: null, onMcSkin: null,
     pioneer: pioneer, get current() { return cur; } };
   fromHash(false);
 })();
