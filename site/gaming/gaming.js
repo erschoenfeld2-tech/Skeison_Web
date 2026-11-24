@@ -187,6 +187,9 @@
       s.appendChild(sm); b.appendChild(s); pick.appendChild(b);
     });
     pick.style.setProperty('--n-tabs', list.length);
+    // mehr als 5 Reiter: schraege, schmalere Kacheln, damit alle ohne Scrollen sichtbar sind (am Handy in mehreren Reihen)
+    pick.classList.toggle('diag', list.length > 5);
+    pick.style.setProperty('--cols', list.length > 8 ? Math.ceil(list.length / 2) : list.length);   // ab 9 Reitern zwei Reihen
     // Kurzinfo-Zeilen ausgeblendeter fester Reiter versteckt vorhalten: die Ansichten schreiben weiter hinein
     var store = $('pkStore') || stage.appendChild(Object.assign(el('div'), { id: 'pkStore', hidden: true }));
     store.textContent = '';
@@ -691,10 +694,16 @@
     var GA = window.GAccounts, barList = $('accBarList'), empty = $('accBarEmpty');
     barList.textContent = ''; empty.textContent = '';
     list = (list || []).filter(function (a) { return GA && GA.kindOf(a) && a.in_sidebar !== false; });
-    list.forEach(function (a) {
+    // nach Anbieter (Reihenfolge wie im Editor) und Konto-Nummer: Zweitkonten stehen direkt unter ihrem Hauptkonto
+    var pos = function (a) { return GA.KINDS.indexOf(GA.kindOf(a)) * 10 + GA.slot(a.kind); };
+    list = list.slice().sort(function (a, b) { return pos(a) - pos(b); });
+    list.forEach(function (a, i) {
       var k = GA.kindOf(a), link = GA.link(a, a.data), sum = GA.summary(a, a.data), lab = GA.label(a);
-      var li = el('li', 'acc-row'); li.style.setProperty('--c', k.color); li.appendChild(accBadge(k));
-      var t = el('span', 'acc-t'), nm = el('b', '', k.name); if (lab) nm.appendChild(el('small', 'acc-lab', lab)); t.appendChild(nm); t.appendChild(el('span', '', a.handle));
+      var sub = i > 0 && GA.base(list[i - 1].kind) === GA.base(a.kind);   // weiteres Konto desselben Anbieters: eingerueckt, ohne Namen
+      var li = el('li', 'acc-row' + (sub ? ' acc-sub' : '')); li.style.setProperty('--c', k.color); li.appendChild(accBadge(k));
+      var t = el('span', 'acc-t'), nm = el('b', '', sub ? lab || GA.slot(a.kind) + '. Konto' : k.name);
+      // eigener Name bzw. Spiel (HoYoverse) des Hauptkontos in der zweiten Zeile, damit der Anbieter nicht abgeschnitten wird
+      t.appendChild(nm); t.appendChild(el('span', '', lab && !sub ? a.handle + ' · ' + lab : a.handle));
       var more = sum && sum !== a.handle ? sum : GA.base(a.kind) === 'discord' && a.data && a.data.name ? a.data.name : '';
       if (more) t.appendChild(el('small', 'acc-sum', more));
       li.appendChild(t); li.appendChild(accActions(a, k, link));

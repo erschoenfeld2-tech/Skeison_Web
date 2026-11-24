@@ -161,6 +161,8 @@
     var nameOf = function (k) { if (BUILTIN[k]) return BUILTIN[k]; var g = (S.p.custom || []).filter(function (x) { return 'c-' + x.id === k; })[0]; return g ? g.name : k; };
     body.innerHTML = '<section class="ecard"><h3>Reiter der Bühne</h3><p class="muted">Reihenfolge ändern und Reiter aus- oder einblenden. Was andere sehen dürfen, regelt zusätzlich „Wer sieht das?“. Speichert sich selbst.</p><ol class="tab-order"></ol></section>' +
       '<section class="ecard"><h3>Statistik-Kacheln</h3><p class="muted">Welche Zahlen der Reiter „Statistik“ zeigt (nur Kacheln mit Daten erscheinen).</p><div class="pick-list stat-pick"></div></section>' +
+      '<section class="ecard"><h3>Deine Spiele als Reiter</h3><p class="muted">Ein Klick macht ein Spiel zum Reiter auf der Bühne (oder nimmt ihn wieder weg). Aus deiner Steam-Bibliothek und deinen Spiel-Konten; Spielzeit und Errungenschaften kommen bei Steam-Spielen live.</p>' +
+      '<input type="search" class="game-q" placeholder="Spiel suchen" aria-label="Eigene Spiele durchsuchen"><div class="game-pick"></div></section>' +
       '<section class="ecard"><h3>Eigene Reiter</h3><p class="muted">Für Spiele, die es nur in Launchern gibt (Epic, Battle.net, HoYoPlay, Konsole …), oder für ein einzelnes Steam-Spiel mit Errungenschaften. Spielzeit, eigene Zahlen und Errungenschaften trägst du selbst ein; bei Steam-Spielen kommen Spielzeit und Errungenschaften live von Steam.</p>' +
       '<ul class="people-list custom-list"></ul><div class="dlg-actions start"><button type="button" class="btn ghost small" data-new>+ Neuer Reiter</button></div><div class="custom-form"></div></section>';
     var ol = $('.tab-order', body), sp = $('.stat-pick', body);
@@ -215,6 +217,61 @@
       }
     });
     $('[data-new]', body).addEventListener('click', function () { gameForm(null); });
+
+    // Deine Spiele: Steam-Bibliothek (alle Steam-Konten, nach Spielzeit) und Lieblingsspiele, dazu Spiel-Konten ohne eigenen Reiter
+    var gp = $('.game-pick', body), gq = $('.game-q', body), GA = window.GAccounts;
+    var ACC_GAME = { epic: ['Fortnite', 'Epic Games'], lol: ['League of Legends', 'Riot Client'], roblox: ['Roblox', 'Roblox'] };
+    function candidates() {
+      var out = [], seen = {}, c = S.p.cache || {};
+      var add = function (g) { var k = g.appid ? 's' + g.appid : 'n' + g.name.toLowerCase(); if (!seen[k]) { seen[k] = 1; out.push(g); } };
+      (S.p.steam_favs || []).forEach(function (f) { add({ appid: f.appid, name: f.name, platform: 'Steam', fav: true }); });
+      var lib = [];
+      Object.keys(c).forEach(function (k) { if (/^steam(-[2-5])?$/.test(k) && c[k].data && c[k].data.library) lib = lib.concat(c[k].data.library); });
+      lib.sort(function (a, b) { return (b.hours || 0) - (a.hours || 0); }).forEach(function (g) { add({ appid: g.appid, name: g.name, platform: 'Steam', hours: g.hours }); });
+      (S.p.accounts || []).forEach(function (a) {
+        var b = GA.base(a.kind), x = a.extra || {};
+        if (ACC_GAME[b]) add({ name: ACC_GAME[b][0], platform: ACC_GAME[b][1] });
+        if (b === 'hoyoverse') { var g = (GA.BY.hoyoverse.games || []).filter(function (z) { return z[0] === (x.game || 'genshin'); })[0]; if (g) add({ name: g[1], platform: 'HoYoPlay' }); }
+      });
+      return out;
+    }
+    function existing(g) { return (S.p.custom || []).filter(function (x) { return g.appid ? x.appid === g.appid : !x.appid && x.name.toLowerCase() === g.name.toLowerCase(); })[0]; }
+    function paintGames() {
+      var q = gq.value.trim().toLowerCase(), all = candidates(), list = all.filter(function (g) { return !q || g.name.toLowerCase().indexOf(q) >= 0; });
+      // ohne Suche: die gewaehlten und die 24 meistgespielten zeigen
+      if (!q) list = list.filter(function (g, i) { return i < 24 || existing(g); });
+      gp.innerHTML = list.length ? list.map(function (g, i) {
+        var on = !!existing(g);
+        return '<button type="button" class="gtile' + (on ? ' on' : '') + '" data-i="' + all.indexOf(g) + '" aria-pressed="' + on + '">' +
+          (g.appid ? '<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/' + g.appid + '/capsule_184x69.jpg" alt="" loading="lazy">' : '<span class="gph">' + esc(g.name.slice(0, 2).toUpperCase()) + '</span>') +
+          '<span class="gt"><b>' + esc(g.name) + '</b><small>' + esc([g.platform, g.hours ? String(Math.round(g.hours)) + ' Std' : '', g.fav ? '★' : ''].filter(Boolean).join(' · ')) + '</small></span>' +
+          '<span class="gst" aria-hidden="true">' + (on ? '✓' : '+') + '</span></button>'; }).join('')
+        : '<p class="muted">' + (all.length ? 'Nichts gefunden.' : 'Verknüpfe Steam oder Spiel-Konten (Epic, LoL, HoYoverse, Roblox), dann stehen deine Spiele hier zur Wahl.') + '</p>';
+      gp._all = all;
+    }
+    gq.addEventListener('input', paintGames);
+    gp.addEventListener('click', async function (e) {
+      var b = e.target.closest('.gtile'); if (!b || b.disabled) return;
+      var g = gp._all[+b.dataset.i], ex = existing(g);
+      b.disabled = true;
+      try {
+        if (ex) {
+          if (((ex.stats || []).length || (ex.achievements || []).length) && !confirm('„' + ex.name + '“ hat eigene Zahlen oder Errungenschaften. Reiter trotzdem entfernen?')) return;
+          await Api.remove('gp_custom_games', 'id=eq.' + ex.id);
+          S.p.custom = S.p.custom.filter(function (x) { return x.id !== ex.id; });
+          lay.tabs = lay.tabs.filter(function (k) { return k !== 'c-' + ex.id; }); changed();
+          toast(g.name + ' ist kein Reiter mehr');
+        } else {
+          await E.ensureProfile();
+          var rows = await Api.insert('gp_custom_games', [{ owner: S.me, name: g.name.slice(0, 60), platform: g.platform || '', appid: g.appid || null, image: '', hours: null, stats: [], achievements: [], audience: 'friends', sort: (S.p.custom || []).length }]);
+          if (rows && rows[0]) S.p.custom = (S.p.custom || []).concat([rows[0]]);
+          toast(g.name + ' ist jetzt ein Reiter');
+        }
+        S.changed = true; paintGames(); paintList(); paintOrder();
+      } catch (err) { toast(errText(err)); }
+      finally { b.disabled = false; }
+    });
+    paintGames();
     function gameForm(g) {
       g = g || { name: '', platform: '', image: '', appid: null, hours: null, stats: [], achievements: [], audience: 'friends' };
       var stats = (g.stats || []).slice(), achs = (g.achievements || []).slice();
