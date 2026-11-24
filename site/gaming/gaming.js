@@ -269,8 +269,12 @@
       if (r.peak && r.peak.name) rt.appendChild(el('small', 'muted', 'Bestleistung: ' + r.peak.name + (r.peak.season ? ' (' + r.peak.season + ')' : '')));
       rank.appendChild(rt); box.appendChild(rank);
     }
+    // Spielzeit: eigene Angabe (z. B. von tracker.gg) oder Schaetzung aus den bei HenrikDev gespeicherten Spielen
+    var ph = v.playHours, timeTile = ph ? stat('Spielzeit', Math.round(ph.hours), ph.own ? 'eigene Angabe' : '≈ geschätzt aus ' + nf.format(ph.matches || 0) + ' gespeicherten Spielen', 0, ' Std') : null;
+    if (timeTile && !s) { var pt = el('dl', 'stats'); pt.appendChild(timeTile); box.appendChild(pt); }
     if (s) {
       var dl = el('dl', 'stats');
+      if (timeTile) dl.appendChild(timeTile);
       dl.appendChild(stat('K/D', s.kd, s.kda ? 'KDA ' + num(s.kda, 2) : '', 2));
       dl.appendChild(stat('Siegquote', s.winrate, s.wins + ' von ' + s.matches, 0, ' %'));
       if (s.hs != null) dl.appendChild(stat('Kopftreffer', s.hs, '', 0, ' %'));
@@ -278,7 +282,7 @@
       box.appendChild(dl);
       box.appendChild(el('p', 'muted val-note', 'Aus den letzten ' + s.matches + ' gewerteten Spielen.'));
     }
-    if (!r && !s) box.appendChild(el('p', 'muted', 'Noch keine gewerteten Spiele in dieser Saison.'));
+    if (!r && !s && !ph) box.appendChild(el('p', 'muted', 'Noch keine gewerteten Spiele in dieser Saison.'));
     return box;
   }
   function valAgents(v) {
