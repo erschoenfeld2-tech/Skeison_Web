@@ -89,12 +89,19 @@
     <div class="pbar-act">
       <button type="button" class="btn small" id="btnEdit" hidden>Bearbeiten</button>
       <button type="button" class="btn ghost small" id="btnShare" hidden>Teilen</button>
+      <button type="button" class="btn ghost small" id="btnShow" aria-expanded="false" aria-controls="ausstellung">🏛 Ausstellung</button>
+      <label class="pbar-as" id="asWrap" hidden><span class="muted small">Ansehen als</span>
+        <select id="asSel"><option value="">Ich</option><option value="friend">Freunde</option><option value="known">Bekannte</option><option value="public">Öffentlich</option></select></label>
+      <button type="button" class="btn small" id="btnKnown" hidden>Als Bekannte anfragen</button>
       <button type="button" class="btn ghost small" id="btnRefresh" title="Live-Daten neu laden">↻ Aktualisieren</button>
       <button type="button" class="link-btn" id="btnLogout">Abmelden</button>
     </div>
     <p class="pbar-note muted" id="pbarNote" hidden></p>
   </section>
 </header>
+
+<!-- Ausstellung: alle oeffentlichen Profile (nur sichtbar mit eigenem oeffentlichem Profil, gp_showcase) -->
+<section class="wrap showcase in-only" id="ausstellung" aria-label="Ausstellung" hidden></section>
 
 <main class="wrap" id="inhalt">
   <!-- Die Buehne: ein Spiel pro Ansicht statt langem Scrollen; rechts die Leiste mit allen Konten. gaming.js zeichnet,
@@ -103,12 +110,15 @@
     <div class="stage-wrap">
       <div class="stage" id="stage" data-game="val">
         <span class="demo-badge" aria-hidden="true">Beispiel</span>
+        <span class="view-badge" id="viewBadge" hidden></span>
         <div class="stage-bg" aria-hidden="true"><div class="stage-word"><span></span><span></span></div><i class="stage-grid"></i><i class="wipe"></i></div>
-        <div class="picker" role="tablist" aria-label="Spiel wählen">
+        <!-- Reiter: baut gaming.js (Gaming.setTabs) nach dem Aufbau des Profils; eigene Reiter und Reihenfolge aus dem Editor -->
+        <div class="picker hscroll" role="tablist" aria-label="Spiel wählen">
           <button type="button" role="tab" id="tab-val" data-game="val" aria-controls="p-val" aria-selected="true"><kbd>1</kbd><span><b>Valorant</b><small id="pkVal">Taktik-Shooter</small></span></button>
           <button type="button" role="tab" id="tab-steam" data-game="steam" aria-controls="p-steam" aria-selected="false" tabindex="-1"><kbd>2</kbd><span><b>Steam</b><small id="pkSteam">Spiele</small></span></button>
           <button type="button" role="tab" id="tab-mc" data-game="mc" aria-controls="p-mc" aria-selected="false" tabindex="-1"><kbd>3</kbd><span><b>Minecraft</b><small id="pkMc">Minecraft</small></span></button>
-          <button type="button" role="tab" id="tab-team" data-game="team" aria-controls="p-team" aria-selected="false" tabindex="-1"><kbd>4</kbd><span><b>Zusammen</b><small id="pkTeam">Gemeinsame Spiele</small></span></button>
+          <button type="button" role="tab" id="tab-stats" data-game="stats" aria-controls="p-stats" aria-selected="false" tabindex="-1"><kbd>4</kbd><span><b>Statistik</b><small id="pkStats">Alle Spiele</small></span></button>
+          <button type="button" role="tab" id="tab-team" data-game="team" aria-controls="p-team" aria-selected="false" tabindex="-1"><kbd>5</kbd><span><b>Zusammen</b><small id="pkTeam">Gemeinsame Spiele</small></span></button>
         </div>
         <div class="panels">
           <!-- Valorant: Lieblingsagent -->
@@ -120,25 +130,27 @@
             </div>
             <div class="info">
               <div class="info-head"><h2>Valorant</h2><a class="more-link" id="valLink" href="https://tracker.gg/valorant" target="_blank" rel="noopener" hidden>Ganzes Profil <span class="arr">↗</span></a></div>
+              <div class="acc-switch hscroll" id="valAccs" role="group" aria-label="Valorant-Konto wählen" hidden></div>
               <div class="subtabs" id="valTabs" role="tablist" aria-label="Valorant-Ansicht" hidden></div>
               <div class="pages" id="valPages" aria-busy="true"><div class="page on"><div class="sk sk-line" style="width:45%"></div><div class="sk sk-block"></div><div class="sk sk-line" style="width:70%"></div></div></div>
             </div>
           </article>
 
-          <!-- Steam: Pionier als 3D-Figur, dazu Lieblingsspiele und Spielzeiten -->
+          <!-- Steam: Hauptfigur aus einem grossen Steam-Spiel (offizielles Cover-Artwork von Steam) oder der Void-Pionier als 3D-Modell -->
           <article class="panel" id="p-steam" data-game="steam" role="tabpanel" aria-labelledby="tab-steam" hidden>
             <div class="fig" data-fig="steam">
-              <div class="skin">
+              <div class="skin" id="voidBox" hidden>
                 <div class="pedestal" aria-hidden="true"></div>
-                <canvas id="pioneerCanvas" width="300" height="400" aria-label="3D-Figur: Pionier im Schutzanzug"></canvas>
               </div>
-              <div class="swatches" id="pioneerSkins" role="group" aria-label="Design des Anzugs"></div>
-              <p class="fig-name"><b>Pionier</b><span>Fabrikbau</span></p>
+              <figure class="hero-card" id="heroCard" hidden><img id="heroImg" alt=""><i class="hero-shine" aria-hidden="true"></i></figure>
+              <div class="swatches hero-pick hscroll" id="pioneerSkins" role="group" aria-label="Figur wählen"></div>
+              <p class="fig-name" id="figStName"><b>Void</b><span>Steam-Figur</span></p>
             </div>
             <div class="info">
               <div class="info-head"><h2>Steam</h2><a class="more-link" id="stLink" href="https://steamcommunity.com/" target="_blank" rel="noopener" hidden>Profil öffnen <span class="arr">↗</span></a></div>
+              <div class="acc-switch hscroll" id="stAccs" role="group" aria-label="Steam-Konto wählen" hidden></div>
               <div class="subtabs" id="stTabs" role="tablist" aria-label="Steam-Ansicht" hidden></div>
-              <div class="chips" id="pioneerAnims" role="group" aria-label="Animation des Pioniers">
+              <div class="chips" id="pioneerAnims" role="group" aria-label="Bewegung des Void-Pioniers">
                 <button type="button" class="chip on" data-anim="idle" aria-pressed="true">Stehen</button>
                 <button type="button" class="chip" data-anim="walk" aria-pressed="false">Laufen</button>
                 <button type="button" class="chip" data-anim="run" aria-pressed="false">Sprinten</button>
@@ -175,6 +187,16 @@
             </div>
           </article>
 
+          <!-- Statistik: uebergreifend ueber alle getrackten Spiele (extra.js); welche Kacheln erscheinen, waehlt der Besitzer -->
+          <article class="panel panel-wide" id="p-stats" data-game="stats" role="tabpanel" aria-labelledby="tab-stats" hidden>
+            <div class="info">
+              <div class="info-head"><h2>Statistik</h2><span class="muted small" id="statsNote"></span></div>
+              <div class="xstats" id="xstats"></div>
+            </div>
+          </article>
+
+          <!-- Eigene Reiter (Spiele aus Launchern oder einzelne Steam-Spiele) haengt extra.js hier an: article.panel#p-c-<id> -->
+
           <!-- Zusammen spielen: Spiele, die ich mit freigegebenen Profilen gemeinsam habe (gp_games), filterbar nach Personen -->
           <article class="panel panel-wide" id="p-team" data-game="team" role="tabpanel" aria-labelledby="tab-team" hidden>
             <div class="info">
@@ -183,7 +205,7 @@
             </div>
           </article>
         </div>
-        <p class="stage-hint muted" aria-hidden="true"><span class="t-fine">Tasten <kbd>1</kbd>–<kbd>4</kbd> oder <kbd>←</kbd> <kbd>→</kbd> wechseln die Ansicht</span><span class="t-touch">Wischen wechselt die Ansicht</span></p>
+        <p class="stage-hint muted" aria-hidden="true"><span class="t-fine">Tasten <kbd>1</kbd>–<kbd>9</kbd> oder <kbd>←</kbd> <kbd>→</kbd> wechseln die Ansicht</span><span class="t-touch">Wischen wechselt die Ansicht</span></p>
       </div>
 
       <!-- Leiste rechts: alle verknuepften Konten (je Konto im Editor ein- oder ausblendbar); unter 1100 px unter der Buehne -->
@@ -218,7 +240,7 @@
       <p class="muted">Gaming-Profile · Valorant, Steam, Minecraft und mehr.</p>
     </div>
     <nav class="foot-links" aria-label="Fußzeile">
-      <a href="../">Startseite</a><a href="#valorant">Valorant</a><a href="#steam">Steam</a><a href="#minecraft">Minecraft</a><a href="#zusammen">Zusammen spielen</a><a href="#konten">Konten</a><a href="../cobblemon/">Cobblemon Server</a><a href="../wunschliste/">Wunschliste</a>
+      <a href="../">Startseite</a><a href="#valorant">Valorant</a><a href="#steam">Steam</a><a href="#minecraft">Minecraft</a><a href="#statistik">Statistik</a><a href="#zusammen">Zusammen spielen</a><a href="#konten">Konten</a><a href="../cobblemon/">Cobblemon Server</a><a href="../wunschliste/">Wunschliste</a>
     </nav>
   </div>
   <div class="wrap foot-bottom muted">© <span id="year">2026</span> Skeison</div>
@@ -230,7 +252,9 @@
 <script src="accounts.js"></script>
 <script src="valcat.js"></script>
 <script src="gaming.js"></script>
+<script src="extra.js"></script>
 <script src="editor.js"></script>
+<script src="editor-extra.js"></script>
 <script src="profile.js"></script>
 </body>
 </html>

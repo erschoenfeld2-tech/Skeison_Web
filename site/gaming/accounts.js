@@ -62,22 +62,58 @@
       },
       url: function (h) { return 'https://www.youtube.com/' + (h.indexOf('channel/') === 0 ? h : h); } },
     { key: 'tiktok', name: 'TikTok', short: 'TT', color: '#25f4ee', label: 'TikTok-Name', placeholder: '@name',
-      check: function (s) { s = lastPath(s); return /^[A-Za-z0-9._]{2,24}$/.test(s) ? '@' + s : ''; }, url: function (h) { return 'https://www.tiktok.com/' + h; } }
+      check: function (s) { s = lastPath(s); return /^[A-Za-z0-9._]{2,24}$/.test(s) ? '@' + s : ''; }, url: function (h) { return 'https://www.tiktok.com/' + h; } },
+    { key: 'instagram', name: 'Instagram', short: 'IG', color: '#e1306c', label: 'Instagram-Name', placeholder: '@name',
+      check: function (s) { s = lastPath(s); return /^[A-Za-z0-9._]{1,30}$/.test(s) ? '@' + s : ''; },
+      url: function (h) { return 'https://www.instagram.com/' + enc(h.replace(/^@/, '')) + '/'; } },
+    // HoYoverse: UID je Spiel (Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Honkai Impact 3rd); Link zur Vitrine auf enka.network
+    { key: 'hoyoverse', name: 'HoYoverse', short: 'HoYo', color: '#4fc3f7', label: 'UID', placeholder: '700123456',
+      hint: 'Die UID aus dem Spiel (unten links bzw. im Profil). Für ein zweites Spiel einfach ein weiteres Konto anlegen.',
+      games: [['genshin', 'Genshin Impact'], ['hsr', 'Honkai: Star Rail'], ['zzz', 'Zenless Zone Zero'], ['hi3', 'Honkai Impact 3rd']],
+      check: function (s) { s = trim(s).replace(/\s/g, ''); return /^\d{8,10}$/.test(s) ? s : ''; },
+      url: function (h, x) { var g = (x && x.game) || 'genshin'; return g === 'genshin' ? 'https://enka.network/u/' + h + '/' : g === 'hsr' ? 'https://enka.network/hsr/' + h + '/' : g === 'zzz' ? 'https://enka.network/zzz/' + h + '/' : ''; } },
+    { key: 'roblox', name: 'Roblox', short: 'RB', color: '#e2231a', label: 'Roblox-Name', placeholder: 'Benutzername',
+      check: plain(/^[A-Za-z0-9_]{3,20}$/), url: function (h) { return 'https://www.roblox.com/users/profile?username=' + enc(h); } },
+    { key: 'gog', name: 'GOG Galaxy', short: 'GOG', color: '#a35dd6', label: 'GOG-Name', placeholder: 'Benutzername',
+      check: function (s) { s = lastPath(s); return /^[A-Za-z0-9_.-]{3,30}$/.test(s) ? s : ''; }, url: function (h) { return 'https://www.gog.com/u/' + enc(h); } },
+    { key: 'rockstar', name: 'Rockstar Social Club', short: 'R★', color: '#fcaf17', label: 'Social-Club-Name', placeholder: 'Benutzername',
+      check: plain(/^[A-Za-z0-9_.-]{3,16}$/), url: function (h) { return 'https://socialclub.rockstargames.com/member/' + enc(h); } },
+    { key: 'x', name: 'X (Twitter)', short: 'X', color: '#e7e9ea', label: 'X-Name', placeholder: '@name',
+      check: function (s) { s = lastPath(s); return /^[A-Za-z0-9_]{1,15}$/.test(s) ? '@' + s : ''; }, url: function (h) { return 'https://x.com/' + enc(h.replace(/^@/, '')); } },
+    { key: 'reddit', name: 'Reddit', short: 'RD', color: '#ff4500', label: 'Reddit-Name', placeholder: 'u/name',
+      check: function (s) { s = lastPath(trim(s).replace(/^\/?u\//, '')); return /^[A-Za-z0-9_-]{3,20}$/.test(s) ? s : ''; }, url: function (h) { return 'https://www.reddit.com/user/' + enc(h) + '/'; } },
+    { key: 'kick', name: 'Kick', short: 'KI', color: '#53fc18', label: 'Kick-Kanal', placeholder: 'kanalname',
+      check: function (s) { s = lastPath(s); return /^[A-Za-z0-9_-]{3,25}$/.test(s) ? s : ''; }, url: function (h) { return 'https://kick.com/' + enc(h); } },
+    { key: 'snapchat', name: 'Snapchat', short: 'SC', color: '#fffc00', label: 'Snapchat-Name', placeholder: 'name',
+      check: function (s) { s = lastPath(s); return /^[A-Za-z][A-Za-z0-9._-]{2,14}$/.test(s) ? s : ''; }, url: function (h) { return 'https://www.snapchat.com/add/' + enc(h); } }
   ];
   var BY = {}; KINDS.forEach(function (k) { BY[k.key] = k; });
+  // Zweitkonten heissen <art>-2 bis <art>-5 (gleiche Tabelle, eigener Eintrag); base('valorant-2') = 'valorant'
+  var MAX_PER_KIND = 5;
+  function base(kind) { return String(kind || '').replace(/-[2-5]$/, ''); }
+  function slot(kind) { var m = String(kind || '').match(/-([2-5])$/); return m ? +m[1] : 1; }
+  function kindOf(acc) { return BY[base(acc && acc.kind)] || null; }
+  // Anzeigename eines Kontos: eigener Name ("Smurf") oder "Zweitkonto"; bei HoYoverse das Spiel
+  function label(acc) {
+    var x = (acc && acc.extra) || {}, k = kindOf(acc);
+    if (x.label) return String(x.label);
+    if (k && k.games && x.game) { var g = k.games.filter(function (z) { return z[0] === x.game; })[0]; if (g) return g[1]; }
+    return slot(acc.kind) > 1 ? slot(acc.kind) + '. Konto' : '';
+  }
 
   // Kurztext je Konto fuer Leiste und Karten (aus den Live-Daten, sonst der Name)
   function summary(acc, data) {
-    var k = BY[acc.kind]; if (!k) return '';
+    var k = kindOf(acc), b = base(acc.kind); if (!k) return '';
     if (data) {
-      if (acc.kind === 'valorant' && data.rank) return data.rank.name + (data.rank.tier > 2 ? ' · ' + data.rank.rr + ' RR' : '');
-      if (acc.kind === 'steam' && data.totalHours) return Math.round(data.totalHours).toLocaleString('de-DE') + ' Std · ' + (data.gameCount || 0) + ' Spiele';
-      if (acc.kind === 'discord' && data.members) return data.online + ' online · ' + data.members + ' Mitglieder';
-      if (acc.kind === 'minecraft' && data.name) return data.name;
+      if (b === 'valorant' && data.rank) return data.rank.name + (data.rank.tier > 2 ? ' · ' + data.rank.rr + ' RR' : '');
+      if (b === 'steam' && data.totalHours) return Math.round(data.totalHours).toLocaleString('de-DE') + ' Std · ' + (data.gameCount || 0) + ' Spiele';
+      if (b === 'discord' && data.members) return data.online + ' online · ' + data.members + ' Mitglieder';
+      if (b === 'minecraft' && data.name) return data.name;
     }
     return acc.handle;
   }
 
-  window.GAccounts = { KINDS: KINDS, BY: BY, summary: summary,
-    link: function (acc, data) { var k = BY[acc.kind]; try { return k ? k.url(acc.handle, acc.extra || {}, data) || '' : ''; } catch (e) { return ''; } } };
+  window.GAccounts = { KINDS: KINDS, BY: BY, summary: summary, base: base, slot: slot, kindOf: kindOf, label: label, MAX_PER_KIND: MAX_PER_KIND,
+    // gekuerzte Namen (oeffentliches Profil) bekommen keinen Link
+    link: function (acc, data) { var k = kindOf(acc); if (!k || acc.masked) return ''; try { return k.url(acc.handle, acc.extra || {}, data) || ''; } catch (e) { return ''; } } };
 })();

@@ -1,6 +1,9 @@
 // Live-Daten fuer die Gaming-Profile (site/gaming/). Nur fuer angemeldete Nutzer.
 // Aktionen (POST, JSON):
-//   { action: 'refresh', owner, force? }  Live-Daten eines Profils erneuern, das ich sehen darf (gp_profile prueft das).
+//   { action: 'refresh', owner, force? }  Live-Daten eines Profils erneuern, das ich sehen darf (gp_view prueft das).
+//                                          Zweitkonten (valorant-2 ...) bekommen eigene Eintraege im Cache; eigene Reiter mit
+//                                          Steam-Spiel holen die Errungenschaften (Cache "ach:<appid>", braucht STEAM_API_KEY).
+//                                          Zurueck kommt der Cache so, wie der Nutzer ihn sehen darf (gefiltert von gp_view).
 //                                          Veraltet nach 6 h; der Besitzer darf alle 5 min erzwingen; nach Fehlern erst nach 30 min neu.
 //   { action: 'check', kind, handle, extra? }  Beim Verknuepfen pruefen, ob es das Konto/den Server gibt.
 //   { action: 'steam-search', q }         Spiele im Steam-Shop suchen (fuer die Lieblingsspiele).
@@ -22,6 +25,8 @@ const STEAM_KEY = Deno.env.get('STEAM_API_KEY') ?? '';
 const TTL = 6 * 3600e3, FORCE_GAP = 5 * 60e3, RETRY_GAP = 30 * 60e3;
 const MEDIA = 'https://media.valorant-api.com', TIER_SET = '03621f52-342b-cf4e-4f86-9350a49c6d04';
 const LIVE = ['valorant', 'steam', 'minecraft', 'discord'];
+// Zweitkonten heissen <art>-2 bis <art>-5
+const baseKind = (k: string) => String(k || '').replace(/-[2-5]$/, '');
 
 class Fail extends Error { constructor(public code: string) { super(code); } }
 const num = (v: unknown) => { const n = Number(v); return isFinite(n) ? n : 0; };
@@ -181,6 +186,32 @@ async function steamSearch(q: string) {
     .map((x) => ({ appid: x.id, name: x.name, image: header(x.id) }));
 }
 
+// Errungenschaften eines Spiels (nur mit Schluessel und oeffentlichen Spieldetails); key: "<steamid>|<appid>"
+async function achievements(key: string) {
+  const [id, appid] = key.split('|');
+  if (!STEAM_KEY) throw new Fail('not_configured');
+  if (!/^7656\d{13}$/.test(id || '') || !/^\d{1,9}$/.test(appid || '')) throw new Fail('bad_handle');
+  const base = 'https://api.steampowered.com/ISteamUserStats/';
+  const [mine, schema] = await Promise.all([
+    getJson(`${base}GetPlayerAchievements/v1/?key=${STEAM_KEY}&steamid=${id}&appid=${appid}&l=german`),
+    getJson(`${base}GetSchemaForGame/v2/?key=${STEAM_KEY}&appid=${appid}&l=german`).catch(() => null),
+  ]);
+  // deno-lint-ignore no-explicit-any
+  const got: any[] = mine?.playerstats?.achievements || [];
+  if (!mine?.playerstats?.success && !got.length) throw new Fail('not_found');
+  // deno-lint-ignore no-explicit-any
+  const info: Record<string, any> = {};
+  // deno-lint-ignore no-explicit-any
+  ((schema?.game?.availableGameStats?.achievements || []) as any[]).forEach((a) => { info[a.name] = a; });
+  const list = got.map((a) => {
+    const i = info[a.apiname] || {};
+    return { n: String(i.displayName || a.name || a.apiname).slice(0, 80), d: String(i.description || a.description || '').slice(0, 140),
+      i: (a.achieved ? i.icon : i.icongray) || '', done: !!a.achieved, at: a.achieved && a.unlocktime ? new Date(a.unlocktime * 1000).toISOString().slice(0, 10) : '' };
+  });
+  list.sort((a, b) => Number(b.done) - Number(a.done) || (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  return { appid: Number(appid), game: mine?.playerstats?.gameName || '', total: list.length, done: list.filter((a) => a.done).length, list: list.slice(0, 200) };
+}
+
 // ---------------------------------------------------------------- Minecraft (Mojang) und Server (mcsrvstat.us)
 function b64(buf: ArrayBuffer) {
   let s = ''; const u = new Uint8Array(buf);
@@ -228,6 +259,8 @@ async function discord(handle: string) {
 
 // deno-lint-ignore no-explicit-any
 function load(kind: string, handle: string, extra: any) {
+  if (kind.startsWith('ach:')) return achievements(handle);
+  kind = baseKind(kind);
   if (kind === 'valorant') return valorant(handle, String(extra?.region || 'eu'));
   if (kind === 'steam') return steam(handle);
   if (kind === 'minecraft') return minecraft(handle);
@@ -283,24 +316,33 @@ Deno.serve(async (req: Request) => {
     if (action === 'refresh') {
       const owner = String(b?.owner || '');
       if (!uuid(owner)) return json({ error: 'bad_owner' }, 400);
-      // gp_profile mit dem Zugang des Nutzers: prueft die Freigabe und liefert Konten und Zwischenstand
-      const pr = await fetch(`${SUPA}/rest/v1/rpc/gp_profile`, { method: 'POST', headers: { apikey: ANON, Authorization: auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_owner: owner }) });
+      // gp_view mit dem Zugang des Nutzers: prueft, ob er das Profil sehen darf, und liefert am Ende den gefilterten Cache
+      const view = () => fetch(`${SUPA}/rest/v1/rpc/gp_view`, { method: 'POST', headers: { apikey: ANON, Authorization: auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_owner: owner }) });
+      const pr = await view();
       if (!pr.ok) return json({ error: 'no_access' }, 403);
-      const prof = await pr.json();
+      await pr.text().catch(() => '');
       const mine = owner === me, force = !!b?.force && mine, now = Date.now();
+      // Konten, Server und eigene Reiter mit Service-Role (echte Namen; gp_view kuerzt sie fuer oeffentliche Profile)
       // deno-lint-ignore no-explicit-any
-      const jobs: { kind: string; handle: string; extra: any }[] = (prof.accounts || [])
-        // deno-lint-ignore no-explicit-any
-        .filter((a: any) => LIVE.includes(a.kind) && (a.kind !== 'discord' || /discord(?:app)?\.(?:gg|com)\//i.test(a.handle)))   // Discord nur mit Einladung
-        // deno-lint-ignore no-explicit-any
-        .map((a: any) => ({ kind: a.kind, handle: a.handle, extra: a.extra }));
-      if (prof.profile?.mc_server) jobs.push({ kind: 'mcserver', handle: prof.profile.mc_server, extra: {} });
-      // Zwischenstand mit allen Zeitstempeln (gp_profile liefert nur Daten und Stand)
+      const sel = (q: string): Promise<any[]> => rest(q).then((r) => r.json()).then((x) => (Array.isArray(x) ? x : [])).catch(() => []);
+      const [accs, profs, customs] = await Promise.all([
+        sel(`gp_accounts?owner=eq.${owner}&select=kind,handle,extra&order=sort,created_at`),
+        sel(`gp_profiles?id=eq.${owner}&select=mc_server`),
+        sel(`gp_custom_games?owner=eq.${owner}&appid=not.is.null&select=appid&order=sort&limit=8`),
+      ]);
       // deno-lint-ignore no-explicit-any
-      const rows: any[] = await rest(`gp_cache?owner=eq.${owner}&select=kind,data,error,fetched_at,tried_at,forced_at`).then((r) => r.json()).catch(() => []);
+      const jobs: { kind: string; handle: string; extra: any }[] = accs
+        .filter((a) => LIVE.includes(baseKind(a.kind)) && (baseKind(a.kind) !== 'discord' || /discord(?:app)?\.(?:gg|com)\//i.test(a.handle)))   // Discord nur mit Einladung
+        .map((a) => ({ kind: a.kind, handle: a.handle, extra: a.extra }));
+      if (profs[0]?.mc_server) jobs.push({ kind: 'mcserver', handle: profs[0].mc_server, extra: {} });
+      // Zwischenstand mit allen Zeitstempeln
+      const rows = await sel(`gp_cache?owner=eq.${owner}&select=kind,data,error,fetched_at,tried_at,forced_at`);
       // deno-lint-ignore no-explicit-any
       const cache: Record<string, any> = {};
-      (rows || []).forEach((c) => { cache[c.kind] = c; });
+      rows.forEach((c) => { cache[c.kind] = c; });
+      // Errungenschaften: Steam-ID aus dem Cache des ersten Steam-Kontos
+      const sid = String(cache.steam?.data?.steamId || '');
+      if (STEAM_KEY && /^7656\d{13}$/.test(sid)) customs.forEach((c) => { if (c.appid) jobs.push({ kind: 'ach:' + c.appid, handle: sid + '|' + c.appid, extra: {} }); });
       const ts = (v: unknown) => (v ? Date.parse(String(v)) : 0);
       const keyOf = (j: { handle: string; extra: { region?: string } }) => j.handle.trim() + '|' + String(j.extra?.region || '');
       const due = jobs.filter((j) => {
@@ -310,7 +352,7 @@ Deno.serve(async (req: Request) => {
         const fetched = ts(c.fetched_at), tried = ts(c.tried_at ?? c.fetched_at);
         if (force && now - Math.max(ts(c.forced_at), 0) > FORCE_GAP) return true;
         if (c.error && now - tried < RETRY_GAP) return false;
-        return now - fetched > (j.kind === 'mcserver' || j.kind === 'discord' ? 15 * 60e3 : TTL);
+        return now - fetched > (j.kind === 'mcserver' || baseKind(j.kind) === 'discord' ? 15 * 60e3 : TTL);
       });
       const stamp = new Date().toISOString();
       await Promise.allSettled(due.map(async (j) => {
@@ -321,10 +363,9 @@ Deno.serve(async (req: Request) => {
           await saveCache({ owner, kind: j.kind, error: e instanceof Fail ? e.code : 'failed', tried_at: stamp, ...(force ? { forced_at: stamp } : {}) });
         }
       }));
-      const fresh = await rest(`gp_cache?owner=eq.${owner}&select=kind,data,error,fetched_at`).then((r) => r.json()).catch(() => []);
-      const out: Record<string, unknown> = {};
-      (fresh || []).forEach((c: { kind: string }) => { out[c.kind] = c; });
-      return json({ cache: out, updated: due.map((j) => j.kind), configured: { valorant: !!HENRIK, steam: !!STEAM_KEY } });
+      // deno-lint-ignore no-explicit-any
+      const fresh: any = await view().then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      return json({ cache: fresh?.cache || {}, updated: due.map((j) => j.kind), configured: { valorant: !!HENRIK, steam: !!STEAM_KEY } });
     }
     return json({ error: 'bad_action' }, 400);
   } catch (e) {

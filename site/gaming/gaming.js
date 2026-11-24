@@ -12,14 +12,21 @@
   var DISCORD_INVITE = 'tjVKFGMRw7';
   // Valorant-Figur: Agent von valorant-api.com; ohne eigene Wahl KAY/O (vorher eigene Datei gaming/img/valorant-figur.png)
   var KAYO = '601dbbe7-43ce-be57-2a40-4abd24953621';
-  // Steam: Pionier im Schutzanzug als 3D-Figur. Die Designs sind eigene Pixel-Skins (tools/pioneer-skins.py malt sie nach site/skin/);
-  // [Datei, Name, Farbe des Auswahlpunkts].
-  var PIONEERS = [['pionier-gruen', 'Grün', '#7c9a62'], ['pionier-schwarz', 'Schwarz', '#34343a'], ['pionier-blau', 'Blau', '#97a3e6'], ['pionier-weiss', 'Weiß', '#ececf0'], ['pionier-gelb', 'Gelb', '#e9db4d']];
-  // Zusaetzliches Design als echtes 3D-Modell (site/gaming/3d/void-pionier.glb, pionier3d.js), letzter Farbpunkt
+  // Steam-Figur: der Void-Pionier als eigenes 3D-Modell (site/gaming/3d/void-pionier.glb, pionier3d.js, Standard) oder eine Figur
+  // aus einem grossen Steam-Spiel. Dafuer zeigt die Seite das offizielle Cover-Artwork des Spiels direkt vom Steam-CDN
+  // (library_600x900, wie die Spielbilder in den Listen); gespeichert als "app-<appid>" in gp_profiles.pioneer.
+  // [appid, Name] der grossen Spiele zur Auswahl; dazu kommen die eigenen Lieblings- und meistgespielten Spiele.
+  var HEROES = [[730, 'Counter-Strike 2'], [570, 'Dota 2'], [1245620, 'Elden Ring'], [1086940, "Baldur's Gate 3"], [1091500, 'Cyberpunk 2077'],
+    [553850, 'Helldivers 2'], [1172470, 'Apex Legends'], [292030, 'The Witcher 3'], [1174180, 'Red Dead Redemption 2'], [526870, 'Satisfactory'],
+    [271590, 'Grand Theft Auto V'], [1623730, 'Palworld']];
   var VOID = ['void', 'Void (3D-Modell)', '#5b85ff'];
-  var GAMES = ['val', 'steam', 'mc', 'team'];
-  var WORDS = { val: 'VALORANT', steam: 'STEAM', mc: 'MINECRAFT', team: 'ZUSAMMEN' };
-  var HASH = { valorant: 'val', steam: 'steam', minecraft: 'mc', server: 'mc', zusammen: 'team' };
+  // Reiter der Buehne; eigene Reiter heissen "c-<id>" (extra.js). Reihenfolge und Auswahl setzt Gaming.setTabs.
+  var GAMES = ['val', 'steam', 'mc', 'stats', 'team'];
+  var WORDS = { val: 'VALORANT', steam: 'STEAM', mc: 'MINECRAFT', stats: 'STATISTIK', team: 'ZUSAMMEN' };
+  var TITLES = { val: ['Valorant', 'Taktik-Shooter', 'pkVal'], steam: ['Steam', 'Spiele', 'pkSteam'], mc: ['Minecraft', 'Minecraft', 'pkMc'],
+    stats: ['Statistik', 'Alle Spiele', 'pkStats'], team: ['Zusammen', 'Gemeinsame Spiele', 'pkTeam'] };
+  var HASH = { valorant: 'val', steam: 'steam', minecraft: 'mc', server: 'mc', statistik: 'stats', zusammen: 'team' };
+  var tabColor = {};   // eigene Reiter: Farbe je Schluessel
 
   var $ = function (id) { return document.getElementById(id); };
   var FX = window.FX || { reduced: true };
@@ -130,29 +137,64 @@
   // ---------- Buehne: Spiel wechseln (Reiter, Tasten 1-4 und Pfeile, Wischen, #valorant/#steam/#minecraft/#zusammen) ----------
   var stage = $('stage'), cur = 'val', busy = 0, onShow = {};
   var word = stage.querySelector('.stage-word');
-  function setWord(g) { Array.prototype.forEach.call(word.children, function (s) { s.textContent = (WORDS[g] + ' · ').repeat(6); }); }
+  function setWord(g) { Array.prototype.forEach.call(word.children, function (s) { s.textContent = ((WORDS[g] || 'GAMING') + ' · ').repeat(6); }); }
   setWord(cur);
   function panel(g) { return $('p-' + g); }
+  // Farbe der Buehne: feste Reiter ueber data-game im CSS, eigene Reiter ueber --g/--n
+  function colorize(g, prop) { if (tabColor[g]) stage.style.setProperty(prop, tabColor[g]); else stage.style.removeProperty(prop); }
   function show(g, quiet) {
-    if (g === cur || GAMES.indexOf(g) < 0) return;
+    if (g === cur || GAMES.indexOf(g) < 0 || !panel(g)) return;
     var dir = GAMES.indexOf(g) > GAMES.indexOf(cur) ? 1 : -1, from = cur; cur = g;
-    Array.prototype.forEach.call(stage.querySelectorAll('.picker button'), function (b) {
+    var pick = stage.querySelector('.picker');
+    Array.prototype.forEach.call(pick.querySelectorAll('button'), function (b) {
       var on = b.getAttribute('data-game') === g; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
+      // viele Reiter: den gewaehlten in der Leiste sichtbar machen (nur waagerecht, die Seite scrollt nicht mit)
+      if (on && pick.scrollWidth > pick.clientWidth) {
+        var l = b.offsetLeft, r = l + b.offsetWidth;   // .picker ist position: relative, offsetLeft zaehlt also ab der Leiste
+        if (l < pick.scrollLeft || r > pick.scrollLeft + pick.clientWidth) pick.scrollTo({ left: Math.max(0, l - 24), behavior: quiet || calm() ? 'auto' : 'smooth' });
+      }
     });
     var swap = function () {
-      panel(from).hidden = true; panel(from).classList.remove('on');
-      stage.setAttribute('data-game', g); setWord(g);
+      Array.prototype.forEach.call(stage.querySelectorAll('.panel'), function (p) { if (p.id !== 'p-' + g) { p.hidden = true; p.classList.remove('on'); } });
+      stage.setAttribute('data-game', tabColor[g] ? 'custom' : g); colorize(g, '--g'); setWord(g);
       var p = panel(g); p.hidden = false; void p.offsetWidth; p.classList.add('on');
-      countUp(p); if (onShow[g]) onShow[g]();
+      countUp(p); if (onShow[g]) onShow[g](); else if (onShow.other) onShow.other(g);
     };
     clearTimeout(busy);
-    if (quiet || calm()) { stage.classList.remove('switching'); swap(); return; }
+    if (quiet || calm() || !panel(from)) { stage.classList.remove('switching'); swap(); return; }
     // Wischer in der Farbe des neuen Spiels faehrt ueber die Buehne; in der Mitte wird der Inhalt getauscht
-    stage.style.setProperty('--dir', dir); stage.setAttribute('data-next', g);
+    stage.style.setProperty('--dir', dir); stage.setAttribute('data-next', tabColor[g] ? 'custom' : g); colorize(g, '--n');
     stage.classList.remove('switching'); void stage.offsetWidth; stage.classList.add('switching');
     busy = setTimeout(function () { swap(); busy = setTimeout(function () { stage.classList.remove('switching'); }, 520); }, 260);
   }
   function step(d) { show(GAMES[(GAMES.indexOf(cur) + d + GAMES.length) % GAMES.length]); }
+  // Reiter setzen: list [{ key, title, sub, color? }] in dieser Reihenfolge. Feste Reiter behalten ihre Zeilen-ID (pkVal ...),
+  // weil die Ansichten dort ihre Kurzinfo eintragen. Nicht genannte Ansichten werden ausgeblendet.
+  function setTabs(list) {
+    var pick = stage.querySelector('.picker'), keep = {};
+    Array.prototype.forEach.call(stage.querySelectorAll('.picker small[id], #pkStore small[id]'), function (s) { keep[s.id] = s.textContent; });
+    list = list.filter(function (t) { return t && panel(t.key); });
+    if (!list.length) return;
+    GAMES = list.map(function (t) { return t.key; });
+    tabColor = {}; list.forEach(function (t) { if (t.color) tabColor[t.key] = t.color; if (t.word) WORDS[t.key] = t.word; });
+    pick.textContent = '';
+    list.forEach(function (t, i) {
+      var b = el('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.id = 'tab-' + t.key; b.setAttribute('data-game', t.key); b.setAttribute('aria-controls', 'p-' + t.key);
+      if (t.color) b.style.setProperty('--c', t.color);
+      b.appendChild(el('kbd', '', i < 9 ? String(i + 1) : '·'));
+      var s = el('span'); s.appendChild(el('b', '', t.title));
+      var sm = el('small', '', t.sub || ''), fixed = TITLES[t.key]; if (fixed) { sm.id = fixed[2]; if (keep[fixed[2]]) sm.textContent = keep[fixed[2]]; }
+      s.appendChild(sm); b.appendChild(s); pick.appendChild(b);
+    });
+    pick.style.setProperty('--n-tabs', list.length);
+    // Kurzinfo-Zeilen ausgeblendeter fester Reiter versteckt vorhalten: die Ansichten schreiben weiter hinein
+    var store = $('pkStore') || stage.appendChild(Object.assign(el('div'), { id: 'pkStore', hidden: true }));
+    store.textContent = '';
+    Object.keys(TITLES).forEach(function (k) { var id = TITLES[k][2]; if (!$(id)) { var s = el('small', '', keep[id] || TITLES[k][1]); s.id = id; store.appendChild(s); } });
+    Array.prototype.forEach.call(stage.querySelectorAll('.panel'), function (p) { if (GAMES.indexOf(p.getAttribute('data-game')) < 0) { p.hidden = true; p.classList.remove('on'); } });
+    var want = GAMES.indexOf(cur) >= 0 ? cur : GAMES[0];
+    cur = null; show(want, true);
+  }
   stage.querySelector('.picker').addEventListener('click', function (e) { var b = e.target.closest('button[data-game]'); if (b) show(b.getAttribute('data-game')); });
   stage.querySelector('.picker').addEventListener('keydown', function (e) {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -165,7 +207,7 @@
   document.addEventListener('keydown', function (e) {
     if (!stageSeen || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
     if (document.querySelector('dialog[open]')) return;
-    if (e.key >= '1' && e.key <= '4') show(GAMES[+e.key - 1]);
+    if (e.key >= '1' && e.key <= '9' && GAMES[+e.key - 1]) show(GAMES[+e.key - 1]);
     else if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1);
   });
   // Wischen (Handy): waagerecht ueber die Buehne, nicht auf der 3D-Figur (die dreht sich dort) und nicht in Scroll-Leisten
@@ -302,7 +344,8 @@
   }
   // state: ok | none (kein Konto) | setup (Schluessel fehlt) | error | loading
   function renderValorant(v, state, sk) {
-    var ok = state === 'ok' && v, skins = sk === 'loading' ? emptyPage('', 'Skins werden geladen …') : valSkins(sk), n = sk && sk.skins ? sk.skins.length : 0, worth = sk && sk !== 'loading' ? valWorth(sk) : null;
+    var ok = state === 'ok' && v, skins = sk === 'loading' ? emptyPage('', 'Skins werden geladen …') : valSkins(sk), n = sk && sk.skins ? sk.skins.length : 0;
+    var worth = sk && sk !== 'loading' && view.showValue !== false ? valWorth(sk) : null;   // Wert nur, wenn freigegeben
     var link = $('valLink'); link.hidden = true; if (ok && safe(v.url)) { link.href = v.url; link.hidden = false; }
     var empty = {
       none: ['Kein Valorant-Konto verknüpft', view.mine ? 'Verknüpfe deine Riot-ID, dann erscheinen Rang, K/D und die letzten Spiele.' : 'Hier ist noch kein Valorant-Konto hinterlegt.', editLink('Riot-ID verknüpfen')],
@@ -375,86 +418,90 @@
     }
   }
   var syncers = [], SV = window.skinview3d || {};
-  onShow.val = onShow.team = function () { syncers.forEach(function (f) { f(); }); };
+  onShow.val = onShow.team = onShow.stats = onShow.other = function () { syncers.forEach(function (f) { f(); }); };
   var BASE_ANIMS = {
     idle: function () { return new SV.IdleAnimation(); }, wave: function () { return new SV.WaveAnimation(); },
     walk: function () { return new SV.WalkingAnimation(); }, run: function () { return new SV.RunningAnimation(); }
   };
   var mcFig = figure3d({ canvas: 'skinCanvas', chips: 'skinAnims', skin: null, game: 'mc', anims: BASE_ANIMS, enter: 'wave' });
 
-  // Pionier: zusaetzlich zwei Bewegungen aus dem Spiel, selbst gebaut (FunctionAnimation: t = Sekunden seit Beginn).
-  // "Bauen": rechter Arm haelt das Bauwerkzeug nach vorn, der Blick folgt, kurzer Rueckstoss bei jedem "Klick".
-  // "Jetpack": die Figur schwebt auf und ab, Beine haengen leicht nach hinten, Arme halten das Gleichgewicht.
-  var PIONEER_ANIMS = {
-    idle: BASE_ANIMS.idle, wave: BASE_ANIMS.wave, walk: BASE_ANIMS.walk, run: BASE_ANIMS.run,
-    build: function () {
-      return new SV.FunctionAnimation(function (p, t) {
-        var k = p.skin, beat = Math.pow(Math.max(0, Math.sin(t * 5)), 12);
-        k.rightArm.rotation.x = -1.5 + beat * 0.16; k.rightArm.rotation.z = -0.08;
-        k.leftArm.rotation.x = -1.05; k.leftArm.rotation.z = 0.55;
-        k.head.rotation.x = 0.08; k.head.rotation.y = Math.sin(t * 0.9) * 0.35;
-        k.body.rotation.y = Math.sin(t * 0.9) * 0.06;
-        k.leftLeg.rotation.x = 0.12; k.rightLeg.rotation.x = -0.12;
-      });
-    },
-    jetpack: function () {
-      return new SV.FunctionAnimation(function (p, t) {
-        var k = p.skin, bob = Math.sin(t * 2.6);
-        p.position.y = 3 + bob * 1.6; p.rotation.x = 0.14 + bob * 0.03;
-        k.leftLeg.rotation.x = 0.3 + Math.sin(t * 2.6 + 1) * 0.1; k.rightLeg.rotation.x = 0.22 + Math.sin(t * 2.6 + 2) * 0.1;
-        k.leftArm.rotation.z = 0.42 + bob * 0.08; k.rightArm.rotation.z = -0.42 - bob * 0.08;
-        k.leftArm.rotation.x = 0.15; k.rightArm.rotation.x = 0.15;
-        k.head.rotation.x = -0.12;
-      });
-    }
-  };
-  // Pionier mit Farbpunkten; Design "Void" ist ein eigenes 3D-Modell statt Pixel-Skin (pionier3d.js, three.js erst bei Wahl).
-  // Die skinview3d-Figur pausiert solange; Animationsknoepfe und Sichtbarkeit werden an das Modell weitergegeben.
-  // select(id) waehlt ein Design (aus dem Profil); pioneer.onPick meldet eine Wahl per Klick (profile.js speichert sie).
-  // "Void" ist der Standard. Das Modell (rund 1,5 MB plus three.js) wird erst geladen, wenn der Steam-Reiter zu sehen ist;
-  // klappt das nicht (kein WebGL, CDN nicht erreichbar), steht wieder der Pixel-Pionier da.
+  // Steam-Figur: Void-Pionier (eigenes 3D-Modell, pionier3d.js mit three.js, erst geladen, wenn der Steam-Reiter zu sehen ist)
+  // oder die Figur eines Steam-Spiels als Cover-Karte (offizielles Artwork vom Steam-CDN, folgt leicht dem Mauszeiger).
+  // select(id): 'void' oder 'app-<appid>'; options(games): eigene Spiele [{ appid, name }] vorne in der Auswahl;
+  // pioneer.onPick meldet eine Wahl per Klick (profile.js speichert sie im eigenen Profil). Klappt das 3D-Modell nicht
+  // (kein WebGL, CDN nicht erreichbar), erscheint das Cover des ersten eigenen bzw. grossen Spiels.
   var pioneer = (function () {
-    var current = PIONEERS[0][0], voidOn = false, voidFig = null, voidCanvas = null, voidFailed = false, lastAnim = 'idle', lastChosen = false, shown = false;
-    var syncVoid = function () { if (shown && voidOn) loadVoid(); if (voidFig) voidFig.setActive(shown && voidOn); };
-    var fig = figure3d({
-      canvas: 'pioneerCanvas', chips: 'pioneerAnims', skin: '../skin/' + PIONEERS[0][0] + '.png', game: 'steam', anims: PIONEER_ANIMS, enter: 'wave',
-      paused: function () { return voidOn; },
-      onSync: function (s) { shown = s; syncVoid(); },
-      onAnim: function (name, byUser) { lastAnim = name; lastChosen = byUser; if (voidFig) voidFig.setAnim(name, byUser); }
-    });
-    var box = $('pioneerSkins'), api = { select: function () {}, onPick: null };
-    if (!fig) { box.hidden = true; return api; }
+    var box = $('pioneerSkins'), chips = $('pioneerAnims'), voidBox = $('voidBox'), card = $('heroCard'), im = $('heroImg');
+    var api = { select: function () {}, options: function () {}, onPick: null };
+    var current = null, voidFig = null, voidCanvas = null, voidFailed = false, voidOn = false, lastAnim = 'idle', chosen = false, enterT = 0;
+    var onScreen = true, bg = !!FX.idle, own = [];
+    var cover = function (id, kind) { return 'https://cdn.cloudflare.steamstatic.com/steam/apps/' + id + '/' + (kind || 'library_600x900') + '.jpg'; };
+    function sync() { var s = onScreen && !bg && cur === 'steam'; if (s && voidOn) loadVoid(); if (voidFig) voidFig.setActive(s && voidOn); }
+    if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { onScreen = es[0].isIntersecting; sync(); }).observe(stage);
+    document.addEventListener('fx:idle', function (e) { bg = e.detail; sync(); });
+    document.addEventListener('fx:still', function () { chosen = false; if (voidFig) voidFig.setAnim(lastAnim, false); });
+    syncers.push(sync);
+    function setAnim(name, byUser) {
+      lastAnim = name; chosen = !!byUser;
+      if (voidFig) voidFig.setAnim(name, !!byUser);
+      Array.prototype.forEach.call(chips.querySelectorAll('.chip'), function (c) { var on = c.getAttribute('data-anim') === name; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
+    }
+    Array.prototype.forEach.call(chips.querySelectorAll('.chip'), function (c) { c.addEventListener('click', function () { clearTimeout(enterT); setAnim(c.getAttribute('data-anim'), true); }); });
+    // Beim Wechsel zum Steam-Reiter winkt der Void-Pionier kurz
+    onShow.steam = function () {
+      syncers.forEach(function (f) { f(); }); clearTimeout(enterT);
+      if (!voidOn || calm() || chosen) return;
+      setAnim('wave', false); enterT = setTimeout(function () { if (!chosen) setAnim('idle', false); }, 2600);
+    };
     function loadVoid() {
       if (voidCanvas || voidFailed) return;
       voidCanvas = el('canvas'); voidCanvas.width = 300; voidCanvas.height = 400;
       voidCanvas.setAttribute('aria-label', '3D-Modell: Void-Pionier im schwarz-blauen Raumanzug (eigenes Design)');
-      $('pioneerCanvas').after(voidCanvas);
+      voidBox.appendChild(voidCanvas);
       import('./pionier3d.js')
         .then(function (m) { return m.mount(voidCanvas, { url: '3d/void-pionier.glb', calm: calm }); })
-        .then(function (c) { voidFig = c; voidFig.setAnim(lastAnim, lastChosen); syncVoid(); })
-        .catch(function () { voidFailed = true; voidCanvas.remove(); voidCanvas = null; if (voidOn) showVoid(false); });
+        .then(function (c) { voidFig = c; voidFig.setAnim(lastAnim, chosen); sync(); })
+        .catch(function () { voidFailed = true; if (voidCanvas) voidCanvas.remove(); voidCanvas = null; if (voidOn) select(fallback()); });
     }
-    function showVoid(on) {
-      voidOn = on && !voidFailed;
-      $('pioneerCanvas').hidden = voidOn;
-      if (voidCanvas) voidCanvas.hidden = !voidOn;
-      fig.sync();
-    }
+    function fallback() { var g = own[0] || HEROES[0]; return 'app-' + g[0]; }
+    function heroName(appid) { var x = own.concat(HEROES).filter(function (g) { return String(g[0]) === String(appid); })[0]; return x ? x[1] : 'Steam-Spiel'; }
     function select(id) {
-      if (id !== VOID[0] && !PIONEERS.some(function (x) { return x[0] === id; })) id = VOID[0];
-      if (id === VOID[0]) showVoid(true);
-      else { showVoid(false); if (id !== current) fig.load('../skin/' + id + '.png'); }
-      current = id;
-      Array.prototype.forEach.call(box.children, function (c) { var on = c.getAttribute('data-id') === id; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
+      if (id !== 'void' && !/^app-\d{1,9}$/.test(id || '')) id = 'void';   // auch alte Werte (Pixel-Pioniere) -> Void
+      if (id === 'void' && voidFailed) id = fallback();
+      current = id; voidOn = id === 'void';
+      voidBox.hidden = !voidOn; card.hidden = voidOn; chips.hidden = !voidOn;
+      var fn = $('figStName'); fn.textContent = '';
+      if (voidOn) { fn.appendChild(el('b', '', 'Void')); fn.appendChild(el('span', '', 'Pionier · 3D-Modell')); }
+      else {
+        var appid = id.slice(4), name = heroName(appid);
+        card.classList.remove('wide'); im.hidden = false; im.alt = name + ' (Cover-Artwork von Steam)';
+        im.onerror = function () { if (!card.classList.contains('wide')) { card.classList.add('wide'); im.src = cover(appid, 'header'); } else im.hidden = true; };
+        im.src = cover(appid);
+        card.classList.remove('in'); void card.offsetWidth; card.classList.add('in');
+        fn.appendChild(el('b', '', name)); fn.appendChild(el('span', '', 'Steam-Figur'));
+      }
+      paintPick(); sync();
     }
-    PIONEERS.concat([VOID]).forEach(function (x) {
-      var b = el('button', 'swatch'); b.type = 'button'; b.title = x[1]; b.setAttribute('aria-label', 'Design ' + x[1]); b.setAttribute('aria-pressed', 'false'); b.setAttribute('data-id', x[0]);
-      b.style.setProperty('--c', x[2]);
-      if (x === VOID) b.classList.add('swatch-void');
-      b.addEventListener('click', function () { select(x[0]); if (api.onPick) api.onPick(x[0]); });
-      box.appendChild(b);
-    });
+    function paintPick() {
+      box.textContent = '';
+      var seen = {}, list = [['void', VOID[1]]];
+      if (current && current !== 'void') { list.push([current, heroName(current.slice(4)), current.slice(4)]); seen[current.slice(4)] = 1; }
+      own.concat(HEROES).forEach(function (g) { if (!seen[g[0]] && list.length < 16) { seen[g[0]] = 1; list.push(['app-' + g[0], g[1], g[0]]); } });
+      list.forEach(function (x) {
+        var on = x[0] === current, b = el('button', 'swatch ' + (x[0] === 'void' ? 'swatch-void' : 'swatch-hero') + (on ? ' on' : ''));
+        b.type = 'button'; b.title = x[1]; b.setAttribute('aria-label', 'Figur: ' + x[1]); b.setAttribute('aria-pressed', String(on)); b.setAttribute('data-id', x[0]);
+        if (x[0] === 'void') b.style.setProperty('--c', VOID[2]);
+        else { var i = el('img'); i.alt = ''; i.loading = 'lazy'; i.src = cover(x[2], 'capsule_231x87'); i.onerror = function () { i.hidden = true; }; b.appendChild(i); }
+        b.addEventListener('click', function () { if (x[0] === current) return; select(x[0]); if (api.onPick) api.onPick(x[0]); });
+        box.appendChild(b);
+      });
+    }
     api.select = select;
+    api.options = function (games) {
+      var seen = {}; own = [];
+      (games || []).forEach(function (g) { if (g && g.appid && g.name && !seen[g.appid] && own.length < 6) { seen[g.appid] = 1; own.push([g.appid, g.name]); } });
+      paintPick();
+    };
     return api;
   })();
 
@@ -600,12 +647,35 @@
     $('pkMc').textContent = d.online ? d.players + ' / ' + d.max + ' online' : srv.address;
   }
 
+  // ---------- Mehrere Konten eines Anbieters: Umschalter ueber den Unterseiten (Valorant, Steam) ----------
+  // list: [{ label, ... }], sel: Index, onPick(i)
+  function accSwitch(boxId, list, sel, onPick) {
+    var box = $(boxId); box.textContent = ''; box.hidden = !list || list.length < 2;
+    if (box.hidden) return;
+    list.forEach(function (a, i) {
+      var b = el('button', 'chip' + (i === sel ? ' on' : ''), a.label); b.type = 'button'; b.setAttribute('aria-pressed', String(i === sel));
+      b.addEventListener('click', function () { if (i !== sel) onPick(i); });
+      box.appendChild(b);
+    });
+  }
+  function paintVal(v) {
+    var list = v.valList || [], i = Math.max(0, Math.min(v.valSel || 0, list.length - 1)), c = list[i];
+    if (c) renderValorant(c.val, c.state, v.valSkins); else renderValorant(v.val, v.valState, v.valSkins);
+    accSwitch('valAccs', list, i, function (n) { v.valSel = n; paintVal(v); });
+  }
+  function paintSteam(v) {
+    var list = v.steamList || [], i = Math.max(0, Math.min(v.steamSel || 0, list.length - 1)), c = list[i];
+    if (c) renderSteam(c.steam, c.state, v.favs); else renderSteam(v.steam, v.steamState, v.favs);
+    accSwitch('stAccs', list, i, function (n) { v.steamSel = n; paintSteam(v); });
+  }
+
   // ---------- Konten: nur in der Leiste rechts (unter 1100 px unter der Buehne) ----------
   // accounts: [{ kind, handle, extra, in_sidebar, data }]; in_sidebar false = im Editor ausgeblendet
   function accBadge(k) { var b = el('span', 'acc-badge', k.short); b.style.setProperty('--c', k.color); b.setAttribute('aria-hidden', 'true'); return b; }
   function accActions(a, k, link) {
     var row = el('span', 'acc-act');
     if (link) { var l = ext(el('a', 'acc-ic', '↗'), link); l.title = 'Öffnen'; l.setAttribute('aria-label', k.name + ' öffnen'); row.appendChild(l); }
+    if (a.masked) { var m = el('span', 'acc-ic acc-lock', '🔒'); m.title = 'Im öffentlichen Profil gekürzt'; row.appendChild(m); return row; }
     var c = el('button', 'acc-ic', '⧉'); c.type = 'button'; c.title = 'Kopieren'; c.setAttribute('aria-label', k.name + ' kopieren');
     c.addEventListener('click', function () {
       (navigator.clipboard ? navigator.clipboard.writeText(a.handle) : Promise.reject()).then(function () { if (FX.toast) FX.toast(k.name + ' kopiert'); c.textContent = '✓'; setTimeout(function () { c.textContent = '⧉'; }, 1600); }, function () {});
@@ -616,12 +686,12 @@
   function renderAccounts(list) {
     var GA = window.GAccounts, barList = $('accBarList'), empty = $('accBarEmpty');
     barList.textContent = ''; empty.textContent = '';
-    list = (list || []).filter(function (a) { return GA && GA.BY[a.kind] && a.in_sidebar !== false; });
+    list = (list || []).filter(function (a) { return GA && GA.kindOf(a) && a.in_sidebar !== false; });
     list.forEach(function (a) {
-      var k = GA.BY[a.kind], link = GA.link(a, a.data), sum = GA.summary(a, a.data);
+      var k = GA.kindOf(a), link = GA.link(a, a.data), sum = GA.summary(a, a.data), lab = GA.label(a);
       var li = el('li', 'acc-row'); li.style.setProperty('--c', k.color); li.appendChild(accBadge(k));
-      var t = el('span', 'acc-t'); t.appendChild(el('b', '', k.name)); t.appendChild(el('span', '', a.handle));
-      var more = sum && sum !== a.handle ? sum : a.kind === 'discord' && a.data && a.data.name ? a.data.name : '';
+      var t = el('span', 'acc-t'), nm = el('b', '', k.name); if (lab) nm.appendChild(el('small', 'acc-lab', lab)); t.appendChild(nm); t.appendChild(el('span', '', a.handle));
+      var more = sum && sum !== a.handle ? sum : GA.base(a.kind) === 'discord' && a.data && a.data.name ? a.data.name : '';
       if (more) t.appendChild(el('small', 'acc-sum', more));
       li.appendChild(t); li.appendChild(accActions(a, k, link));
       barList.appendChild(li);
@@ -635,15 +705,24 @@
   // Spiele je Person: Steam-Bibliothek und -Lieblingsspiele, dazu Spiele mit eigenem Konto (Valorant, LoL, Minecraft).
   // Plattformen (Steam, Konsolen, Launcher, Discord) zaehlen extra: dort findet man sich, auch ohne gleiches Spiel.
   // Filter: Personen an/aus (mindestens zwei), bei drei und mehr "alle haben es" oder "mindestens zwei", Suche nach Namen.
-  var ACC_GAMES = { valorant: 'Valorant', lol: 'League of Legends', minecraft: 'Minecraft' };
-  var PLATFORMS = ['steam', 'discord', 'epic', 'xbox', 'playstation', 'nintendo', 'battlenet', 'ea', 'ubisoft'];
+  var ACC_GAMES = { valorant: 'Valorant', lol: 'League of Legends', minecraft: 'Minecraft', hoyoverse: 'HoYoverse-Spiele', roblox: 'Roblox' };
+  var PLATFORMS = ['steam', 'discord', 'epic', 'xbox', 'playstation', 'nintendo', 'battlenet', 'ea', 'ubisoft', 'gog', 'rockstar'];
   var TEAM_MAX = 48;
   var team = { people: null, focus: null, sel: null, mode: 'all', q: '', more: false };
+  var nkey = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9äöüß]+/g, ''); };
+  // Konten-Arten ohne Zweitkonto-Endung, jede nur einmal
+  function baseKinds(kinds) { var out = []; (kinds || []).forEach(function (k) { var b = String(k).replace(/-[2-5]$/, ''); if (out.indexOf(b) < 0) out.push(b); }); return out; }
   function teamGames(p) {
     var map = {};
     (p.library || []).forEach(function (g) { if (g && g.appid && g.name) map['s' + g.appid] = { key: 's' + g.appid, appid: g.appid, name: g.name, hours: g.hours || 0 }; });
     (p.favs || []).forEach(function (g) { var k = 's' + g.appid; map[k] = Object.assign(map[k] || { key: k, appid: g.appid, name: g.name, hours: null }, { fav: true }); });
-    (p.kinds || []).forEach(function (k) { if (ACC_GAMES[k]) map['a' + k] = { key: 'a' + k, kind: k, name: ACC_GAMES[k] }; });
+    baseKinds(p.kinds).forEach(function (k) { if (ACC_GAMES[k]) map['a' + k] = { key: 'a' + k, kind: k, name: ACC_GAMES[k] }; });
+    // eigene Reiter: Steam-Spiele ueber die appid, Launcher-Spiele ueber den Namen
+    (p.custom || []).forEach(function (g) {
+      if (!g || !g.name) return;
+      var k = g.appid ? 's' + g.appid : 'n' + nkey(g.name);
+      map[k] = Object.assign(map[k] || { key: k, appid: g.appid || null, name: g.name, hours: null }, { hours: (map[k] && map[k].hours) || (g.hours != null ? +g.hours : null) });
+    });
     return map;
   }
   // Start-Auswahl: ich und das gerade gezeigte Profil; beim eigenen Profil ich und alle anderen
@@ -715,7 +794,7 @@
       chosen.forEach(function (p) {
         var g = teamGames(p);
         Object.keys(g).forEach(function (k) { (all[k] = all[k] || { game: g[k], owners: [] }).owners.push({ p: p, hours: g[k].hours, fav: g[k].fav }); });
-        (p.kinds || []).forEach(function (k) { if (PLATFORMS.indexOf(k) >= 0) (plats[k] = plats[k] || []).push({ p: p }); });
+        baseKinds(p.kinds).forEach(function (k) { if (PLATFORMS.indexOf(k) >= 0) (plats[k] = plats[k] || []).push({ p: p }); });
       });
       var needle = team.q.trim().toLowerCase();
       var list = Object.keys(all).map(function (k) { return all[k]; }).filter(function (x) { return x.owners.length >= need && (!needle || x.game.name.toLowerCase().indexOf(needle) >= 0); });
@@ -742,7 +821,7 @@
         list.slice(0, team.more ? list.length : TEAM_MAX).forEach(function (x) {
           var g = x.game, li = el('li', 'team-row'), a = g.appid ? ext(el('a', 'team-game'), 'https://store.steampowered.com/app/' + g.appid) : el('div', 'team-game');
           if (g.appid) a.appendChild(img(header(g.appid), 'team-im', ''));
-          else { var k = GA && GA.BY[g.kind], ph = el('span', 'team-im team-ph'); if (k) { ph.style.setProperty('--c', k.color); ph.textContent = k.short; } a.appendChild(ph); }
+          else { var k = GA && GA.BY[g.kind], ph = el('span', 'team-im team-ph'); if (k) { ph.style.setProperty('--c', k.color); ph.textContent = k.short; } else ph.textContent = g.name.slice(0, 2).toUpperCase(); a.appendChild(ph); }
           var t = el('span', 'team-t'); t.appendChild(el('b', '', g.name));
           var line = x.owners.map(function (o) { return who(o.p) + (o.hours ? ' ' + fmtH(o.hours) : '') + (o.fav ? ' ★' : ''); }).join(' · ');
           t.appendChild(el('span', '', x.owners.length < n ? x.owners.length + ' von ' + n + ': ' + line : line));
@@ -794,27 +873,41 @@
   // ---------- Alles zeichnen ----------
   // v: { demo, mine, owner{name,avatar,color}, tagline, agent{ id, n, p }, val, valState, valSkins, steam, steamState, favs,
   //      pioneer, mcSkins[{id,name,src,model}], mcActive, mcName, server, accounts, discord }
+  //      dazu (profile.js): valList/steamList [{ label, val|steam, state }] fuer Zweitkonten, heroGames fuer die Steam-Figur,
+  //      showValue (Wert der Konten freigegeben), tabs [{ key, title, sub, color }], badge (Hinweis oben auf der Buehne),
+  //      custom (eigene Reiter), statsPick, sections, tier (Statistik und eigene Reiter zeichnet extra.js)
+  function defaultTabs() { return ['val', 'steam', 'mc', 'stats', 'team'].map(function (k) { return { key: k, title: TITLES[k][0], sub: TITLES[k][1] }; }); }
   function render(v) {
     view = v;
     document.body.classList.toggle('is-demo', !!v.demo);
     $('meTag').textContent = v.demo ? 'Beispiel' : v.owner ? v.owner.name : 'Gaming';
     $('meLead').textContent = v.tagline || (v.demo ? 'So sieht ein Gaming-Profil aus: Taktik-Shooter, Fabrikbau und ein eigener Minecraft-Server.' : v.mine ? 'Dein Gaming-Profil. Wähl ein Spiel und schau, wie es gerade läuft.' : 'Wähl ein Spiel und schau, wie es gerade läuft.');
+    var badge = $('viewBadge'); badge.hidden = !v.badge; badge.textContent = v.badge || '';
     setAgent(v.agent);
-    renderValorant(v.val, v.valState, v.valSkins);
-    renderSteam(v.steam, v.steamState, v.favs);
+    paintVal(v);
+    paintSteam(v);
+    pioneer.options(v.heroGames || []);
     pioneer.select(v.pioneer || VOID[0]);
     setMcSkins(v.mcSkins, v.mcActive);
     renderServer(v.server);
     renderAccounts(v.accounts);
     renderTeam();
     renderDiscord(v.discord, v.demo);
+    if (Gaming.extra) Gaming.extra(v);   // Statistik und eigene Reiter (extra.js); legt die Ansichten der eigenen Reiter an
+    // v.tabs: Schluessel ('val', 'c-<id>' ...) oder fertige Eintraege; eigene Reiter liefert extra.js (Gaming.customTabs)
+    var tl = v.tabs && v.tabs.length ? v.tabs.map(function (k) {
+      if (typeof k !== 'string') return k;
+      if (TITLES[k]) return { key: k, title: TITLES[k][0], sub: TITLES[k][1] };
+      return (Gaming.customTabs || []).filter(function (t) { return t.key === k; })[0];
+    }).filter(Boolean) : [];
+    setTabs(tl.length ? tl : defaultTabs());
     var p = panel(cur); if (p) countUp(p);
   }
 
   // Beispiel ohne Anmeldung: Erics Daten aus dem Deploy (bisherige Ansicht), abgedunkelt mit "Beispiel"
   function demo() {
-    var base = { demo: true, mine: false, owner: { name: 'Skeison' }, valState: 'loading', valSkins: 'loading', steamState: 'loading', favs: [], pioneer: VOID[0],
-      mcSkins: [{ id: 'skeison', name: 'Skeison', src: '../skin/skeison.png' }], mcName: 'Skeison', server: { kind: 'cobblemon' },
+    var base = { demo: true, mine: false, owner: { name: 'Skeison' }, valState: 'loading', valSkins: 'loading', steamState: 'loading', favs: [], pioneer: VOID[0], custom: [],
+      mcSkins: [{ id: 'skeison', name: 'Skeison', src: '../skin/skeison.png' }], mcName: 'Skeison', mcNames: ['Skeison'], server: { kind: 'cobblemon' },
       accounts: [{ kind: 'steam', handle: 'Skeison', extra: {}, data: null }, { kind: 'minecraft', handle: 'Skeison', extra: {} }, { kind: 'discord', handle: 'discord.gg/' + DISCORD_INVITE, extra: {} }] };
     render(base);
     Promise.all([
@@ -825,13 +918,18 @@
       var val = r[0], ok = val && !val.setup && val.riotId;
       base.val = ok ? val : null; base.valState = ok ? 'ok' : val && val.error ? 'error' : 'setup'; base.valSkins = r[1];
       base.steam = r[2]; base.steamState = r[2] ? 'ok' : 'demo';
+      base.heroGames = r[2] && r[2].top ? r[2].top : [];
       if (r[2] && r[2].url) base.accounts[0] = { kind: 'steam', handle: r[2].steamId || 'Skeison', extra: {}, data: r[2] };
       if (ok) base.accounts.unshift({ kind: 'valorant', handle: val.riotId, extra: {}, data: val });
       if (view.demo) render(base);
     });
   }
 
-  var Gaming = window.Gaming = { render: render, demo: demo, cobblemon: cobblemon, show: show, team: setTeam, onEdit: null, onMcSkin: null,
-    pioneer: pioneer, get current() { return cur; } };
+  var Gaming = window.Gaming = { render: render, demo: demo, cobblemon: cobblemon, show: show, team: setTeam, setTabs: setTabs, onEdit: null, onMcSkin: null,
+    pioneer: pioneer, extra: null, get current() { return cur; },
+    // Bausteine fuer extra.js (Statistik, eigene Reiter, Ausstellung)
+    u: { el: el, img: img, ext: ext, safe: safe, setPages: setPages, emptyPage: emptyPage, stat: stat, counter: counter, countUp: countUp, fmtH: fmtH,
+      header: header, eur: eur, valueBox: valueBox, nf: nf, num: num, when: when, editLink: editLink, calm: calm, getJson: getJson, accBadge: accBadge,
+      DATA_BASE: DATA_BASE, view: function () { return view; }, onShow: onShow } };
   fromHash(false);
 })();
