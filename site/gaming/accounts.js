@@ -38,7 +38,7 @@
       },
       invite: function (h) { return /^discord\.gg\//.test(h); },
       url: function (h) { return /^discord\.gg\//.test(h) ? 'https://' + h : ''; } },
-    { key: 'epic', name: 'Epic Games / Fortnite', short: 'EG', color: '#d8d8d8', label: 'Epic-Anzeigename', placeholder: 'Anzeigename',
+    { key: 'epic', name: 'Epic Games', short: 'EG', color: '#d8d8d8', label: 'Epic-Anzeigename', placeholder: 'Anzeigename', hint: 'Auch für Fortnite: der Link führt zum Fortnite-Tracker.',
       check: plain(/^.{3,32}$/), url: function (h) { return 'https://fortnitetracker.com/profile/all/' + enc(h); } },
     { key: 'xbox', name: 'Xbox', short: 'XB', color: '#107c10', label: 'Gamertag', placeholder: 'Gamertag',
       check: plain(/^[A-Za-z0-9 ]{1,16}(#\d{1,4})?$/), url: function (h) { return 'https://www.xbox.com/de-DE/play/user/' + enc(h); } },
