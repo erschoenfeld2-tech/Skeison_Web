@@ -269,11 +269,12 @@
     var list = sk && Array.isArray(sk.skins) ? sk.skins.filter(function (x) { return x && x.name; }) : [];
     if (!list.length) return null;
     var wrap = el('div', 'skins-wrap'), weapons = [], curW = '';
-    list.forEach(function (x) { if (x.weapon && weapons.indexOf(x.weapon) < 0) weapons.push(x.weapon); });
+    var grp = function (x) { return x.group || x.weapon; };   // Nahkampf: alle Messer, Aexte ... unter einem Filter
+    list.forEach(function (x) { if (grp(x) && weapons.indexOf(grp(x)) < 0) weapons.push(grp(x)); });
     var bar = el('div', 'skin-filter hscroll'), grid = el('div', 'skins');
     function paint() {
       grid.textContent = '';
-      list.filter(function (x) { return !curW || x.weapon === curW; }).forEach(function (x, i) {
+      list.filter(function (x) { return !curW || grp(x) === curW; }).forEach(function (x, i) {
         var c = el('figure', 'skin-card'); c.style.setProperty('--i', Math.min(i, 14));
         if (/^#[0-9a-f]{6}$/i.test(x.color || '')) c.style.setProperty('--tier', x.color);
         var im = el('div', 'im'); if (safe(x.image)) im.appendChild(img(x.image, '', '')); else im.appendChild(el('span', 'noimg', '🔫')); c.appendChild(im);
@@ -296,8 +297,8 @@
     var w = sk && sk.value; if (!w || !(w.vp > 0)) return null;
     var rows = (w.tiers || []).map(function (t) { return [t.count + ' × ' + t.tier, nf.format(t.vp) + ' VP', /^#[0-9a-f]{6}$/i.test(t.color || '') ? t.color : '']; });
     if (w.unpriced) rows.push([w.unpriced + ' ohne Preisstufe', 'nicht gezählt']);
-    return valueBox(w.eur, nf.format(w.vp) + ' VP in ' + w.priced + ' Skins', rows,
-      'Grobe Schätzung: übliche Shop-Preise je Seltenheitsstufe, umgerechnet mit rund ' + String(w.eurPer100Vp).replace('.', ',') + ' € je 100 VP. Einzelne Bundles kosten mehr oder weniger; Battlepass-Skins und Agenten zählen nicht mit. Das ist kein Verkaufswert.');
+    return valueBox(w.eur, nf.format(w.vp) + ' VP in ' + w.priced + ' Skins' + (w.passes ? ' und ' + w.passes + (w.passes === 1 ? ' Battlepass' : ' Battlepässen') : ''), rows,
+      'Grobe Schätzung: übliche Shop-Preise je Seltenheitsstufe, ein Battlepass mit seinem Preis (meist 1.000 VP), umgerechnet mit rund ' + String(w.eurPer100Vp).replace('.', ',') + ' € je 100 VP (etwa 100 € für 11.000 VP). Einzelne Bundles kosten mehr oder weniger; Agenten zählen nicht mit. Das ist kein Verkaufswert.');
   }
   // state: ok | none (kein Konto) | setup (Schluessel fehlt) | error | loading
   function renderValorant(v, state, sk) {
