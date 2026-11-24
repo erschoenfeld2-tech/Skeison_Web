@@ -1960,9 +1960,13 @@
     var pm = $('.msg', pf);
     if (pf.pw.value.length < 8) return say(pm, ERR.password, false);
     if (pf.pw.value !== pf.pw2.value) return say(pm, 'Die Passwörter stimmen nicht überein.', false);
+    var pw = pf.pw.value;
     try {
-      var r = await busy($('[type=submit]', pf), function () { return Api.fn('wl-account', { action: 'set-password', password: pf.pw.value }); });
+      var r = await busy($('[type=submit]', pf), function () { return Api.fn('wl-account', { action: 'set-password', password: pw }); });
       if (r && r.error) throw Object.assign(new Error(r.error), { code: r.error });
+      // Supabase beendet beim Passwortwechsel alle Sitzungen: mit dem neuen Passwort still neu anmelden,
+      // sonst lehnen Edge Functions (z. B. gp-sync im Gaming-Profil) jeden Aufruf ab
+      try { await Api.signIn(Api.user.email, pw, true); } catch (e) { /* api.js meldet ab, sobald die Sitzung gebraucht wird */ }
       pf.reset(); return true;
     } catch (err) { say(pm, errText(err), false); return false; }
   }
