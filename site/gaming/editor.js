@@ -26,7 +26,7 @@
   async function ensureProfile() {
     if (st.p.profile) return;
     var rows = await Api.upsert('gp_profiles', [{ id: st.me }]);
-    st.p.profile = rows && rows[0] || { id: st.me, visibility: 'friends', tagline: '', pioneer: 'pionier-gruen', mc_server: '' };
+    st.p.profile = rows && rows[0] || { id: st.me, visibility: 'friends', tagline: '', pioneer: 'void', mc_server: '' };
     st.changed = true;
   }
   async function saveProfile(patch) {

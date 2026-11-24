@@ -9,7 +9,7 @@ create table public.gp_profiles (
   visibility text not null default 'friends' check (visibility in ('private','friends','custom')),
   tagline text not null default '' check (char_length(tagline) <= 120),
   val_agent text check (val_agent ~ '^[0-9a-f-]{36}$'),
-  pioneer text not null default 'pionier-gruen' check (pioneer ~ '^[a-z0-9-]{1,32}$'),
+  pioneer text not null default 'void' check (pioneer ~ '^[a-z0-9-]{1,32}$'),
   mc_server text not null default '' check (char_length(mc_server) <= 100),
   mc_active_skin uuid,
   updated_at timestamptz not null default now()
