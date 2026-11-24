@@ -18,7 +18,7 @@ const CACHE = process.env.VALORANT_SKIN_CACHE || path.join(__dirname, '..', '.va
 const API = 'https://valorant-api.com/v1';
 // Uebliche Shop-Preise je Seltenheitsstufe in Valorant Points: [Schusswaffe, Nahkampfwaffe]. Einzelne Bundles weichen ab.
 const PREISE = { select: [875, 1750], deluxe: [1275, 2550], premium: [1775, 3550], exclusive: [2175, 4350], ultra: [2475, 4950] };
-const EUR_JE_100_VP = Number(process.env.VALORANT_EUR_PER_100VP) || 1.05; // rund 10 Euro fuer knapp 1000 VP
+const EUR_JE_100_VP = Number(process.env.VALORANT_EUR_PER_100VP) || 100 / 110; // rund 100 Euro fuer 11.000 VP (wie site/gaming/valcat.js)
 const MELEE_WORDS = ['melee', 'messer', 'knife', 'nahkampf', 'nahkampfwaffe', 'sword', 'schwert', 'blade', 'klinge', 'dolch', 'dagger', 'karambit', 'axt', 'axe'];
 
 const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -111,7 +111,7 @@ function resolve(cat, wantedList, collections) {
   // Geschaetzter Wert: Summe der ueblichen Shop-Preise; Skins ohne bekannte Stufe (z. B. Battlepass) zaehlen nicht mit
   const byTier = {}; let vp = 0, priced = 0;
   skins.forEach((s) => { if (!s.vp) return; vp += s.vp; priced++; const t = byTier[s.tier] || (byTier[s.tier] = { tier: s.tier, color: s.color, count: 0, vp: 0 }); t.count++; t.vp += s.vp; });
-  const value = { vp, eur: Math.round(vp * EUR_JE_100_VP / 100), priced, unpriced: skins.length - priced, eurPer100Vp: EUR_JE_100_VP,
+  const value = { vp, eur: Math.round(vp * EUR_JE_100_VP / 100), priced, unpriced: skins.length - priced, eurPer100Vp: Math.round(EUR_JE_100_VP * 100) / 100,
     tiers: Object.keys(byTier).map((k) => byTier[k]).sort((a, b) => b.vp - a.vp) };
   return { skins: skins.map((s) => ({ name: s.name, weapon: s.weapon, tier: s.tier, color: s.color, image: s.image, vp: s.vp })), missing, value };
 }

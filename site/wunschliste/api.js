@@ -28,17 +28,19 @@
     return call('/auth/v1/' + path, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   }
 
+  // Sitzung mit dem Refresh-Token erneuern; ist sie bei Supabase beendet (z. B. nach einem Passwortwechsel), abmelden
+  function renew() {
+    if (!refreshing) {
+      refreshing = authPost('token?grant_type=refresh_token', { refresh_token: session.refresh })
+        .then(store, function (e) { if (e.status >= 400 && e.status < 500) { save(null); onChange(); } throw e; })
+        .finally(function () { refreshing = null; });
+    }
+    return refreshing;
+  }
   // Gueltigen Zugangsschluessel liefern; laeuft er bald ab, vorher erneuern
   async function token() {
     if (!session) throw fail('not_authenticated', 401);
-    if (Date.now() > session.exp - 60000) {
-      if (!refreshing) {
-        refreshing = authPost('token?grant_type=refresh_token', { refresh_token: session.refresh })
-          .then(store, function (e) { if (e.status >= 400 && e.status < 500) { save(null); onChange(); } throw e; })
-          .finally(function () { refreshing = null; });
-      }
-      await refreshing;
-    }
+    if (Date.now() > session.exp - 60000) await renew();
     return session.access;
   }
 
@@ -59,7 +61,8 @@
     get user() { return session && session.user; },
     onAuthChange: function (fn) { onChange = fn; },
 
-    signIn: async function (email, password) { store(await authPost('token?grant_type=password', { email: email, password: password })); onChange(); },
+    // quiet: nur die Sitzung erneuern, ohne die Seite neu aufzubauen (nach einem Passwortwechsel)
+    signIn: async function (email, password, quiet) { store(await authPost('token?grant_type=password', { email: email, password: password })); if (!quiet) onChange(); },
     signUp: async function (data) {
       return call('/functions/v1/wl-signup', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     },
@@ -79,9 +82,18 @@
     pub: function (fn, args) {
       return call('/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}) });
     },
+    // Edge Functions pruefen die Sitzung bei Supabase Auth. Lehnen sie mit 401 ab, obwohl der Schluessel noch nicht
+    // abgelaufen ist, wurde die Sitzung beendet: einmal erneuern und wiederholen, sonst abmelden (renew).
     fn: async function (name, body) {
-      var t = await token();
-      return call('/functions/v1/' + name, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      var send = async function () {
+        var t = await token();
+        return call('/functions/v1/' + name, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      };
+      try { return await send(); } catch (e) {
+        if (e.status !== 401 || !session) throw e;
+        try { await renew(); } catch (r) { throw e; }
+        return send();
+      }
     }
   };
 
