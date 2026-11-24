@@ -4,18 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gaming-Profil · Skeison</title>
-<meta name="description" content="Gaming-Profil von Skeison: Valorant-Rang und Statistik, Steam-Highlights, Minecraft-Skin in 3D, Discord und der Cobblemon Server">
+<meta name="description" content="Gaming-Profile mit dem Skeison Account: Valorant-Rang und Skins, Steam-Lieblingsspiele, Minecraft-Skins und Lieblingsserver, verknüpfte Konten. Für Freunde und Gruppen freigeben wie bei der Wunschliste.">
 <meta name="theme-color" content="#0b0f1c">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <script src="../assets/mode.js"></script>
 <link rel="stylesheet" href="../assets/fx.css">
 <link rel="stylesheet" href="../main.css">
 <link rel="stylesheet" href="gaming.css">
+<link rel="stylesheet" href="profile.css">
 <script>document.documentElement.classList.add('fx');</script>
 <!-- three.js fuer das 3D-Modell "Void-Pionier" (pionier3d.js), wird erst bei Wahl dieses Designs geladen -->
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 </head>
-<body>
+<body class="gaming is-demo">
 <a class="skip" href="#inhalt">Zum Inhalt springen</a>
 <div class="fx-bg" aria-hidden="true"><i></i><i></i><i></i><canvas></canvas></div>
 
@@ -25,8 +26,9 @@
     <button class="menu-btn" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
     <div class="links" id="navLinks">
       <span class="nav-ind" aria-hidden="true"></span>
-      <a href="#spiele">Spiele</a><a href="../cobblemon/">Cobblemon Server</a>
-      <a class="nav-cta" href="#discord">Discord <span class="arr">→</span></a>
+      <a href="#spiele">Spiele</a><a href="../cobblemon/">Cobblemon Server</a><a href="../wunschliste/">Wunschliste</a>
+      <a class="nav-cta in-only" href="#pbar" id="navEdit">Profil bearbeiten <span class="arr">→</span></a>
+      <a class="nav-cta out-only" href="#anmelden">Anmelden <span class="arr">→</span></a>
     </div>
   </nav>
   <div class="nav-progress"></div>
@@ -34,135 +36,201 @@
 
 <header class="hero wrap" id="top">
   <p class="crumbs"><a href="../">Skeison</a><span aria-hidden="true">/</span><span>Gaming-Profil</span></p>
-  <!-- Einstieg: kurz und neutral; der Text ist frei anpassbar (README, Abschnitt Gaming-Profil) -->
   <div class="me" data-stagger>
     <canvas class="face me-face" id="face" width="8" height="8" aria-hidden="true"></canvas>
     <div class="me-text">
-      <span class="tag">Skeison</span>
+      <span class="tag" id="meTag">Gaming</span>
       <h1>Gaming-<em>Profil</em></h1>
-      <p class="lead" id="meLead">Taktik-Shooter, Fabrikbau und ein eigener Minecraft-Server. Wähl ein Spiel und schau, wie es gerade läuft.</p>
+      <p class="lead" id="meLead">Wähl ein Spiel und schau, wie es gerade läuft.</p>
       <p class="now" id="nowPlaying" hidden></p>
     </div>
   </div>
+
+  <!-- Ohne Anmeldung: Anmelden/Registrieren mit dem Skeison Account (wie die Wunschliste), geteilte Profile als Vorschau -->
+  <section class="gate out-only" id="anmelden" aria-label="Anmelden">
+    <div class="gate-card" id="gateCard">
+      <div class="gate-share" id="gateShare" hidden></div>
+      <h2>Dein eigenes Gaming-<em>Profil</em></h2>
+      <p class="muted">Melde dich mit deinem <b>Skeison Account</b> an (dasselbe Konto wie bei der Wunschliste). Dann verknüpfst du Valorant, Steam, Minecraft, Discord, Konsolen und Kanäle und gibst dein Profil für Freunde oder Gruppen frei.</p>
+      <div class="gate-tabs" role="tablist" aria-label="Anmelden oder registrieren">
+        <button type="button" role="tab" class="on" aria-selected="true" data-tab="login">Anmelden</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="register">Konto anlegen</button>
+      </div>
+      <form id="gLogin" class="gate-form" novalidate>
+        <label>E-Mail<input type="email" name="email" autocomplete="email" required></label>
+        <label>Passwort<input type="password" name="password" autocomplete="current-password" required></label>
+        <p class="msg err" hidden></p>
+        <button class="btn" type="submit">Anmelden <span class="arr">→</span></button>
+        <a class="link-btn" href="../wunschliste/?login">Passwort vergessen? Hilfe in der Wunschliste</a>
+      </form>
+      <form id="gRegister" class="gate-form" novalidate hidden>
+        <label>Name<input name="name" maxlength="24" autocomplete="nickname" required></label>
+        <label>E-Mail<input type="email" name="email" autocomplete="email" required></label>
+        <label>Passwort<input type="password" name="password" minlength="8" autocomplete="new-password" required></label>
+        <label>Passwort wiederholen<input type="password" name="password2" minlength="8" autocomplete="new-password" required></label>
+        <label class="gate-invite" hidden>Einladungscode<input name="invite" autocomplete="off"></label>
+        <p class="msg err" hidden></p>
+        <button class="btn" type="submit">Konto anlegen <span class="arr">→</span></button>
+      </form>
+    </div>
+    <!-- Weiterleitung mit Vorschau zum Server -->
+    <a class="gate-server" href="../cobblemon/">
+      <span class="tag">Cobblemon Server</span>
+      <b>Minecraft mit Pokémon</b>
+      <span class="muted">Ranglisten, Wochensieger und eine Whitelist zum Mitspielen.</span>
+      <span class="srv" id="gateSrv" hidden></span>
+      <span class="btn ghost small">Zur Server-Seite <span class="arr">→</span></span>
+    </a>
+  </section>
+
+  <!-- Angemeldet: Profil waehlen (eigenes und freigegebene), bearbeiten, teilen, aktualisieren -->
+  <section class="pbar in-only" id="pbar" aria-label="Profil wählen">
+    <div class="pbar-list hscroll" id="pbarList" role="tablist" aria-label="Gaming-Profile"></div>
+    <div class="pbar-act">
+      <button type="button" class="btn small" id="btnEdit" hidden>Bearbeiten</button>
+      <button type="button" class="btn ghost small" id="btnShare" hidden>Teilen</button>
+      <button type="button" class="btn ghost small" id="btnRefresh" title="Live-Daten neu laden">↻ Aktualisieren</button>
+      <button type="button" class="link-btn" id="btnLogout">Abmelden</button>
+    </div>
+    <p class="pbar-note muted" id="pbarNote" hidden></p>
+  </section>
 </header>
 
 <main class="wrap" id="inhalt">
-  <!-- Die Buehne: ein Spiel pro Ansicht statt langem Scrollen. Oben die Spielauswahl, links die Hauptfigur, rechts die Zahlen
-       (in Unterseiten). gaming.js fuellt alles aus valorant.json, valorant-skins.json, steam.json und dem Serverstatus. -->
+  <!-- Die Buehne: ein Spiel pro Ansicht statt langem Scrollen; rechts die Leiste mit allen Konten. gaming.js zeichnet,
+       profile.js liefert die Daten (ohne Anmeldung ein Beispiel aus valorant.json, valorant-skins.json, steam.json). -->
   <section id="spiele" class="first" aria-label="Spiele">
-    <div class="stage" id="stage" data-game="val">
-      <div class="stage-bg" aria-hidden="true"><div class="stage-word"><span></span><span></span></div><i class="stage-grid"></i><i class="wipe"></i></div>
-      <div class="picker" role="tablist" aria-label="Spiel wählen">
-        <button type="button" role="tab" id="tab-val" data-game="val" aria-controls="p-val" aria-selected="true"><kbd>1</kbd><span><b>Valorant</b><small id="pkVal">Taktik-Shooter</small></span></button>
-        <button type="button" role="tab" id="tab-steam" data-game="steam" aria-controls="p-steam" aria-selected="false" tabindex="-1"><kbd>2</kbd><span><b>Steam</b><small id="pkSteam">Satisfactory &amp; mehr</small></span></button>
-        <button type="button" role="tab" id="tab-mc" data-game="mc" aria-controls="p-mc" aria-selected="false" tabindex="-1"><kbd>3</kbd><span><b>Minecraft</b><small id="pkMc">Cobblemon Server</small></span></button>
-      </div>
-      <div class="panels">
-        <!-- Valorant: Hauptfigur KAY/O -->
-        <article class="panel on" id="p-val" data-game="val" role="tabpanel" aria-labelledby="tab-val">
-          <div class="fig" data-fig="val">
-            <div class="fig-fallback" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M8 18l34 62h16L24 18zM92 18L64 58H48l28-40z" fill="currentColor"/></svg></div>
-            <img id="figVal" alt="KAY/O, mein Agent in Valorant" hidden>
-            <p class="fig-name"><b>KAY/O</b><span>Mein Agent</span></p>
-          </div>
-          <div class="info">
-            <div class="info-head"><h2>Valorant</h2><a class="more-link" id="valLink" href="https://tracker.gg/valorant" target="_blank" rel="noopener" hidden>Ganzes Profil <span class="arr">↗</span></a></div>
-            <div class="subtabs" id="valTabs" role="tablist" aria-label="Valorant-Ansicht" hidden></div>
-            <div class="pages" id="valPages" aria-busy="true"><div class="page on"><div class="sk sk-line" style="width:45%"></div><div class="sk sk-block"></div><div class="sk sk-line" style="width:70%"></div></div></div>
-          </div>
-        </article>
+    <div class="stage-wrap">
+      <div class="stage" id="stage" data-game="val">
+        <span class="demo-badge" aria-hidden="true">Beispiel</span>
+        <div class="stage-bg" aria-hidden="true"><div class="stage-word"><span></span><span></span></div><i class="stage-grid"></i><i class="wipe"></i></div>
+        <div class="picker" role="tablist" aria-label="Spiel wählen">
+          <button type="button" role="tab" id="tab-val" data-game="val" aria-controls="p-val" aria-selected="true"><kbd>1</kbd><span><b>Valorant</b><small id="pkVal">Taktik-Shooter</small></span></button>
+          <button type="button" role="tab" id="tab-steam" data-game="steam" aria-controls="p-steam" aria-selected="false" tabindex="-1"><kbd>2</kbd><span><b>Steam</b><small id="pkSteam">Spiele</small></span></button>
+          <button type="button" role="tab" id="tab-mc" data-game="mc" aria-controls="p-mc" aria-selected="false" tabindex="-1"><kbd>3</kbd><span><b>Minecraft</b><small id="pkMc">Minecraft</small></span></button>
+          <button type="button" role="tab" id="tab-acc" data-game="acc" aria-controls="p-acc" aria-selected="false" tabindex="-1"><kbd>4</kbd><span><b>Konten</b><small id="pkAcc">Verknüpfungen</small></span></button>
+        </div>
+        <div class="panels">
+          <!-- Valorant: Lieblingsagent -->
+          <article class="panel on" id="p-val" data-game="val" role="tabpanel" aria-labelledby="tab-val">
+            <div class="fig" data-fig="val">
+              <div class="fig-fallback" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M8 18l34 62h16L24 18zM92 18L64 58H48l28-40z" fill="currentColor"/></svg></div>
+              <img id="figVal" alt="Agent in Valorant" hidden>
+              <p class="fig-name" id="figValName"><b>KAY/O</b><span>Agent</span></p>
+            </div>
+            <div class="info">
+              <div class="info-head"><h2>Valorant</h2><a class="more-link" id="valLink" href="https://tracker.gg/valorant" target="_blank" rel="noopener" hidden>Ganzes Profil <span class="arr">↗</span></a></div>
+              <div class="subtabs" id="valTabs" role="tablist" aria-label="Valorant-Ansicht" hidden></div>
+              <div class="pages" id="valPages" aria-busy="true"><div class="page on"><div class="sk sk-line" style="width:45%"></div><div class="sk sk-block"></div><div class="sk sk-line" style="width:70%"></div></div></div>
+            </div>
+          </article>
 
-        <!-- Steam: Hauptfigur aus Satisfactory (Lieblingsspiel) -->
-        <article class="panel" id="p-steam" data-game="steam" role="tabpanel" aria-labelledby="tab-steam" hidden>
-          <div class="fig" data-fig="steam">
-            <div class="skin">
-              <div class="pedestal" aria-hidden="true"></div>
-              <canvas id="pioneerCanvas" width="300" height="400" aria-label="3D-Figur: Pionier im Schutzanzug aus Satisfactory"></canvas>
+          <!-- Steam: Pionier als 3D-Figur, dazu Lieblingsspiele und Spielzeiten -->
+          <article class="panel" id="p-steam" data-game="steam" role="tabpanel" aria-labelledby="tab-steam" hidden>
+            <div class="fig" data-fig="steam">
+              <div class="skin">
+                <div class="pedestal" aria-hidden="true"></div>
+                <canvas id="pioneerCanvas" width="300" height="400" aria-label="3D-Figur: Pionier im Schutzanzug"></canvas>
+              </div>
+              <div class="swatches" id="pioneerSkins" role="group" aria-label="Design des Anzugs"></div>
+              <p class="fig-name"><b>Pionier</b><span>Fabrikbau</span></p>
             </div>
-            <div class="swatches" id="pioneerSkins" role="group" aria-label="Design des Anzugs"></div>
-            <p class="fig-name"><b>Pionier</b><span>Satisfactory · Lieblingsspiel</span></p>
-          </div>
-          <div class="info">
-            <div class="info-head"><h2>Steam</h2><a class="more-link" id="stLink" href="https://steamcommunity.com/profiles/76561199246929908/" target="_blank" rel="noopener">Profil öffnen <span class="arr">↗</span></a></div>
-            <div class="subtabs" id="stTabs" role="tablist" aria-label="Steam-Ansicht" hidden></div>
-            <div class="chips" id="pioneerAnims" role="group" aria-label="Animation des Pioniers">
-              <button type="button" class="chip on" data-anim="idle" aria-pressed="true">Stehen</button>
-              <button type="button" class="chip" data-anim="walk" aria-pressed="false">Laufen</button>
-              <button type="button" class="chip" data-anim="run" aria-pressed="false">Sprinten</button>
-              <button type="button" class="chip" data-anim="build" aria-pressed="false">Bauen</button>
-              <button type="button" class="chip" data-anim="jetpack" aria-pressed="false">Jetpack</button>
-              <button type="button" class="chip" data-anim="wave" aria-pressed="false">Winken</button>
-            </div>
-            <div class="pages" id="stPages" aria-busy="true"><div class="page on"><div class="sk sk-line" style="width:45%"></div><div class="sk sk-block"></div><div class="sk sk-line" style="width:70%"></div></div></div>
-          </div>
-        </article>
-
-        <!-- Minecraft: der eigene Skin in 3D, dazu der Cobblemon Server -->
-        <article class="panel" id="p-mc" data-game="mc" role="tabpanel" aria-labelledby="tab-mc" hidden>
-          <div class="fig" data-fig="mc">
-            <div class="skin">
-              <div class="pedestal" aria-hidden="true"></div>
-              <canvas id="skinCanvas" width="300" height="400" aria-label="3D-Ansicht des Minecraft-Skins Skeison"></canvas>
-            </div>
-            <p class="fig-name"><b>Skeison</b><span>Minecraft-Name</span></p>
-          </div>
-          <div class="info">
-            <div class="info-head"><h2>Minecraft</h2><a class="more-link" href="../cobblemon/">Server-Seite <span class="arr">→</span></a></div>
-            <div class="pages"><div class="page on">
-              <div class="chips" id="skinAnims" role="group" aria-label="Animation des Skins">
+            <div class="info">
+              <div class="info-head"><h2>Steam</h2><a class="more-link" id="stLink" href="https://steamcommunity.com/" target="_blank" rel="noopener" hidden>Profil öffnen <span class="arr">↗</span></a></div>
+              <div class="subtabs" id="stTabs" role="tablist" aria-label="Steam-Ansicht" hidden></div>
+              <div class="chips" id="pioneerAnims" role="group" aria-label="Animation des Pioniers">
                 <button type="button" class="chip on" data-anim="idle" aria-pressed="true">Stehen</button>
-                <button type="button" class="chip" data-anim="wave" aria-pressed="false">Winken</button>
                 <button type="button" class="chip" data-anim="walk" aria-pressed="false">Laufen</button>
-                <button type="button" class="chip" data-anim="run" aria-pressed="false">Rennen</button>
+                <button type="button" class="chip" data-anim="run" aria-pressed="false">Sprinten</button>
+                <button type="button" class="chip" data-anim="build" aria-pressed="false">Bauen</button>
+                <button type="button" class="chip" data-anim="jetpack" aria-pressed="false">Jetpack</button>
+                <button type="button" class="chip" data-anim="wave" aria-pressed="false">Winken</button>
               </div>
-              <p class="muted hint"><span class="t-fine">Figur ziehen zum Drehen · Mausrad zum Zoomen</span><span class="t-touch">Figur wischen zum Drehen · Zwei Finger zum Zoomen</span></p>
-              <!-- Der eigene Server: Kurzfassung mit Status; alles Weitere auf der Server-Seite -->
-              <div class="server" id="server">
-                <span class="tag">Mein Server</span>
-                <h3>Cobblemon Server</h3>
-                <p class="muted">Eigener Minecraft-Server mit Pokémon: Ranglisten, Wochensieger, Nether- und End-Freischaltung. Mitspielen geht über die Whitelist.</p>
-                <p class="srv" id="srvStatus" hidden></p>
-                <dl class="stats" id="mcStats" hidden></dl>
-                <div class="cta-row">
-                  <a class="btn" href="../cobblemon/">Zur Server-Seite <span class="arr">→</span></a>
-                  <a class="btn ghost" href="../cobblemon/#bewerben">Für die Whitelist bewerben</a>
+              <div class="pages" id="stPages" aria-busy="true"><div class="page on"><div class="sk sk-line" style="width:45%"></div><div class="sk sk-block"></div><div class="sk sk-line" style="width:70%"></div></div></div>
+            </div>
+          </article>
+
+          <!-- Minecraft: eigene Skins in 3D (mehrere, per Farbpunkt), dazu der Lieblingsserver -->
+          <article class="panel" id="p-mc" data-game="mc" role="tabpanel" aria-labelledby="tab-mc" hidden>
+            <div class="fig" data-fig="mc">
+              <div class="skin">
+                <div class="pedestal" aria-hidden="true"></div>
+                <canvas id="skinCanvas" width="300" height="400" aria-label="3D-Ansicht des Minecraft-Skins"></canvas>
+              </div>
+              <div class="swatches" id="mcSkins" role="group" aria-label="Skin wählen" hidden></div>
+              <p class="fig-name" id="figMcName"><b>Minecraft</b><span>Minecraft-Name</span></p>
+            </div>
+            <div class="info">
+              <div class="info-head"><h2>Minecraft</h2><a class="more-link" href="../cobblemon/">Cobblemon Server <span class="arr">→</span></a></div>
+              <div class="pages"><div class="page on">
+                <div class="chips" id="skinAnims" role="group" aria-label="Animation des Skins">
+                  <button type="button" class="chip on" data-anim="idle" aria-pressed="true">Stehen</button>
+                  <button type="button" class="chip" data-anim="wave" aria-pressed="false">Winken</button>
+                  <button type="button" class="chip" data-anim="walk" aria-pressed="false">Laufen</button>
+                  <button type="button" class="chip" data-anim="run" aria-pressed="false">Rennen</button>
                 </div>
-              </div>
-            </div></div>
-          </div>
-        </article>
+                <p class="muted hint"><span class="t-fine">Figur ziehen zum Drehen · Mausrad zum Zoomen</span><span class="t-touch">Figur wischen zum Drehen · Zwei Finger zum Zoomen</span></p>
+                <div class="server" id="server"></div>
+              </div></div>
+            </div>
+          </article>
+
+          <!-- Konten: alle verknuepften Konten als Karten -->
+          <article class="panel panel-wide" id="p-acc" data-game="acc" role="tabpanel" aria-labelledby="tab-acc" hidden>
+            <div class="info">
+              <div class="info-head"><h2>Konten</h2></div>
+              <div class="acc-grid" id="accGrid"></div>
+            </div>
+          </article>
+        </div>
+        <p class="stage-hint muted" aria-hidden="true"><span class="t-fine">Tasten <kbd>1</kbd>–<kbd>4</kbd> oder <kbd>←</kbd> <kbd>→</kbd> wechseln die Ansicht</span><span class="t-touch">Wischen wechselt die Ansicht</span></p>
       </div>
-      <p class="stage-hint muted" aria-hidden="true"><span class="t-fine">Tasten <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> oder <kbd>←</kbd> <kbd>→</kbd> wechseln das Spiel</span><span class="t-touch">Wischen wechselt das Spiel</span></p>
+
+      <!-- Leiste rechts: verknuepfte Konten (je Konto im Editor ein- oder ausblendbar) -->
+      <aside class="acc-bar" id="accBar" aria-label="Verknüpfte Konten">
+        <h2>Konten</h2>
+        <ul class="acc-list" id="accBarList"></ul>
+        <p class="muted" id="accBarEmpty" hidden>Noch keine Konten in der Leiste.</p>
+      </aside>
     </div>
   </section>
 
-  <section id="discord" class="discord" data-reveal>
+  <section id="discord" class="discord" data-reveal hidden>
     <div class="dc-orb" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
     </div>
     <div class="dc-text">
       <h2>Discord</h2>
-      <p>Mit mir zocken, Fragen stellen, Neuigkeiten zum Server: alles läuft über meinen Discord. Hilfe zur Wunschliste gibt es dort ebenfalls, einfach der Rolle <b>@Admin</b> oder mir direkt schreiben.</p>
+      <p id="dcText"></p>
       <p class="dc-stats" id="dcStats" hidden></p>
     </div>
-    <a class="btn discord-btn" id="discordLink" href="https://discord.gg/tjVKFGMRw7" target="_blank" rel="noopener">Discord beitreten <span class="arr">→</span></a>
+    <a class="btn discord-btn" id="discordLink" href="https://discord.com/" target="_blank" rel="noopener">Discord beitreten <span class="arr">→</span></a>
   </section>
 </main>
+
+<!-- Editor (editor.js) und Teilen-Dialog -->
+<dialog class="gdlg" id="gdlg" aria-labelledby="gdlgTitle"></dialog>
 
 <footer class="foot">
   <div class="wrap foot-in" data-reveal>
     <div>
       <a class="brand" href="../"><span class="brand-mark" aria-hidden="true"></span>Skeison</a>
-      <p class="muted">Gaming-Profil · Valorant, Steam, Minecraft und Discord.</p>
+      <p class="muted">Gaming-Profile · Valorant, Steam, Minecraft und mehr.</p>
     </div>
     <nav class="foot-links" aria-label="Fußzeile">
-      <a href="../">Startseite</a><a href="#valorant">Valorant</a><a href="#steam">Steam</a><a href="#minecraft">Minecraft</a><a href="#discord">Discord</a><a href="../cobblemon/">Cobblemon Server</a><a href="../wunschliste/">Wunschliste</a>
+      <a href="../">Startseite</a><a href="#valorant">Valorant</a><a href="#steam">Steam</a><a href="#minecraft">Minecraft</a><a href="#konten">Konten</a><a href="../cobblemon/">Cobblemon Server</a><a href="../wunschliste/">Wunschliste</a>
     </nav>
   </div>
   <div class="wrap foot-bottom muted">© <span id="year">2026</span> Skeison</div>
 </footer>
 <script src="../assets/fx.js"></script>
 <script src="../assets/skinview3d.bundle.js"></script>
+<script src="../wunschliste/api.js"></script>
+<script src="../wunschliste/qrcode.js"></script>
+<script src="accounts.js"></script>
+<script src="valcat.js"></script>
 <script src="gaming.js"></script>
+<script src="editor.js"></script>
+<script src="profile.js"></script>
 </body>
 </html>

@@ -1,6 +1,7 @@
-// Gaming-Profil: eine "Buehne" mit Spielauswahl statt langem Scrollen. Pro Spiel eine Hauptfigur (Valorant: KAY/O,
-// Steam: Pionier aus Satisfactory, Minecraft: der eigene Skin in 3D) und die Zahlen in Unterseiten:
-// Valorant (Rang, Statistik, Agenten, letzte Spiele, Skins), Steam-Highlights, Status des Cobblemon Servers, Discord-Zahlen.
+// Gaming-Profil: eine "Buehne" mit Spielauswahl statt langem Scrollen. Pro Spiel eine Hauptfigur (Valorant: Lieblingsagent,
+// Steam: Pionier, Minecraft: der eigene Skin in 3D) und die Zahlen in Unterseiten; dazu "Konten" und die Leiste rechts.
+// Diese Datei zeichnet nur. Die Daten kommen ueber Gaming.render(view): angemeldet aus dem Gaming-Profil (profile.js),
+// ohne Anmeldung als Beispiel aus den Deploy-Dateien (Gaming.demo(): valorant.json, valorant-skins.json, steam.json).
 (function () {
   'use strict';
   // Serverstart (deutsche Zeit); gleicher Wert wie in cobblemon/app.js
@@ -8,20 +9,16 @@
   // Live-Daten des Cobblemon Servers (Branch "data", wie auf der Server-Seite)
   var DATA_BASE = 'https://raw.githubusercontent.com/erschoenfeld2-tech/Skeison_Web/data/';
   var DISCORD_INVITE = 'tjVKFGMRw7';
-  // Hauptfiguren: Zuerst wird eine eigene Datei versucht (gaming/img/…, z. B. ein freigestelltes PNG), dann die Quelle im Netz.
-  // KAY/O kommt von valorant-api.com (wie Rang- und Agentenbilder), der Pionier ist das Steam-Titelbild von Satisfactory.
+  // Valorant-Figur: Agent von valorant-api.com; ohne eigene Wahl KAY/O (vorher eigene Datei gaming/img/valorant-figur.png)
   var KAYO = '601dbbe7-43ce-be57-2a40-4abd24953621';
-  var FIGURES = {
-    val: ['img/valorant-figur.png', 'https://media.valorant-api.com/agents/' + KAYO + '/fullportrait.png', 'https://media.valorant-api.com/agents/' + KAYO + '/fullportraitv2.png']
-  };
   // Steam: Pionier im Schutzanzug als 3D-Figur. Die Designs sind eigene Pixel-Skins (tools/pioneer-skins.py malt sie nach site/skin/);
-  // [Datei, Name, Farbe des Auswahlpunkts]. Das zuletzt gewaehlte Design merkt sich das Geraet.
+  // [Datei, Name, Farbe des Auswahlpunkts].
   var PIONEERS = [['pionier-gruen', 'Grün', '#7c9a62'], ['pionier-schwarz', 'Schwarz', '#34343a'], ['pionier-blau', 'Blau', '#97a3e6'], ['pionier-weiss', 'Weiß', '#ececf0'], ['pionier-gelb', 'Gelb', '#e9db4d']];
   // Zusaetzliches Design als echtes 3D-Modell (site/gaming/3d/void-pionier.glb, pionier3d.js), letzter Farbpunkt
   var VOID = ['void', 'Void (3D-Modell)', '#5b85ff'];
-  var GAMES = ['val', 'steam', 'mc'];
-  var WORDS = { val: 'VALORANT', steam: 'STEAM', mc: 'MINECRAFT' };
-  var HASH = { valorant: 'val', steam: 'steam', minecraft: 'mc', server: 'mc' };
+  var GAMES = ['val', 'steam', 'mc', 'acc'];
+  var WORDS = { val: 'VALORANT', steam: 'STEAM', mc: 'MINECRAFT', acc: 'KONTEN' };
+  var HASH = { valorant: 'val', steam: 'steam', minecraft: 'mc', server: 'mc', konten: 'acc' };
 
   var $ = function (id) { return document.getElementById(id); };
   var FX = window.FX || { reduced: true };
@@ -36,23 +33,29 @@
   function calm() { return FX.reduced || FX.still; }
 
   $('year').textContent = new Date().getFullYear();
+  var view = { demo: true, mine: false };   // was gerade gezeigt wird (Gaming.render)
 
-  // Gesicht des Minecraft-Skins (Kopf + Hut-Ebene) als Pixelbild im Einstieg
-  var face = $('face');
-  if (face && face.getContext) {
+  // ---------- Einstieg: Gesicht des Minecraft-Skins (Kopf + Hut-Ebene), Name, Spruch ----------
+  function drawFace(canvas, src) {
+    if (!canvas || !canvas.getContext || !src) return;
     var fi = new Image();
-    fi.onload = function () { var c = face.getContext('2d'); c.imageSmoothingEnabled = false; c.drawImage(fi, 8, 8, 8, 8, 0, 0, 8, 8); c.drawImage(fi, 40, 8, 8, 8, 0, 0, 8, 8); face.classList.add('ready'); };
-    fi.src = '../skin/skeison.png';
+    fi.onload = function () { var c = canvas.getContext('2d'); c.clearRect(0, 0, 8, 8); c.imageSmoothingEnabled = false; c.drawImage(fi, 8, 8, 8, 8, 0, 0, 8, 8); c.drawImage(fi, 40, 8, 8, 8, 0, 0, 8, 8); canvas.classList.add('ready'); };
+    fi.src = src;
   }
 
-  // ---------- Hauptfiguren laden: Quellen der Reihe nach versuchen; klappt keine, bleibt das Symbol stehen ----------
-  function loadFigure(image, list) {
+  // ---------- Valorant-Figur: Agent laden; klappt kein Bild, bleibt das Symbol stehen ----------
+  function setAgent(agent) {
+    var image = $('figVal'), id = (agent && agent.id) || KAYO, list = (agent && agent.p ? [agent.p] : [])
+      .concat(['https://media.valorant-api.com/agents/' + id + '/fullportrait.png', 'https://media.valorant-api.com/agents/' + id + '/fullportraitv2.png']);
     var i = 0;
+    image.hidden = true; image.parentNode.classList.remove('has-img');
     image.onload = function () { image.hidden = false; image.parentNode.classList.add('has-img'); };
     image.onerror = function () { i++; if (i < list.length) image.src = list[i]; else image.hidden = true; };
     image.src = list[0];
+    var name = (agent && agent.n) || 'KAY/O';
+    image.alt = name + ', ' + (view.demo || view.mine ? 'mein' : 'Lieblings-') + 'Agent in Valorant';
+    var fn = $('figValName'); fn.textContent = ''; fn.appendChild(el('b', '', name)); fn.appendChild(el('span', '', view.demo || view.mine ? 'Mein Agent' : 'Lieblingsagent'));
   }
-  loadFigure($('figVal'), FIGURES.val);
 
   // ---------- Zahlen hochzaehlen (nur beim Einblenden einer Ansicht; bei "Bewegung reduzieren"/Pause sofort) ----------
   function countUp(scope) {
@@ -114,13 +117,16 @@
     };
     if (box.closest('.panel').classList.contains('on')) countUp(box);
   }
+  // link: [Text, URL] (oeffnet neu) oder [Text, Funktion] (Knopf, z. B. "Im Editor verknuepfen")
   function emptyPage(title, text, link) {
     var box = el('div', 'empty-state'); if (title) box.appendChild(el('h3', '', title)); box.appendChild(el('p', '', text));
-    if (link) box.appendChild(ext(el('a', 'btn ghost small', link[0]), link[1]));
+    if (link && typeof link[1] === 'function') { var b = el('button', 'btn small', link[0]); b.type = 'button'; b.addEventListener('click', link[1]); box.appendChild(b); }
+    else if (link && link[1]) box.appendChild(ext(el('a', 'btn ghost small', link[0]), link[1]));
     return box;
   }
+  function editLink(text) { return view.mine && Gaming.onEdit ? [text, function () { Gaming.onEdit(); }] : null; }
 
-  // ---------- Buehne: Spiel wechseln (Reiter, Tasten 1-3 und Pfeile, Wischen, #valorant/#steam/#minecraft) ----------
+  // ---------- Buehne: Spiel wechseln (Reiter, Tasten 1-4 und Pfeile, Wischen, #valorant/#steam/#minecraft/#konten) ----------
   var stage = $('stage'), cur = 'val', busy = 0, onShow = {};
   var word = stage.querySelector('.stage-word');
   function setWord(g) { Array.prototype.forEach.call(word.children, function (s) { s.textContent = (WORDS[g] + ' · ').repeat(6); }); }
@@ -152,12 +158,13 @@
     e.preventDefault(); e.stopPropagation(); step(e.key === 'ArrowRight' ? 1 : -1);
     stage.querySelector('.picker button[aria-selected="true"]').focus();
   });
-  // Tasten 1-3 und Pfeile wirken, solange die Buehne im Bild ist und nicht gerade in ein Feld getippt wird
+  // Tasten 1-4 und Pfeile wirken, solange die Buehne im Bild ist und nicht gerade in ein Feld getippt wird
   var stageSeen = true;
   if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { stageSeen = es[0].isIntersecting; }, { threshold: 0.25 }).observe(stage);
   document.addEventListener('keydown', function (e) {
     if (!stageSeen || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
-    if (e.key >= '1' && e.key <= '3') show(GAMES[+e.key - 1]);
+    if (document.querySelector('dialog[open]')) return;
+    if (e.key >= '1' && e.key <= '4') show(GAMES[+e.key - 1]);
     else if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1);
   });
   // Wischen (Handy): waagerecht ueber die Buehne, nicht auf der 3D-Figur (die dreht sich dort) und nicht in Scroll-Leisten
@@ -170,7 +177,7 @@
       if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.8) step(dx < 0 ? 1 : -1);
     }, { passive: true });
   })();
-  // Sprungmarken: #valorant, #steam, #minecraft waehlen das Spiel und holen die Buehne ins Bild
+  // Sprungmarken: #valorant, #steam, #minecraft, #konten waehlen das Spiel und holen die Buehne ins Bild
   function fromHash(scroll) {
     var g = HASH[location.hash.slice(1)]; if (!g) return false;
     show(g, true);
@@ -182,7 +189,7 @@
     var g = HASH[a.getAttribute('href').slice(1)]; if (!g) return;
     e.preventDefault(); e.stopPropagation();
     show(g); stage.scrollIntoView({ behavior: calm() ? 'auto' : 'smooth', block: 'start' });
-    history.replaceState(null, '', a.getAttribute('href'));
+    history.replaceState(null, '', location.search + a.getAttribute('href'));
   }, true);
   window.addEventListener('hashchange', function () { fromHash(true); });
   // Die Figur folgt dem Mauszeiger ein kleines Stueck (nur mit echter Maus, nicht bei Pause/"Bewegung reduzieren")
@@ -199,14 +206,14 @@
     stage.addEventListener('pointerleave', function () { stage.style.setProperty('--mx', 0); stage.style.setProperty('--my', 0); });
   }
 
-  // ---------- Valorant aus valorant.json und valorant-skins.json (tools/fetch-valorant*.js erzeugen beide beim Deploy) ----------
+  // ---------- Valorant: Live-Daten (gp-sync bzw. valorant.json) und ausgewaehlte Skins ----------
   function valOverview(v) {
     var r = v.rank, s = v.stats, box = el('div', 'val-over');
-    var who = el('div', 'val-who');
-    if (v.card && safe(v.card.small)) who.appendChild(img(v.card.small, 'avatar'));
+    var head = el('div', 'val-who');
+    if (v.card && safe(v.card.small)) head.appendChild(img(v.card.small, 'avatar'));
     var info = el('div', 'pinfo'), h = el('h3', '', v.name || 'Valorant'); if (v.tag) h.appendChild(el('span', 'val-tag', '#' + v.tag)); info.appendChild(h);
     info.appendChild(el('p', 'muted', [v.level != null ? 'Level ' + v.level : '', v.updated && !isNaN(new Date(v.updated)) ? 'Stand: ' + when(v.updated) : ''].filter(Boolean).join(' · ')));
-    who.appendChild(info); box.appendChild(who);
+    head.appendChild(info); box.appendChild(head);
     if (r) {
       var rank = el('div', 'val-rank');
       if (safe(r.icon)) rank.appendChild(img(r.icon, 'rank-ico', ''));
@@ -256,16 +263,16 @@
     });
     return ul;
   }
-  // Skins: Liste aus gaming/meine-skins.json, Bilder und Seltenheit von tools/fetch-valorant-skins.js ergaenzt
+  // Skins: Format { skins: [{ name, weapon, tier, color, image }], value } (valcat.js bzw. valorant-skins.json)
   function valSkins(sk) {
     var list = sk && Array.isArray(sk.skins) ? sk.skins.filter(function (x) { return x && x.name; }) : [];
     if (!list.length) return null;
-    var wrap = el('div', 'skins-wrap'), weapons = [], cur = '';
+    var wrap = el('div', 'skins-wrap'), weapons = [], curW = '';
     list.forEach(function (x) { if (x.weapon && weapons.indexOf(x.weapon) < 0) weapons.push(x.weapon); });
     var bar = el('div', 'skin-filter hscroll'), grid = el('div', 'skins');
     function paint() {
       grid.textContent = '';
-      list.filter(function (x) { return !cur || x.weapon === cur; }).forEach(function (x, i) {
+      list.filter(function (x) { return !curW || x.weapon === curW; }).forEach(function (x, i) {
         var c = el('figure', 'skin-card'); c.style.setProperty('--i', Math.min(i, 14));
         if (/^#[0-9a-f]{6}$/i.test(x.color || '')) c.style.setProperty('--tier', x.color);
         var im = el('div', 'im'); if (safe(x.image)) im.appendChild(img(x.image, '', '')); else im.appendChild(el('span', 'noimg', '🔫')); c.appendChild(im);
@@ -276,7 +283,7 @@
     if (weapons.length > 1) {
       [''].concat(weapons).forEach(function (w) {
         var b = el('button', 'chip' + (w ? '' : ' on'), w || 'Alle'); b.type = 'button'; b.setAttribute('aria-pressed', String(!w));
-        b.addEventListener('click', function () { cur = w; Array.prototype.forEach.call(bar.children, function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }); paint(); });
+        b.addEventListener('click', function () { curW = w; Array.prototype.forEach.call(bar.children, function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }); paint(); });
         bar.appendChild(b);
       });
       wrap.appendChild(bar);
@@ -291,23 +298,27 @@
     return valueBox(w.eur, nf.format(w.vp) + ' VP in ' + w.priced + ' Skins', rows,
       'Grobe Schätzung: übliche Shop-Preise je Seltenheitsstufe, umgerechnet mit rund ' + String(w.eurPer100Vp).replace('.', ',') + ' € je 100 VP. Einzelne Bundles kosten mehr oder weniger; Battlepass-Skins und Agenten zählen nicht mit. Das ist kein Verkaufswert.');
   }
-  function renderValorant(v, sk) {
-    var ok = v && !v.setup && v.riotId, skins = valSkins(sk), n = sk && sk.skins ? sk.skins.length : 0, worth = valWorth(sk);
-    var link = $('valLink'); if (ok && safe(v.url)) { link.href = v.url; link.hidden = false; }
+  // state: ok | none (kein Konto) | setup (Schluessel fehlt) | error | loading
+  function renderValorant(v, state, sk) {
+    var ok = state === 'ok' && v, skins = sk === 'loading' ? emptyPage('', 'Skins werden geladen …') : valSkins(sk), n = sk && sk.skins ? sk.skins.length : 0, worth = sk && sk !== 'loading' ? valWorth(sk) : null;
+    var link = $('valLink'); link.hidden = true; if (ok && safe(v.url)) { link.href = v.url; link.hidden = false; }
+    var empty = {
+      none: ['Kein Valorant-Konto verknüpft', view.mine ? 'Verknüpfe deine Riot-ID, dann erscheinen Rang, K/D und die letzten Spiele.' : 'Hier ist noch kein Valorant-Konto hinterlegt.', editLink('Riot-ID verknüpfen')],
+      setup: ['Valorant-Statistik folgt', 'Die Live-Daten für Valorant sind noch nicht eingerichtet. Skins und Lieblingsagent funktionieren schon.'],
+      error: ['Valorant-Daten sind gerade nicht verfügbar', v && v.message ? v.message : 'Bitte später noch einmal vorbeischauen.'],
+      loading: ['', 'Valorant-Daten werden geladen …']
+    }[ok ? 'x' : state] || ['', ''];
     var pages = ok ? [{ id: 'over', title: 'Überblick', node: valOverview(v) }, { id: 'agents', title: 'Agenten', node: valAgents(v) }, { id: 'matches', title: 'Letzte Spiele', node: valMatches(v) }]
-      : [{ id: 'over', title: 'Überblick', node: emptyPage(v && v.error ? 'Valorant-Daten sind gerade nicht verfügbar' : 'Valorant-Statistik folgt', v && v.error ? 'Bitte später noch einmal vorbeischauen.' : 'Hier erscheinen bald mein Rang, K/D, Trefferquote und die letzten Spiele.') }];
+      : [{ id: 'over', title: 'Überblick', node: emptyPage(empty[0], empty[1], empty[2]) }];
     if (worth) pages[0].node.appendChild(worth);
-    pages.push({ id: 'skins', title: 'Skins', node: skins, count: n });
+    if (!skins && view.mine && !view.demo) skins = emptyPage('Noch keine Skins ausgewählt', 'Wähle im Editor aus allen Skins und Bundles die aus, die du besitzt.', editLink('Skins auswählen'));
+    pages.push({ id: 'skins', title: 'Skins', node: skins, count: n || null });
     setPages('valTabs', 'valPages', pages);
     var r = ok && v.rank;
     $('pkVal').textContent = r ? r.name + (r.tier > 2 ? ' · ' + r.rr + ' RR' : '') : 'Taktik-Shooter';
   }
-  Promise.all([
-    getJson('../valorant.json', { cache: 'no-cache' }).catch(function () { return { error: true }; }),
-    getJson('../valorant-skins.json', { cache: 'no-cache' }).catch(function () { return null; })
-  ]).then(function (r) { renderValorant(r[0], r[1]); });
 
-  // ---------- 3D-Figuren (skinview3d): der eigene Minecraft-Skin und der Pionier fuer Steam ----------
+  // ---------- 3D-Figuren (skinview3d): Minecraft-Skin und der Pionier fuer Steam ----------
   // Beide Figuren sind Skins im Minecraft-Format und teilen sich diese Funktion: Animation per Knopf, Stillstand bei
   // "Bewegung reduzieren"/"Animationen pausieren", gerendert wird nur die Figur des gewaehlten Spiels.
   function figure3d(o) {
@@ -333,9 +344,12 @@
       setAnim('idle');
       Array.prototype.forEach.call(chips.querySelectorAll('.chip'), function (c) { c.addEventListener('click', function () { chosen = true; clearTimeout(enterT); setAnim(c.getAttribute('data-anim')); }); });
       document.addEventListener('fx:still', function () { chosen = false; applyStill(); });
-      var load = function (url) { return Promise.resolve(v.loadSkin(url)).then(function () { canvas.classList.add('ready'); }, function () { canvas.classList.add('ready'); }); };
-      load(o.skin);
-      // Rendern nur, wenn dieses Spiel gewaehlt und die Buehne im Bild ist (spart Akku), und nicht im Hintergrund (fx:idle aus assets/fx.js)
+      // model: 'slim' (Alex) oder 'default' (Steve); ohne Angabe erkennt skinview3d es selbst
+      var load = function (url, model) {
+        return Promise.resolve(v.loadSkin(url, { model: model === 'slim' ? 'slim' : model === 'classic' ? 'default' : 'auto-detect' }))
+          .then(function () { canvas.classList.add('ready'); }, function () { canvas.classList.add('ready'); });
+      };
+      if (o.skin) load(o.skin);
       // o.paused: Figur ist gerade ausgeblendet (z. B. Pionier-Design "Void"); o.onSync bekommt, ob dieses Spiel sichtbar ist
       var onScreen = true, bg = !!FX.idle, sync = function () {
         var shown = onScreen && !bg && cur === o.game;
@@ -359,13 +373,12 @@
     }
   }
   var syncers = [], SV = window.skinview3d || {};
-  onShow.val = function () { syncers.forEach(function (f) { f(); }); };
+  onShow.val = onShow.acc = function () { syncers.forEach(function (f) { f(); }); };
   var BASE_ANIMS = {
     idle: function () { return new SV.IdleAnimation(); }, wave: function () { return new SV.WaveAnimation(); },
     walk: function () { return new SV.WalkingAnimation(); }, run: function () { return new SV.RunningAnimation(); }
   };
-  // Minecraft: Datei site/skin/skeison.png ersetzen, um den Skin zu wechseln
-  figure3d({ canvas: 'skinCanvas', chips: 'skinAnims', skin: '../skin/skeison.png', game: 'mc', anims: BASE_ANIMS, enter: 'wave' });
+  var mcFig = figure3d({ canvas: 'skinCanvas', chips: 'skinAnims', skin: null, game: 'mc', anims: BASE_ANIMS, enter: 'wave' });
 
   // Pionier: zusaetzlich zwei Bewegungen aus dem Spiel, selbst gebaut (FunctionAnimation: t = Sekunden seit Beginn).
   // "Bauen": rechter Arm haelt das Bauwerkzeug nach vorn, der Blick folgt, kurzer Rueckstoss bei jedem "Klick".
@@ -393,21 +406,20 @@
       });
     }
   };
-  (function () {
-    var KEY = 'gaming-pionier', pick = PIONEERS[0][0];
-    try { var saved = localStorage.getItem(KEY); if (saved === VOID[0] || PIONEERS.some(function (x) { return x[0] === saved; })) pick = saved; } catch (e) { /* Standard */ }
-    // Design "Void": eigenes 3D-Modell statt Pixel-Skin (pionier3d.js, three.js wird erst bei der Wahl geladen).
-    // Die skinview3d-Figur pausiert solange; Animationsknoepfe und Sichtbarkeit werden an das Modell weitergegeben.
-    var voidOn = pick === VOID[0], voidFig = null, voidCanvas = null, lastAnim = 'idle', lastChosen = false, shown = false;
+  // Pionier mit Farbpunkten; Design "Void" ist ein eigenes 3D-Modell statt Pixel-Skin (pionier3d.js, three.js erst bei Wahl).
+  // Die skinview3d-Figur pausiert solange; Animationsknoepfe und Sichtbarkeit werden an das Modell weitergegeben.
+  // select(id) waehlt ein Design (aus dem Profil); pioneer.onPick meldet eine Wahl per Klick (profile.js speichert sie).
+  var pioneer = (function () {
+    var current = PIONEERS[0][0], voidOn = false, voidFig = null, voidCanvas = null, lastAnim = 'idle', lastChosen = false, shown = false;
     var syncVoid = function () { if (voidFig) voidFig.setActive(shown && voidOn); };
     var fig = figure3d({
-      canvas: 'pioneerCanvas', chips: 'pioneerAnims', skin: '../skin/' + (voidOn ? PIONEERS[0][0] : pick) + '.png', game: 'steam', anims: PIONEER_ANIMS, enter: 'wave',
+      canvas: 'pioneerCanvas', chips: 'pioneerAnims', skin: '../skin/' + PIONEERS[0][0] + '.png', game: 'steam', anims: PIONEER_ANIMS, enter: 'wave',
       paused: function () { return voidOn; },
       onSync: function (s) { shown = s; syncVoid(); },
       onAnim: function (name, byUser) { lastAnim = name; lastChosen = byUser; if (voidFig) voidFig.setAnim(name, byUser); }
     });
-    var box = $('pioneerSkins');
-    if (!fig) { box.hidden = true; return; }
+    var box = $('pioneerSkins'), api = { select: function () {}, onPick: null };
+    if (!fig) { box.hidden = true; return api; }
     function loadVoid() {
       if (voidCanvas) return;
       voidCanvas = el('canvas'); voidCanvas.width = 300; voidCanvas.height = 400;
@@ -425,31 +437,63 @@
       if (voidCanvas) voidCanvas.hidden = !on;
       fig.sync();
     }
+    function select(id) {
+      if (id !== VOID[0] && !PIONEERS.some(function (x) { return x[0] === id; })) id = PIONEERS[0][0];
+      if (id === VOID[0]) showVoid(true);
+      else { showVoid(false); if (id !== current) fig.load('../skin/' + id + '.png'); }
+      current = id;
+      Array.prototype.forEach.call(box.children, function (c) { var on = c.getAttribute('data-id') === id; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
+    }
     PIONEERS.concat([VOID]).forEach(function (x) {
-      var b = el('button', 'swatch' + (x[0] === pick ? ' on' : '')); b.type = 'button'; b.title = x[1]; b.setAttribute('aria-label', 'Design ' + x[1]); b.setAttribute('aria-pressed', String(x[0] === pick));
+      var b = el('button', 'swatch'); b.type = 'button'; b.title = x[1]; b.setAttribute('aria-label', 'Design ' + x[1]); b.setAttribute('aria-pressed', 'false'); b.setAttribute('data-id', x[0]);
       b.style.setProperty('--c', x[2]);
       if (x === VOID) b.classList.add('swatch-void');
+      b.addEventListener('click', function () { select(x[0]); if (api.onPick) api.onPick(x[0]); });
+      box.appendChild(b);
+    });
+    api.select = select;
+    return api;
+  })();
+
+  // Minecraft: mehrere Skins mit Farbpunkten (kleines Gesicht je Skin); list: [{ id, name, src, model }]
+  function setMcSkins(list, activeId) {
+    var box = $('mcSkins'); box.textContent = '';
+    list = (list || []).filter(function (s) { return s && s.src; });
+    box.hidden = list.length < 2;
+    var pick = list.filter(function (s) { return s.id === activeId; })[0] || list[0];
+    if (mcFig && pick) mcFig.load(pick.src, pick.model);
+    drawFace($('face'), pick ? pick.src : '');
+    list.forEach(function (s) {
+      var b = el('button', 'swatch swatch-face' + (s === pick ? ' on' : '')); b.type = 'button'; b.title = s.name; b.setAttribute('aria-label', 'Skin ' + s.name); b.setAttribute('aria-pressed', String(s === pick));
+      var c = el('canvas'); c.width = 8; c.height = 8; b.appendChild(c); drawFace(c, s.src);
       b.addEventListener('click', function () {
-        if (x === VOID) showVoid(true);
-        else { showVoid(false); fig.load('../skin/' + x[0] + '.png'); }
-        try { localStorage.setItem(KEY, x[0]); } catch (e) { /* gilt dann nur fuer diesen Besuch */ }
-        Array.prototype.forEach.call(box.children, function (c) { var on = c === b; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); });
+        if (mcFig) mcFig.load(s.src, s.model);
+        drawFace($('face'), s.src);
+        Array.prototype.forEach.call(box.children, function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+        if (Gaming.onMcSkin) Gaming.onMcSkin(s.id);
       });
       box.appendChild(b);
     });
-    if (voidOn) showVoid(true);
-  })();
+    var fn = $('figMcName'); fn.textContent = '';
+    fn.appendChild(el('b', '', view.mcName || (view.demo ? 'Skeison' : view.owner ? view.owner.name : 'Minecraft')));
+    fn.appendChild(el('span', '', pick && pick.name && pick.name !== view.mcName ? 'Skin: ' + pick.name : 'Minecraft-Name'));
+  }
 
-  // ---------- Steam-Highlights aus steam.json (wird von tools/fetch-steam.js beim Deploy erzeugt) ----------
+  // ---------- Steam: Live-Daten (gp-sync bzw. steam.json) und selbst gewaehlte Lieblingsspiele ----------
   function fmtH(h) { return (Math.round(h * 10) / 10).toLocaleString('de-DE') + ' Std'; }
+  var header = function (id) { return 'https://cdn.cloudflare.steamstatic.com/steam/apps/' + id + '/header.jpg'; };
   function gameList(list, key) {
     if (!list || !list.length) return null;
     var g = el('div', 'games'), max = Math.max.apply(null, list.map(function (x) { return x[key] || 0; })) || 1;
     list.forEach(function (x, n) {
-      var a = ext(el('a', 'game'), x.url), im = el('div', 'im'); a.style.setProperty('--i', n);
-      var i = el('img'); i.src = x.image; i.alt = ''; i.loading = 'lazy'; i.onerror = function () { i.style.visibility = 'hidden'; }; im.appendChild(i); a.appendChild(im);
-      var d = el('div', 't'); d.appendChild(el('b', '', x.name)); d.appendChild(el('span', '', fmtH(x[key]) + (key === 'recent' ? ' in 2 Wochen' : ' gesamt')));
-      var bar = el('div', 'rr-bar'), fill = el('i'); fill.style.setProperty('--w', Math.max(4, Math.round((x[key] || 0) / max * 100)) + '%'); bar.appendChild(fill); d.appendChild(bar);
+      var a = ext(el('a', 'game'), x.url || 'https://store.steampowered.com/app/' + x.appid), im = el('div', 'im'); a.style.setProperty('--i', n);
+      var i = el('img'); i.src = x.image || header(x.appid); i.alt = ''; i.loading = 'lazy'; i.onerror = function () { i.style.visibility = 'hidden'; }; im.appendChild(i); a.appendChild(im);
+      var d = el('div', 't'); d.appendChild(el('b', '', x.name));
+      if (key) {
+        d.appendChild(el('span', '', fmtH(x[key] || 0) + (key === 'recent' ? ' in 2 Wochen' : ' gesamt')));
+        var bar = el('div', 'rr-bar'), fill = el('i'); fill.style.setProperty('--w', Math.max(4, Math.round((x[key] || 0) / max * 100)) + '%'); bar.appendChild(fill); d.appendChild(bar);
+      } else if (x.hours) d.appendChild(el('span', '', fmtH(x.hours) + ' gespielt'));
+      else d.appendChild(el('span', '', 'Lieblingsspiel'));
       a.appendChild(d); g.appendChild(a);
     });
     return g;
@@ -467,6 +511,7 @@
     var top = s.top && s.top[0];
     if (top) dl.appendChild(stat('Meistgespielt', top.name, fmtH(top.hours)));
     if (dl.children.length) box.appendChild(dl);
+    if (s.private) box.appendChild(el('p', 'muted val-note', 'Die Spieldetails sind auf Steam nicht öffentlich, deshalb fehlen Spielzeiten.'));
     var w = s.value;
     if (w && w.eur > 0) {
       var rows = (w.top || []).map(function (g) { return [g.name, eur(g.eur)]; });
@@ -474,49 +519,185 @@
       if (w.eurNow && w.eurNow !== w.eur) rows.push(['Zu den Preisen von heute (Angebote)', eur(w.eurNow)]);
       if (w.perHour != null) rows.push(['Pro gespielter Stunde', String(w.perHour.toFixed(2)).replace('.', ',') + ' €']);
       box.appendChild(valueBox(w.eur, w.priced + ' von ' + w.count + ' Spielen mit Preis', rows,
-        'Summe der regulären Shop-Preise von heute (deutscher Steam-Shop). Kostenlose und nicht mehr verkaufte Spiele zählen nicht mit, DLCs und Gegenstände auch nicht. Bezahlt habe ich im Angebot oft weniger; das ist kein Verkaufswert.'));
+        'Summe der regulären Shop-Preise von heute (deutscher Steam-Shop). Kostenlose und nicht mehr verkaufte Spiele zählen nicht mit, DLCs und Gegenstände auch nicht. Bezahlt wurde im Angebot oft weniger; das ist kein Verkaufswert.'));
     }
     return box;
   }
-  function steamEmpty(text) {
-    setPages('stTabs', 'stPages', [{ id: 'over', title: 'Überblick', node: emptyPage('', text, ['Auf Steam ansehen ↗', $('stLink').href]) }]);
+  // favs: [{ appid, name }] (Reihenfolge wie gewaehlt); Spielzeit aus der Bibliothek, wenn bekannt
+  function renderSteam(s, state, favs) {
+    var link = $('stLink'); link.hidden = !(s && s.url); if (s && s.url) link.href = s.url;
+    var hours = {}; ((s && s.library) || []).forEach(function (g) { hours[g.appid] = g.hours; });
+    var favNode = favs && favs.length ? gameList(favs.map(function (f) { return { appid: f.appid, name: f.name, hours: hours[f.appid] }; }), '') : null;
+    var recent = s ? gameList(s.recent, 'recent') : null, top = s ? gameList(s.top, 'hours') : null;
+    var pages = [];
+    if (s && (s.name || recent || top)) pages.push({ id: 'over', title: 'Überblick', node: steamOverview(s) });
+    pages.push({ id: 'favs', title: 'Lieblingsspiele', node: favNode || (view.mine && !view.demo ? emptyPage('Noch keine Lieblingsspiele', 'Wähle deine Lieblingsspiele aus deiner Bibliothek oder aus dem Steam-Shop.', editLink('Lieblingsspiele wählen')) : null), count: favs && favs.length ? favs.length : null });
+    pages.push({ id: 'recent', title: 'Zuletzt gespielt', node: recent }, { id: 'top', title: 'Meistgespielt', node: top });
+    if (!pages.some(function (p) { return p.node; })) {
+      var msg = { none: [view.mine ? 'Verknüpfe dein Steam-Profil, dann erscheinen Spielzeiten und deine meistgespielten Spiele.' : 'Hier ist noch kein Steam-Profil hinterlegt.', editLink('Steam verknüpfen')],
+        error: ['Steam-Daten sind gerade nicht verfügbar.'], loading: ['Steam-Daten werden geladen …'], demo: ['Hier erscheinen die meistgespielten Spiele.'] }[state] || ['Noch keine Steam-Daten.'];
+      pages = [{ id: 'over', title: 'Überblick', node: emptyPage('', msg[0], msg[1]) }];
+    }
+    setPages('stTabs', 'stPages', pages);
+    $('pkSteam').textContent = s && s.totalHours ? nf.format(Math.round(s.totalHours)) + ' Std Spielzeit' : favs && favs[0] ? favs[0].name + (favs.length > 1 ? ' & mehr' : '') : 'Spiele';
+    var now = s && s.recent && s.recent[0], p = $('nowPlaying');
+    p.hidden = !now; p.textContent = '';
+    if (now) { p.appendChild(el('span', 'ping')); p.appendChild(document.createTextNode((view.demo || view.mine ? 'Spiele' : 'Spielt') + ' gerade viel: ')); p.appendChild(el('b', '', now.name)); p.appendChild(document.createTextNode(' (' + fmtH(now.recent) + ' in 2 Wochen)')); }
   }
-  getJson('../steam.json', { cache: 'no-cache' }).then(function (s) {
-    if (s.url) $('stLink').href = s.url;
-    var recent = gameList(s.recent, 'recent'), top = gameList(s.top, 'hours');
-    if (!s.name && !recent && !top) return steamEmpty('Hier erscheinen bald die meistgespielten Spiele. Die Daten werden täglich aktualisiert.');
-    setPages('stTabs', 'stPages', [{ id: 'over', title: 'Überblick', node: steamOverview(s) }, { id: 'recent', title: 'Zuletzt gespielt', node: recent }, { id: 'top', title: 'Meistgespielt', node: top }]);
-    if (s.totalHours) $('pkSteam').textContent = nf.format(Math.round(s.totalHours)) + ' Std Spielzeit';
-    var now = s.recent && s.recent[0];
-    if (now) { var p = $('nowPlaying'); p.textContent = ''; p.appendChild(el('span', 'ping')); p.appendChild(document.createTextNode('Spiele gerade viel: ')); p.appendChild(el('b', '', now.name)); p.appendChild(document.createTextNode(' (' + fmtH(now.recent) + ' in 2 Wochen)')); p.hidden = false; }
-  }).catch(function () { steamEmpty('Steam-Daten sind gerade nicht verfügbar.'); });
 
-  // ---------- Status des Cobblemon Servers ----------
-  function srv(cls, text, short) {
-    var s = $('srvStatus'); s.className = 'srv ' + cls; s.textContent = ''; s.appendChild(el('span', cls === 'up' ? 'ping pulse' : 'ping')); s.appendChild(document.createTextNode(text)); s.hidden = false;
-    $('pkMc').textContent = short || text;
+  // ---------- Minecraft: Server (Cobblemon im Beispiel, sonst der Lieblingsserver des Profils) ----------
+  function srvLine(target, cls, text) {
+    target.className = 'srv ' + cls; target.textContent = ''; target.appendChild(el('span', cls === 'up' ? 'ping pulse' : 'ping')); target.appendChild(document.createTextNode(text)); target.hidden = false;
   }
-  if (Date.now() < START) srv('soon', 'Start am ' + new Date(START).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' Uhr', 'Startet bald');
-  else getJson(DATA_BASE + 'leaderboards.json?t=' + Date.now(), { cache: 'no-store' }).then(function (d) {
-    var s = d.server || {}, stale = Date.now() - new Date(d.updated).getTime() > 45 * 60000;
-    if (stale) srv('soon', 'Status unbekannt', 'Cobblemon Server'); else if (s.up) srv('up', 'Aktiv · ' + s.online + '/' + s.max + ' Spieler online', s.online + ' / ' + s.max + ' online'); else srv('down', 'Gerade offline', 'Server offline');
-    // Ein paar Zahlen vom Server: Tage seit dem Start und Spieler in den Ranglisten
-    var names = {}; (d.boards || []).forEach(function (b) { (b.total || []).forEach(function (e) { if (e && e.name) names[e.name.toLowerCase()] = 1; }); });
-    var dl = $('mcStats'), n = Object.keys(names).length;
-    dl.appendChild(stat('Läuft seit', Math.max(1, Math.floor((Date.now() - START) / 86400000)), '', 0, ' Tagen'));
-    if (n) dl.appendChild(stat('Spieler', n, 'in den Ranglisten'));
-    dl.hidden = false; if (cur === 'mc') countUp(dl);
-  }).catch(function () { $('pkMc').textContent = 'Cobblemon Server'; });
+  // Status des Cobblemon Servers in beliebige Elemente schreiben (Buehne und Startkarte ohne Anmeldung)
+  function cobblemon(line, stats, onShort) {
+    if (Date.now() < START) { srvLine(line, 'soon', 'Start am ' + new Date(START).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' Uhr'); if (onShort) onShort('Startet bald'); return; }
+    getJson(DATA_BASE + 'leaderboards.json?t=' + Date.now(), { cache: 'no-store' }).then(function (d) {
+      var s = d.server || {}, stale = Date.now() - new Date(d.updated).getTime() > 45 * 60000;
+      if (stale) { srvLine(line, 'soon', 'Status unbekannt'); if (onShort) onShort('Cobblemon Server'); }
+      else if (s.up) { srvLine(line, 'up', 'Aktiv · ' + s.online + '/' + s.max + ' Spieler online'); if (onShort) onShort(s.online + ' / ' + s.max + ' online'); }
+      else { srvLine(line, 'down', 'Gerade offline'); if (onShort) onShort('Server offline'); }
+      if (!stats) return;
+      var names = {}; (d.boards || []).forEach(function (b) { (b.total || []).forEach(function (e) { if (e && e.name) names[e.name.toLowerCase()] = 1; }); });
+      var n = Object.keys(names).length; stats.textContent = '';
+      stats.appendChild(stat('Läuft seit', Math.max(1, Math.floor((Date.now() - START) / 86400000)), '', 0, ' Tagen'));
+      if (n) stats.appendChild(stat('Spieler', n, 'in den Ranglisten'));
+      stats.hidden = false; countUp(stats);
+    }).catch(function () { if (onShort) onShort('Cobblemon Server'); });
+  }
+  // srv: { kind: 'cobblemon' } oder { kind: 'fav', address, data, error }
+  function renderServer(srv) {
+    var box = $('server'); box.textContent = '';
+    if (srv && srv.kind === 'cobblemon') {
+      box.appendChild(el('span', 'tag', 'Mein Server')); box.appendChild(el('h3', '', 'Cobblemon Server'));
+      box.appendChild(el('p', 'muted', 'Eigener Minecraft-Server mit Pokémon: Ranglisten, Wochensieger, Nether- und End-Freischaltung. Mitspielen geht über die Whitelist.'));
+      var line = el('p', 'srv'), dl = el('dl', 'stats'); line.hidden = true; dl.hidden = true; box.appendChild(line); box.appendChild(dl);
+      var row = el('div', 'cta-row'), a = el('a', 'btn'), b = el('a', 'btn ghost', 'Für die Whitelist bewerben');
+      a.href = '../cobblemon/'; a.textContent = 'Zur Server-Seite '; a.appendChild(el('span', 'arr', '→')); b.href = '../cobblemon/#bewerben';
+      row.appendChild(a); row.appendChild(b); box.appendChild(row);
+      cobblemon(line, dl, function (t) { $('pkMc').textContent = t; });
+      return;
+    }
+    if (!srv || !srv.address) {
+      if (view.mine && !view.demo) box.appendChild(emptyPage('Lieblingsserver', 'Trag deinen Lieblingsserver ein; sobald er gefunden wird, erscheint hier eine Vorschau mit Status und Spielern.', editLink('Server eintragen')));
+      $('pkMc').textContent = view.mcName || 'Minecraft';
+      box.hidden = !box.children.length; return;
+    }
+    box.hidden = false;
+    var d = srv.data, head = el('div', 'srv-head');
+    if (d && d.icon && /^data:image\/png;base64,/.test(d.icon)) { var ic = el('img', 'srv-icon'); ic.src = d.icon; ic.alt = ''; ic.width = 48; ic.height = 48; head.appendChild(ic); }
+    var t = el('div'); t.appendChild(el('span', 'tag', 'Lieblingsserver')); t.appendChild(el('h3', '', srv.address)); head.appendChild(t); box.appendChild(head);
+    var ln = el('p', 'srv'); box.appendChild(ln);
+    if (!d) { srvLine(ln, 'soon', srv.error === 'not_found' ? 'Server nicht gefunden' : 'Status wird geprüft …'); $('pkMc').textContent = srv.address; return; }
+    if (d.online) srvLine(ln, 'up', 'Online · ' + d.players + '/' + d.max + ' Spieler'); else srvLine(ln, 'down', 'Gerade offline');
+    if (d.motd) box.appendChild(el('p', 'srv-motd', d.motd));
+    var info = [d.version ? 'Version ' + d.version : '', srv.fetched ? 'Stand: ' + when(srv.fetched) : ''].filter(Boolean).join(' · ');
+    if (info) box.appendChild(el('p', 'muted', info));
+    if (d.names && d.names.length) box.appendChild(el('p', 'muted', 'Gerade online: ' + d.names.join(', ')));
+    $('pkMc').textContent = d.online ? d.players + ' / ' + d.max + ' online' : srv.address;
+  }
 
-  // ---------- Mitglieder- und Online-Zahl des Discord-Servers (oeffentliche Einladungs-Info, bei Fehler ausgeblendet) ----------
-  getJson('https://discord.com/api/v10/invites/' + DISCORD_INVITE + '?with_counts=true').then(function (d) {
-    if (!d.approximate_member_count) return;
-    var box = $('dcStats'), on = el('span', 'on'), all = el('span', 'all'), onN = el('b'), allN = el('b');
-    on.appendChild(el('i', 'ping pulse')); on.appendChild(onN); on.appendChild(document.createTextNode(' online'));
-    all.appendChild(allN); all.appendChild(document.createTextNode(' Mitglieder'));
-    box.appendChild(on); box.appendChild(all); box.hidden = false;
-    onN.textContent = nf.format(d.approximate_presence_count || 0); allN.textContent = nf.format(d.approximate_member_count);
-  }).catch(function () {});
+  // ---------- Konten: Karten in der Buehne und die Leiste rechts ----------
+  // accounts: [{ kind, handle, extra, in_sidebar, data }]
+  function accBadge(k) { var b = el('span', 'acc-badge', k.short); b.style.setProperty('--c', k.color); b.setAttribute('aria-hidden', 'true'); return b; }
+  function accActions(a, k, link) {
+    var row = el('div', 'acc-act');
+    if (link) { var l = ext(el('a', 'btn ghost small', 'Öffnen ↗'), link); l.setAttribute('aria-label', k.name + ' öffnen'); row.appendChild(l); }
+    var c = el('button', 'btn ghost small', 'Kopieren'); c.type = 'button'; c.setAttribute('aria-label', k.name + ' kopieren');
+    c.addEventListener('click', function () {
+      (navigator.clipboard ? navigator.clipboard.writeText(a.handle) : Promise.reject()).then(function () { if (FX.toast) FX.toast(k.name + ' kopiert'); c.textContent = 'Kopiert ✓'; setTimeout(function () { c.textContent = 'Kopieren'; }, 1600); }, function () {});
+    });
+    row.appendChild(c);
+    return row;
+  }
+  function renderAccounts(list) {
+    var GA = window.GAccounts, grid = $('accGrid'), bar = $('accBar'), barList = $('accBarList');
+    grid.textContent = ''; barList.textContent = '';
+    list = (list || []).filter(function (a) { return GA && GA.BY[a.kind]; });
+    $('pkAcc').textContent = list.length ? list.length + (list.length === 1 ? ' Konto' : ' Konten') : 'Verknüpfungen';
+    if (!list.length) grid.appendChild(emptyPage('Noch keine Konten verknüpft', view.mine ? 'Verknüpfe Steam, Valorant, Minecraft, Discord, Konsolen und Kanäle. Sie erscheinen hier und in der Leiste.' : 'Hier sind noch keine Konten hinterlegt.', editLink('Konten verknüpfen')));
+    list.forEach(function (a, i) {
+      var k = GA.BY[a.kind], link = GA.link(a, a.data), sum = GA.summary(a, a.data);
+      var card = el('div', 'acc-card'); card.style.setProperty('--c', k.color); card.style.setProperty('--i', Math.min(i, 14));
+      var top = el('div', 'acc-top'); top.appendChild(accBadge(k));
+      var t = el('div', 'acc-t'); t.appendChild(el('b', '', k.name)); t.appendChild(el('span', '', a.handle)); top.appendChild(t); card.appendChild(top);
+      if (sum && sum !== a.handle) card.appendChild(el('p', 'acc-sum', sum));
+      if (a.kind === 'discord' && a.data && a.data.name) card.appendChild(el('p', 'muted', a.data.name));
+      card.appendChild(accActions(a, k, link));
+      grid.appendChild(card);
+      if (a.in_sidebar === false) return;
+      var li = el('li'), row = link ? ext(el('a', 'acc-row'), link) : el('div', 'acc-row');
+      row.style.setProperty('--c', k.color); row.appendChild(accBadge(k));
+      var rt = el('span', 'acc-t'); rt.appendChild(el('b', '', k.name)); rt.appendChild(el('span', '', sum || a.handle)); row.appendChild(rt);
+      if (link) row.appendChild(el('span', 'arr', '↗'));
+      li.appendChild(row); barList.appendChild(li);
+    });
+    bar.hidden = !barList.children.length && !view.mine;
+    $('accBarEmpty').hidden = !!barList.children.length;
+  }
 
+  // ---------- Discord-Abschnitt unter der Buehne (Server-Einladung des Profils, im Beispiel der eigene Server) ----------
+  function renderDiscord(d, demo) {
+    var sec = $('discord'), box = $('dcStats'), link = $('discordLink');
+    box.textContent = ''; box.hidden = true;
+    if (!demo && !(d && d.code)) { sec.hidden = true; return; }
+    sec.hidden = false;
+    $('dcText').textContent = demo
+      ? 'Mit mir zocken, Fragen stellen, Neuigkeiten zum Server: alles läuft über meinen Discord. Hilfe zur Wunschliste gibt es dort ebenfalls.'
+      : (view.mine ? 'Dein Discord-Server' : 'Discord-Server von ' + (view.owner ? view.owner.name : '')) + (d.name ? ': ' + d.name + '.' : '.');
+    link.href = demo ? 'https://discord.gg/' + DISCORD_INVITE : 'https://discord.gg/' + d.code;
+    var fill = function (x) {
+      if (!x || !x.members) return;
+      var on = el('span', 'on'), all = el('span', 'all'), onN = el('b'), allN = el('b');
+      on.appendChild(el('i', 'ping pulse')); on.appendChild(onN); on.appendChild(document.createTextNode(' online'));
+      all.appendChild(allN); all.appendChild(document.createTextNode(' Mitglieder'));
+      box.appendChild(on); box.appendChild(all); box.hidden = false;
+      onN.textContent = nf.format(x.online || 0); allN.textContent = nf.format(x.members);
+    };
+    if (demo) getJson('https://discord.com/api/v10/invites/' + DISCORD_INVITE + '?with_counts=true').then(function (x) { fill({ members: x.approximate_member_count, online: x.approximate_presence_count }); }).catch(function () {});
+    else fill(d);
+  }
+
+  // ---------- Alles zeichnen ----------
+  // v: { demo, mine, owner{name,avatar,color}, tagline, agent{ id, n, p }, val, valState, valSkins, steam, steamState, favs,
+  //      pioneer, mcSkins[{id,name,src,model}], mcActive, mcName, server, accounts, discord }
+  function render(v) {
+    view = v;
+    document.body.classList.toggle('is-demo', !!v.demo);
+    $('meTag').textContent = v.demo ? 'Beispiel' : v.owner ? v.owner.name : 'Gaming';
+    $('meLead').textContent = v.tagline || (v.demo ? 'So sieht ein Gaming-Profil aus: Taktik-Shooter, Fabrikbau und ein eigener Minecraft-Server.' : v.mine ? 'Dein Gaming-Profil. Wähl ein Spiel und schau, wie es gerade läuft.' : 'Wähl ein Spiel und schau, wie es gerade läuft.');
+    setAgent(v.agent);
+    renderValorant(v.val, v.valState, v.valSkins);
+    renderSteam(v.steam, v.steamState, v.favs);
+    pioneer.select(v.pioneer || PIONEERS[0][0]);
+    setMcSkins(v.mcSkins, v.mcActive);
+    renderServer(v.server);
+    renderAccounts(v.accounts);
+    renderDiscord(v.discord, v.demo);
+    var p = panel(cur); if (p) countUp(p);
+  }
+
+  // Beispiel ohne Anmeldung: Erics Daten aus dem Deploy (bisherige Ansicht), abgedunkelt mit "Beispiel"
+  function demo() {
+    var base = { demo: true, mine: false, owner: { name: 'Skeison' }, valState: 'loading', valSkins: 'loading', steamState: 'loading', favs: [], pioneer: 'pionier-gruen',
+      mcSkins: [{ id: 'skeison', name: 'Skeison', src: '../skin/skeison.png' }], mcName: 'Skeison', server: { kind: 'cobblemon' },
+      accounts: [{ kind: 'steam', handle: 'Skeison', extra: {}, data: null }, { kind: 'minecraft', handle: 'Skeison', extra: {} }, { kind: 'discord', handle: 'discord.gg/' + DISCORD_INVITE, extra: {} }] };
+    render(base);
+    Promise.all([
+      getJson('../valorant.json', { cache: 'no-cache' }).catch(function () { return { error: true }; }),
+      getJson('../valorant-skins.json', { cache: 'no-cache' }).catch(function () { return null; }),
+      getJson('../steam.json', { cache: 'no-cache' }).catch(function () { return null; })
+    ]).then(function (r) {
+      var val = r[0], ok = val && !val.setup && val.riotId;
+      base.val = ok ? val : null; base.valState = ok ? 'ok' : val && val.error ? 'error' : 'setup'; base.valSkins = r[1];
+      base.steam = r[2]; base.steamState = r[2] ? 'ok' : 'demo';
+      if (r[2] && r[2].url) base.accounts[0] = { kind: 'steam', handle: r[2].steamId || 'Skeison', extra: {}, data: r[2] };
+      if (ok) base.accounts.unshift({ kind: 'valorant', handle: val.riotId, extra: {}, data: val });
+      if (view.demo) render(base);
+    });
+  }
+
+  var Gaming = window.Gaming = { render: render, demo: demo, cobblemon: cobblemon, show: show, onEdit: null, onMcSkin: null,
+    pioneer: pioneer, get current() { return cur; } };
   fromHash(false);
 })();
