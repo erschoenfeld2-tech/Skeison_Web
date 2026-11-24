@@ -85,6 +85,14 @@
       check: function (s) { s = lastPath(trim(s).replace(/^\/?u\//, '')); return /^[A-Za-z0-9_-]{3,20}$/.test(s) ? s : ''; }, url: function (h) { return 'https://www.reddit.com/user/' + enc(h) + '/'; } },
     { key: 'kick', name: 'Kick', short: 'KI', color: '#53fc18', label: 'Kick-Kanal', placeholder: 'kanalname',
       check: function (s) { s = lastPath(s); return /^[A-Za-z0-9_-]{3,25}$/.test(s) ? s : ''; }, url: function (h) { return 'https://kick.com/' + enc(h); } },
+    // Spotify: Profil-Link (open.spotify.com/user/<id>) oder Benutzer-ID; nur Link, Live-Daten braeuchten eine Spotify-App
+    { key: 'spotify', name: 'Spotify', short: 'SP', color: '#1db954', label: 'Profil-Link oder Benutzer-ID', placeholder: 'https://open.spotify.com/user/…',
+      hint: 'In Spotify: Profil → ⋯ → Teilen → Link kopieren.',
+      check: function (s) {
+        s = trim(s); var m = s.match(/open\.spotify\.com\/(?:intl-[a-z]{2}\/)?user\/([A-Za-z0-9._-]{2,64})/); if (m) return m[1];
+        s = s.replace(/^spotify:user:/, '').replace(/^@/, ''); return /^[A-Za-z0-9._-]{2,64}$/.test(s) ? s : '';
+      },
+      url: function (h) { return 'https://open.spotify.com/user/' + enc(h); } },
     { key: 'snapchat', name: 'Snapchat', short: 'SC', color: '#fffc00', label: 'Snapchat-Name', placeholder: 'name',
       check: function (s) { s = lastPath(s); return /^[A-Za-z][A-Za-z0-9._-]{2,14}$/.test(s) ? s : ''; }, url: function (h) { return 'https://www.snapchat.com/add/' + enc(h); } }
   ];

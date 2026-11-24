@@ -273,7 +273,8 @@
       rank.appendChild(rt); box.appendChild(rank);
     }
     // Spielzeit: eigene Angabe (z. B. von tracker.gg) oder Schaetzung aus den bei HenrikDev gespeicherten Spielen
-    var ph = v.playHours, timeTile = ph ? stat('Spielzeit', Math.round(ph.hours), ph.own ? 'eigene Angabe' : '≈ geschätzt aus ' + nf.format(ph.matches || 0) + ' gespeicherten Spielen', 0, ' Std') : null;
+    // Die Schaetzung kennt nur die bei HenrikDev gespeicherten Spiele und ist deshalb ein Mindestwert
+    var ph = v.playHours, timeTile = ph ? stat(ph.own ? 'Spielzeit' : 'Spielzeit (mind.)', Math.round(ph.hours), ph.own ? 'eigene Angabe' : '≈ aus ' + nf.format(ph.matches || 0) + ' gespeicherten Spielen', 0, ' Std') : null;
     if (timeTile && !s) { var pt = el('dl', 'stats'); pt.appendChild(timeTile); box.appendChild(pt); }
     if (s) {
       var dl = el('dl', 'stats');
@@ -286,6 +287,12 @@
       box.appendChild(el('p', 'muted val-note', 'Aus den letzten ' + s.matches + ' gewerteten Spielen.'));
     }
     if (!r && !s && !ph) box.appendChild(el('p', 'muted', 'Noch keine gewerteten Spiele in dieser Saison.'));
+    // eigenes Profil ohne eigene Angabe: Weg zum Eintragen der genauen Spielzeit (z. B. "Total Playtime" von tracker.gg)
+    if (view.mine && !view.demo && !(ph && ph.own) && Gaming.onEdit) {
+      var hint = el('p', 'muted val-note val-time-hint', 'Riot gibt die Gesamtspielzeit nicht heraus. Die genaue Zahl (z. B. „Total Playtime“ von tracker.gg) kannst du beim Konto eintragen. ');
+      var go = el('button', 'link-btn', 'Genaue Spielzeit eintragen'); go.type = 'button'; go.addEventListener('click', function () { Gaming.onEdit('konten'); });
+      hint.appendChild(go); box.appendChild(hint);
+    }
     return box;
   }
   function valAgents(v) {

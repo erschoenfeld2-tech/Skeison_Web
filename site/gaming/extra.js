@@ -56,7 +56,7 @@
       e.hours += h.hours; if (!h.own) e.own = false; else e.some = true;
     });
     // Hinweis je Spiel: eigene Angabe, geschaetzt oder (bei mehreren Konten gemischt) teils geschaetzt
-    Object.keys(acc).forEach(function (b) { var e = acc[b]; e.how = e.own ? 'eigene Angabe' : e.some ? 'teils geschätzt' : 'geschätzt'; });
+    Object.keys(acc).forEach(function (b) { var e = acc[b]; e.how = e.own ? 'eigene Angabe' : e.some ? 'teils geschätzt' : 'geschätzt, mind.'; });
     r.accGames = Object.keys(acc).map(function (b) { return acc[b]; });
     r.accHours = r.accGames.reduce(function (s, e) { return s + e.hours; }, 0);
     r.valHours = acc.valorant || null;

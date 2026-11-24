@@ -295,7 +295,7 @@
       open(me);
     }, tab);
   }
-  Gaming.onEdit = function () { edit(); };
+  Gaming.onEdit = function (tab) { edit(typeof tab === 'string' ? tab : undefined); };
   // Auswahl auf der Buehne merkt sich das eigene Profil (Steam-Figur, aktiver Minecraft-Skin); nicht in der Vorschau
   var ownLive = function () { return shown && shown.mine && !shown.preview; };
   Gaming.pioneer.onPick = function (id) { if (ownLive()) Api.upsert('gp_profiles', [{ id: me, pioneer: id, updated_at: new Date().toISOString() }]).then(function () { if (shown.profile) shown.profile.pioneer = id; }).catch(function () {}); };
