@@ -31,6 +31,8 @@
           - server/**
           - tools/**
           - supabase/whitelist.sql
+          - supabase/gaming*.sql
+          - supabase/functions/gp-*/**
           - supabase/functions/notify-application/**
 
 "bereich: 3d-druck":

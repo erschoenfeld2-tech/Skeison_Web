@@ -1,0 +1,330 @@
+// Weitere Bereiche des Gaming-Editors (editor.js ruft sie ueber window.EditorExtra auf):
+//   oeffentlich  Oeffentliches Profil (eigener Spruch, Empfehlungen), wer welchen Bereich sieht, Bekannte (Anfragen) und Kreise
+//   reiter       Reihenfolge und Sichtbarkeit der Reiter, Statistik-Kacheln, eigene Reiter (Spiele aus Launchern, Steam-Spiele)
+//                mit eigenen Zahlen und Errungenschaften
+//   account      Skeison Account: Name, Avatar, Farbe, Passwort (gilt auch fuer die Wunschliste)
+(function () {
+  'use strict';
+  var E = window.Editor._, $ = E.$, $$ = E.$$, esc = E.esc, toast = E.toast, busy = E.busy, errText = E.errText;
+  function say(m, cls, t) { m.className = 'msg ' + cls; m.textContent = t; m.hidden = false; }
+  function st() { return E.st; }
+
+  // ---------------------------------------------------------------- Oeffentlich & Bekannte
+  var SECTIONS = [['val', 'Valorant', 'Rang, Statistik, Skins und Lieblingsagent'], ['steam', 'Steam', 'Spielzeiten, Bibliothek und Lieblingsspiele'],
+    ['mc', 'Minecraft', 'Skins und Lieblingsserver'], ['stats', 'Statistik', 'Gesamtspielzeit und Zahlen über alle Spiele'],
+    ['value', 'Wert der Konten', 'geschätzter Wert von Skins und Spielen in Euro']];
+  async function friendsAndKnown() {
+    var r = await Promise.all([
+      Api.get('wl_friendships', 'status=eq.accepted&select=requester,addressee'),
+      Api.get('wl_profiles', 'select=id,name,avatar,color&id=neq.' + st().me),
+      Api.rpc('gp_known_list')
+    ]);
+    var ids = {}; r[0].forEach(function (f) { ids[f.requester === st().me ? f.addressee : f.requester] = 'friend'; });
+    var people = r[1].filter(function (p) { return ids[p.id]; }).map(function (p) { return Object.assign({ rel: 'Freund' }, p); });
+    (r[2] || []).forEach(function (k) { if (k.state === 'known' && !ids[k.id]) people.push({ id: k.id, name: k.name, avatar: k.avatar, color: k.color, rel: 'Bekannt' }); });
+    people.sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
+    return { people: people, known: r[2] || [] };
+  }
+  function av(p) { return '<i class="av" style="--c:' + esc(p.color) + '">' + esc(p.avatar) + '</i>'; }
+
+  function oeffentlich(body) {
+    var S = st(), pub = S.p.public || { enabled: false, tagline: '' }, aud = (S.p.profile && S.p.profile.audience) || {};
+    body.innerHTML =
+      '<form class="gform ecard" id="fPub" novalidate><h3>Öffentliches Profil</h3>' +
+      '<p class="muted">Ein eigenes, abgespecktes Profil für alle mit Skeison Account, die selbst ein öffentliches Profil haben. Nur sie sehen dich in der <b>Ausstellung</b>, und du siehst nur dann die Ausstellung. Dein Freundes-Profil bleibt davon unberührt.</p>' +
+      '<label class="pick"><input type="checkbox" name="enabled"' + (pub.enabled ? ' checked' : '') + '><span>Öffentliches Profil zeigen</span></label>' +
+      '<label>Spruch im öffentlichen Profil<input name="tagline" maxlength="120" value="' + esc(pub.tagline) + '" placeholder="z. B. Suche Leute für Ranked am Abend"></label>' +
+      '<ul class="recs"><li>✓ Spielernamen erscheinen gekürzt (Sk•••#•••). Ungekürzt nur, wenn du es je Konto einschaltest.</li><li>✓ Kein Gesamtwert von Skins und Spielen in Euro.</li><li>✓ Links zu Profilen und IDs fallen weg.</li></ul>' +
+      '<p class="msg" hidden></p><div class="dlg-actions start"><button class="btn" type="submit">Speichern</button></div></form>' +
+      '<form class="gform ecard" id="fAud" novalidate><h3>Wer sieht welchen Bereich?</h3>' +
+      '<p class="muted small">Öffentlich: alle mit öffentlichem Profil, dazu Bekannte und Freunde. Bekannte: Gaming-Bekannte (keine Freunde in der Wunschliste) und Freunde. Kreise legst du unten an. Konten stellst du einzeln unter „Konten“ ein, eigene Reiter unter „Reiter & Statistik“.</p>' +
+      '<div class="aud-list">' + SECTIONS.map(function (s) {
+        return '<label class="aud-row"><span><b>' + esc(s[1]) + '</b><small class="muted">' + esc(s[2]) + '</small></span>' + E.audSel('a_' + s[0], aud[s[0]] || 'friends', 'Wer sieht ' + s[1] + '?') + '</label>'; }).join('') + '</div>' +
+      '<p class="msg warn" data-warn hidden>Empfehlung: Den Wert deiner Konten nicht öffentlich zeigen, sondern höchstens Bekannten oder einem Kreis.</p>' +
+      '<p class="msg" data-m hidden></p><div class="dlg-actions start"><button class="btn" type="submit">Speichern</button></div></form>' +
+      '<section class="ecard"><h3>Bekannte</h3><p class="muted">Bekannte sind keine Freunde in der Wunschliste. Sie sehen, was du für Bekannte freigibst (z. B. den Wert deiner Konten oder mehr Statistiken). Anfragen schickst du auf einem öffentlichen Profil in der Ausstellung („Als Bekannte anfragen“).</p><div class="known-list"><p class="muted">Lädt …</p></div></section>' +
+      '<section class="ecard"><h3>Kreise</h3><p class="muted">Eigene Gruppen nur fürs Gaming-Profil, aus Freunden und Bekannten. Damit teilst du einzelne Konten, Bereiche oder Reiter nur mit dieser Gruppe.</p><div class="circle-list"><p class="muted">Lädt …</p></div>' +
+      '<div class="dlg-actions start"><button type="button" class="btn ghost small" data-new-circle>+ Neuer Kreis</button></div><div class="circle-form"></div></section>';
+
+    // Oeffentliches Profil
+    var fp = $('#fPub', body), dp = E.keepDraft(fp, 'pub', function () { E.show('oeffentlich'); });
+    fp.addEventListener('submit', async function (e) {
+      e.preventDefault(); var m = $('.msg', fp);
+      try {
+        await busy($('button[type="submit"]', fp), function () { return Api.rpc('gp_set_public', { p_enabled: fp.enabled.checked, p_tagline: fp.tagline.value.trim().slice(0, 120) }); });
+        S.p.public = { enabled: fp.enabled.checked, tagline: fp.tagline.value.trim() }; S.changed = true; dp.saved();
+        say(m, 'ok', fp.enabled.checked ? 'Gespeichert. Du erscheinst jetzt in der Ausstellung und kannst sie sehen.' : 'Gespeichert. Dein öffentliches Profil ist aus.');
+      } catch (err) { say(m, 'err', errText(err)); }
+    });
+    // Publikum der Bereiche
+    var fa = $('#fAud', body), da = E.keepDraft(fa, 'aud', function () { E.show('oeffentlich'); });
+    var warn = function () { $('[data-warn]', fa).hidden = fa.a_value.value !== 'public'; };
+    fa.addEventListener('change', warn); warn();
+    fa.addEventListener('submit', async function (e) {
+      e.preventDefault(); var m = $('[data-m]', fa), a = {};
+      SECTIONS.forEach(function (s) { a[s[0]] = fa['a_' + s[0]].value; });
+      try { await busy($('button[type="submit"]', fa), function () { return E.saveProfile({ audience: a }); }); da.saved(); say(m, 'ok', 'Gespeichert. Oben bei „Ansehen als“ prüfst du, wie es für andere aussieht.'); }
+      catch (err) { say(m, 'err', errText(err)); }
+    });
+    E.circles().then(function (cs) {
+      if (!cs.length || !st() || st().tab !== 'oeffentlich') return;
+      $$('select.aud', fa).forEach(function (s) { var n = document.createElement('div'); n.innerHTML = E.audSel(s.name, s.value, s.getAttribute('aria-label')); s.replaceWith(n.firstChild); });
+    });
+
+    // Bekannte und Kreise
+    var kl = $('.known-list', body), cl = $('.circle-list', body), cf = $('.circle-form', body), data = null;
+    function paintKnown() {
+      var k = data.known, rows = k.map(function (x) {
+        var act = x.state === 'received' ? '<button type="button" class="btn small" data-acc="' + x.id + '">Annehmen</button><button type="button" class="link-btn" data-dec="' + x.id + '">Ablehnen</button>'
+          : x.state === 'sent' ? '<span class="muted small">Anfrage gesendet</span><button type="button" class="link-btn" data-rm="' + x.id + '">Zurückziehen</button>'
+          : '<span class="muted small">Bekannt' + (x.friend ? ' · auch Freund' : '') + '</span><button type="button" class="link-btn danger-text" data-rm="' + x.id + '">Entfernen</button>';
+        return '<li>' + av(x) + '<b>' + esc(x.name) + '</b><span class="k-act">' + act + '</span></li>';
+      });
+      kl.innerHTML = rows.length ? '<ul class="people-list">' + rows.join('') + '</ul>' : '<p class="muted">Noch keine Bekannten und keine offenen Anfragen.</p>';
+    }
+    kl.addEventListener('click', async function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      try {
+        if (b.dataset.acc) await busy(b, function () { return Api.rpc('gp_known_answer', { p_user: b.dataset.acc, p_accept: true }); });
+        else if (b.dataset.dec) await busy(b, function () { return Api.rpc('gp_known_answer', { p_user: b.dataset.dec, p_accept: false }); });
+        else if (b.dataset.rm) await busy(b, function () { return Api.rpc('gp_known_remove', { p_user: b.dataset.rm }); });
+        st().changed = true; load();
+      } catch (err) { toast(errText(err)); }
+    });
+    function paintCircles(cs) {
+      cl.innerHTML = cs.length ? '<ul class="people-list">' + cs.map(function (c) {
+        return '<li><span class="c-emo">' + esc(c.emoji) + '</span><b>' + esc(c.name) + '</b><small class="muted">' + c.members.length + (c.members.length === 1 ? ' Mitglied' : ' Mitglieder') + '</small>' +
+          '<span class="k-act"><button type="button" class="link-btn" data-edit="' + c.id + '">Bearbeiten</button><button type="button" class="link-btn danger-text" data-del="' + c.id + '">Löschen</button></span></li>'; }).join('') + '</ul>'
+        : '<p class="muted">Noch keine Kreise.</p>';
+    }
+    function circleForm(c) {
+      var sel = c ? c.members : [];
+      cf.innerHTML = '<form class="gform circle-edit" novalidate><div class="row2"><label>Emoji<input name="emoji" maxlength="8" value="' + esc(c ? c.emoji : '👥') + '"></label><label>Name<input name="name" maxlength="30" required value="' + esc(c ? c.name : '') + '" placeholder="z. B. Ranked-Team"></label></div>' +
+        '<p class="small"><b>Mitglieder</b> <span class="muted">(Freunde und Bekannte)</span></p>' +
+        (data.people.length ? '<div class="pick-list">' + data.people.map(function (p) {
+          return '<label class="pick"><input type="checkbox" name="m" value="' + p.id + '"' + (sel.indexOf(p.id) >= 0 ? ' checked' : '') + '><span>' + av(p) + ' ' + esc(p.name) + ' <small class="muted">' + p.rel + '</small></span></label>'; }).join('') + '</div>'
+          : '<p class="muted">Noch keine Freunde oder Bekannten.</p>') +
+        '<p class="msg" hidden></p><div class="dlg-actions start"><button class="btn small" type="submit">' + (c ? 'Speichern' : 'Kreis anlegen') + '</button><button type="button" class="link-btn" data-cancel>Abbrechen</button></div></form>';
+      var f = $('form', cf);
+      $('[data-cancel]', f).addEventListener('click', function () { cf.textContent = ''; });
+      f.addEventListener('submit', async function (e) {
+        e.preventDefault(); var m = $('.msg', f);
+        if (!f.name.value.trim()) return say(m, 'err', 'Bitte einen Namen eintragen.');
+        try {
+          await busy($('button[type="submit"]', f), function () {
+            return Api.rpc('gp_set_circle', { p_id: c ? c.id : null, p_name: f.name.value.trim().slice(0, 30), p_emoji: f.emoji.value.trim() || '👥', p_members: $$('input[name="m"]:checked', f).map(function (x) { return x.value; }) });
+          });
+          cf.textContent = ''; st().circlesP = null; st().changed = true; toast(c ? 'Kreis gespeichert' : 'Kreis angelegt'); load();
+        } catch (err) { say(m, 'err', errText(err)); }
+      });
+      f.name.focus();
+    }
+    var circleData = [];
+    cl.addEventListener('click', async function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.edit) circleForm(circleData.filter(function (c) { return c.id === b.dataset.edit; })[0]);
+      else if (b.dataset.del) {
+        if (!confirm('Kreis löschen? Was nur für diesen Kreis freigegeben war, sieht dann niemand mehr außer dir.')) return;
+        try { await busy(b, function () { return Api.remove('gp_circles', 'id=eq.' + b.dataset.del); }); st().circlesP = null; st().changed = true; load(); }
+        catch (err) { toast(errText(err)); }
+      }
+    });
+    $('[data-new-circle]', body).addEventListener('click', function () { if (data) circleForm(null); });
+    async function load() {
+      try {
+        var r = await Promise.all([friendsAndKnown(), Api.get('gp_circles', 'select=id,name,emoji&order=created_at'), Api.get('gp_circle_members', 'select=circle,member')]);
+        if (!st() || st().tab !== 'oeffentlich') return;
+        data = r[0];
+        circleData = (r[1] || []).map(function (c) { return Object.assign({}, c, { members: (r[2] || []).filter(function (m) { return m.circle === c.id; }).map(function (m) { return m.member; }) }); });
+        paintKnown(); paintCircles(circleData);
+      } catch (err) { kl.innerHTML = '<p class="msg err">' + esc(errText(err)) + '</p>'; cl.textContent = ''; }
+    }
+    load();
+  }
+
+  // ---------------------------------------------------------------- Reiter & Statistik
+  var BUILTIN = { val: 'Valorant', steam: 'Steam', mc: 'Minecraft', stats: 'Statistik', team: 'Zusammen spielen' };
+  var PLATFORMS = ['Epic Games', 'Battle.net', 'EA App', 'Ubisoft Connect', 'Riot Client', 'HoYoPlay', 'GOG Galaxy', 'Rockstar Launcher', 'Xbox', 'PlayStation', 'Nintendo Switch', 'Mobil', 'Steam', 'Sonstiges'];
+  function layoutOf(S) { var l = (S.p.profile && S.p.profile.layout) || {}; return { tabs: (l.tabs || []).slice(), hidden: (l.hidden || []).slice(), stats: l.stats ? l.stats.slice() : null }; }
+  function orderOf(S, lay) {
+    var all = ['val', 'steam', 'mc', 'stats'].concat((S.p.custom || []).map(function (g) { return 'c-' + g.id; })).concat(['team']);
+    var order = lay.tabs.filter(function (k) { return all.indexOf(k) >= 0; });
+    all.forEach(function (k) { if (order.indexOf(k) >= 0) return; var t = order.indexOf('team'); if (k !== 'team' && t >= 0) order.splice(t, 0, k); else order.push(k); });
+    return order;
+  }
+  function reiter(body) {
+    var S = st(), lay = layoutOf(S), restored = E.drafts().layout;
+    if (restored && restored.tabs) lay = restored;
+    var saver = E.autosaver('layout', function (d) { return E.ensureProfileOf(S).then(function () { return Api.upsert('gp_profiles', [{ id: S.me, layout: d, updated_at: new Date().toISOString() }]); }); },
+      function (d) { if (S.p.profile) S.p.profile.layout = d; S.changed = true; });
+    if (restored) saver.set(JSON.parse(JSON.stringify(lay)));
+    var nameOf = function (k) { if (BUILTIN[k]) return BUILTIN[k]; var g = (S.p.custom || []).filter(function (x) { return 'c-' + x.id === k; })[0]; return g ? g.name : k; };
+    body.innerHTML = '<section class="ecard"><h3>Reiter der Bühne</h3><p class="muted">Reihenfolge ändern und Reiter aus- oder einblenden. Was andere sehen dürfen, regelt zusätzlich „Wer sieht das?“. Speichert sich selbst.</p><ol class="tab-order"></ol></section>' +
+      '<section class="ecard"><h3>Statistik-Kacheln</h3><p class="muted">Welche Zahlen der Reiter „Statistik“ zeigt (nur Kacheln mit Daten erscheinen).</p><div class="pick-list stat-pick"></div></section>' +
+      '<section class="ecard"><h3>Eigene Reiter</h3><p class="muted">Für Spiele, die es nur in Launchern gibt (Epic, Battle.net, HoYoPlay, Konsole …), oder für ein einzelnes Steam-Spiel mit Errungenschaften. Spielzeit, eigene Zahlen und Errungenschaften trägst du selbst ein; bei Steam-Spielen kommen Spielzeit und Errungenschaften live von Steam.</p>' +
+      '<ul class="people-list custom-list"></ul><div class="dlg-actions start"><button type="button" class="btn ghost small" data-new>+ Neuer Reiter</button></div><div class="custom-form"></div></section>';
+    var ol = $('.tab-order', body), sp = $('.stat-pick', body);
+    function changed() { saver.set(JSON.parse(JSON.stringify(lay))); }
+    function paintOrder() {
+      var order = orderOf(S, lay);
+      ol.innerHTML = order.map(function (k, i) {
+        var on = lay.hidden.indexOf(k) < 0;
+        return '<li data-k="' + esc(k) + '"><label class="pick small"><input type="checkbox"' + (on ? ' checked' : '') + ' data-vis><span>' + esc(nameOf(k)) + '</span></label>' +
+          '<span class="fav-act"><button type="button" class="link-btn" data-up aria-label="Nach oben"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="link-btn" data-down aria-label="Nach unten"' + (i < order.length - 1 ? '' : ' disabled') + '>↓</button></span></li>'; }).join('');
+    }
+    ol.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      var order = orderOf(S, lay), k = b.closest('li').dataset.k, i = order.indexOf(k), j = b.hasAttribute('data-up') ? i - 1 : i + 1;
+      if (j < 0 || j >= order.length) return;
+      order.splice(j, 0, order.splice(i, 1)[0]); lay.tabs = order; paintOrder(); changed();
+    });
+    ol.addEventListener('change', function (e) {
+      if (!e.target.hasAttribute('data-vis')) return;
+      var k = e.target.closest('li').dataset.k;
+      lay.hidden = lay.hidden.filter(function (x) { return x !== k; }); if (!e.target.checked) lay.hidden.push(k);
+      if (orderOf(S, lay).every(function (x) { return lay.hidden.indexOf(x) >= 0; })) { e.target.checked = true; lay.hidden = lay.hidden.filter(function (x) { return x !== k; }); toast('Mindestens ein Reiter bleibt sichtbar.'); return; }
+      changed();
+    });
+    var KEYS = window.Gaming.STAT_KEYS || [];
+    sp.innerHTML = KEYS.map(function (s) { return '<label class="pick"><input type="checkbox" value="' + s[0] + '"' + (!lay.stats || lay.stats.indexOf(s[0]) >= 0 ? ' checked' : '') + '><span>' + esc(s[1]) + '</span></label>'; }).join('');
+    sp.addEventListener('change', function () {
+      var on = $$('input:checked', sp).map(function (x) { return x.value; });
+      lay.stats = on.length === KEYS.length ? null : on; changed();
+    });
+    paintOrder();
+    // eigene Reiter
+    var cl = $('.custom-list', body), cf = $('.custom-form', body);
+    function paintList() {
+      var list = S.p.custom || [];
+      cl.innerHTML = list.length ? list.map(function (g) {
+        return '<li><span class="c-emo">🎮</span><b>' + esc(g.name) + '</b><small class="muted">' + esc([g.platform, g.appid ? 'Steam ' + g.appid : '', g.hours != null ? String(g.hours).replace('.', ',') + ' Std' : ''].filter(Boolean).join(' · ')) + '</small>' +
+          '<span class="k-act"><button type="button" class="link-btn" data-edit="' + g.id + '">Bearbeiten</button><button type="button" class="link-btn danger-text" data-del="' + g.id + '">Löschen</button></span></li>'; }).join('')
+        : '<li class="muted">Noch keine eigenen Reiter.</li>';
+    }
+    cl.addEventListener('click', async function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.edit) gameForm((S.p.custom || []).filter(function (g) { return g.id === b.dataset.edit; })[0]);
+      else if (b.dataset.del) {
+        if (!confirm('Diesen Reiter mit allen Zahlen und Errungenschaften löschen?')) return;
+        try {
+          await busy(b, function () { return Api.remove('gp_custom_games', 'id=eq.' + b.dataset.del); });
+          S.p.custom = S.p.custom.filter(function (g) { return g.id !== b.dataset.del; }); S.changed = true;
+          lay.tabs = lay.tabs.filter(function (k) { return k !== 'c-' + b.dataset.del; }); lay.hidden = lay.hidden.filter(function (k) { return k !== 'c-' + b.dataset.del; }); changed();
+          paintList(); paintOrder(); cf.textContent = '';
+        } catch (err) { toast(errText(err)); }
+      }
+    });
+    $('[data-new]', body).addEventListener('click', function () { gameForm(null); });
+    function gameForm(g) {
+      g = g || { name: '', platform: '', image: '', appid: null, hours: null, stats: [], achievements: [], audience: 'friends' };
+      var stats = (g.stats || []).slice(), achs = (g.achievements || []).slice();
+      cf.innerHTML = '<form class="gform custom-edit" novalidate><h4>' + (g.id ? 'Reiter bearbeiten' : 'Neuer Reiter') + '</h4>' +
+        '<div class="row2"><label>Spiel<input name="name" maxlength="60" required value="' + esc(g.name) + '" placeholder="z. B. Fortnite, Genshin Impact"></label>' +
+        '<label>Plattform<input name="platform" maxlength="30" list="gpPlatforms" value="' + esc(g.platform) + '" placeholder="z. B. Epic Games"></label></div>' +
+        '<datalist id="gpPlatforms">' + PLATFORMS.map(function (p) { return '<option value="' + esc(p) + '">'; }).join('') + '</datalist>' +
+        '<div class="row2"><label>Spielzeit in Stunden<input name="hours" inputmode="decimal" value="' + (g.hours != null ? esc(String(g.hours).replace('.', ',')) : '') + '" placeholder="z. B. 320"></label>' +
+        '<label class="aud-l">Wer sieht das?' + E.audSel('audience', g.audience || 'friends') + '</label></div>' +
+        '<label>Steam-Spiel (optional) <small class="muted">Spielzeit und Errungenschaften kommen dann von Steam</small><span class="fav-add"><input type="search" data-q placeholder="Im Steam-Shop suchen" value=""><button type="button" class="btn ghost small" data-find>Suchen</button></span></label>' +
+        '<p class="small" data-app>' + (g.appid ? 'Verknüpft mit Steam-Spiel <b>' + g.appid + '</b> <button type="button" class="link-btn" data-unapp>lösen</button>' : '<span class="muted">Kein Steam-Spiel verknüpft.</span>') + '</p><ul class="fav-results" data-res></ul>' +
+        '<label>Bild (Link, optional)<input name="image" maxlength="300" value="' + esc(g.image) + '" placeholder="https://… (Cover oder Figur)"></label>' +
+        '<fieldset class="kv"><legend>Eigene Zahlen <small class="muted">z. B. Rang: Diamant, Siege: 120</small></legend><div data-stats></div><button type="button" class="link-btn" data-addstat>+ Zahl</button></fieldset>' +
+        '<fieldset class="kv"><legend>Errungenschaften <small class="muted">' + (g.appid ? 'bei Steam-Spielen kommen sie live von Steam; eigene nur ohne Steam-Daten' : 'eigene Ziele und Erfolge') + '</small></legend><div data-achs></div><button type="button" class="link-btn" data-addach>+ Errungenschaft</button></fieldset>' +
+        '<p class="msg" hidden></p><div class="dlg-actions start"><button class="btn" type="submit">' + (g.id ? 'Speichern' : 'Reiter anlegen') + '</button><button type="button" class="link-btn" data-cancel>Abbrechen</button></div></form>';
+      var f = $('form', cf), appid = g.appid || null;
+      E.circles().then(function () { var s = f.audience, n = document.createElement('div'); n.innerHTML = E.audSel('audience', s.value); s.replaceWith(n.firstChild); });
+      function paintKV() {
+        $('[data-stats]', f).innerHTML = stats.map(function (s, i) { return '<div class="kv-row" data-i="' + i + '"><input data-f="l" maxlength="30" placeholder="Bezeichnung" value="' + esc(s.l) + '"><input data-f="v" maxlength="40" placeholder="Wert" value="' + esc(s.v) + '"><button type="button" class="link-btn danger-text" data-rmstat="' + i + '" aria-label="Entfernen">✕</button></div>'; }).join('');
+        $('[data-achs]', f).innerHTML = achs.map(function (a, i) {
+          return '<div class="kv-row ach-row" data-i="' + i + '"><label class="pick small"><input type="checkbox" data-f="done"' + (a.done ? ' checked' : '') + '><span>geschafft</span></label><input data-f="n" maxlength="80" placeholder="Name" value="' + esc(a.n) + '">' +
+            '<input data-f="d" maxlength="140" placeholder="Beschreibung (optional)" value="' + esc(a.d || '') + '"><input data-f="at" type="date" value="' + esc(a.at || '') + '" aria-label="Datum"><button type="button" class="link-btn danger-text" data-rmach="' + i + '" aria-label="Entfernen">✕</button></div>'; }).join('');
+      }
+      function readKV() {
+        $$('[data-stats] .kv-row', f).forEach(function (r) { var i = +r.dataset.i; stats[i] = { l: $('[data-f="l"]', r).value.trim(), v: $('[data-f="v"]', r).value.trim() }; });
+        $$('[data-achs] .kv-row', f).forEach(function (r) { var i = +r.dataset.i; achs[i] = { n: $('[data-f="n"]', r).value.trim(), d: $('[data-f="d"]', r).value.trim(), done: $('[data-f="done"]', r).checked, at: $('[data-f="at"]', r).value }; });
+      }
+      paintKV();
+      f.addEventListener('click', async function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        if (b.hasAttribute('data-cancel')) { cf.textContent = ''; return; }
+        if (b.hasAttribute('data-addstat')) { readKV(); if (stats.length >= 24) return toast('Höchstens 24 Zahlen.'); stats.push({ l: '', v: '' }); paintKV(); return; }
+        if (b.hasAttribute('data-addach')) { readKV(); if (achs.length >= 150) return toast('Höchstens 150 Errungenschaften.'); achs.push({ n: '', d: '', done: false, at: '' }); paintKV(); return; }
+        if (b.dataset.rmstat != null) { readKV(); stats.splice(+b.dataset.rmstat, 1); paintKV(); return; }
+        if (b.dataset.rmach != null) { readKV(); achs.splice(+b.dataset.rmach, 1); paintKV(); return; }
+        if (b.hasAttribute('data-unapp')) { appid = null; $('[data-app]', f).innerHTML = '<span class="muted">Kein Steam-Spiel verknüpft.</span>'; return; }
+        if (b.hasAttribute('data-find')) {
+          var q = $('[data-q]', f).value.trim() || f.name.value.trim(); if (q.length < 2) return;
+          try {
+            var r = await busy(b, function () { return Api.fn('gp-sync', { action: 'steam-search', q: q }); });
+            $('[data-res]', f).innerHTML = ((r && r.items) || []).slice(0, 6).map(function (x) {
+              return '<li><img src="https://cdn.cloudflare.steamstatic.com/steam/apps/' + x.appid + '/capsule_184x69.jpg" alt="" loading="lazy"><b>' + esc(x.name) + '</b><button type="button" class="btn small" data-pick="' + x.appid + '" data-name="' + esc(x.name) + '">Wählen</button></li>'; }).join('') || '<li class="muted">Nichts gefunden.</li>';
+          } catch (err) { toast(errText(err)); }
+          return;
+        }
+        if (b.dataset.pick) {
+          appid = +b.dataset.pick; if (!f.name.value.trim()) f.name.value = b.dataset.name; if (!f.platform.value.trim()) f.platform.value = 'Steam';
+          $('[data-app]', f).innerHTML = 'Verknüpft mit <b>' + esc(b.dataset.name) + '</b> (' + appid + ') <button type="button" class="link-btn" data-unapp>lösen</button>';
+          $('[data-res]', f).textContent = '';
+        }
+      });
+      f.addEventListener('submit', async function (e) {
+        e.preventDefault(); readKV();
+        var m = $('.msg', f), name = f.name.value.trim(), h = f.hours.value.trim().replace(',', '.'), img = f.image.value.trim();
+        if (!name) return say(m, 'err', 'Bitte den Namen des Spiels eintragen.');
+        if (h && !(+h >= 0 && +h < 1e6)) return say(m, 'err', 'Die Spielzeit bitte als Zahl in Stunden.');
+        if (img && !/^https:\/\/\S+$/.test(img)) return say(m, 'err', 'Das Bild bitte als https-Link.');
+        var row = { owner: S.me, name: name.slice(0, 60), platform: f.platform.value.trim().slice(0, 30), image: img.slice(0, 300), appid: appid, hours: h ? Math.round(+h * 10) / 10 : null,
+          stats: stats.filter(function (s) { return s.l; }).slice(0, 24), achievements: achs.filter(function (a) { return a.n; }).slice(0, 150).map(function (a) { return { n: a.n, d: a.d, done: a.done, at: a.done ? a.at : '' }; }),
+          audience: f.audience.value, sort: g.id ? g.sort || 0 : (S.p.custom || []).length };
+        try {
+          var rows = await busy($('button[type="submit"]', f), async function () {
+            await E.ensureProfile();
+            return g.id ? Api.update('gp_custom_games', 'id=eq.' + g.id, row) : Api.insert('gp_custom_games', [row]);
+          });
+          var saved = rows && rows[0];
+          if (saved) S.p.custom = (S.p.custom || []).filter(function (x) { return x.id !== saved.id; }).concat([saved]).sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
+          S.changed = true; cf.textContent = ''; paintList(); paintOrder(); toast(g.id ? 'Reiter gespeichert' : 'Reiter angelegt');
+        } catch (err) { say(m, 'err', /check|violates/.test(String(err.message)) ? 'Ein Eintrag ist zu lang oder ungültig.' : errText(err)); }
+      });
+      f.name.focus();
+    }
+    paintList();
+  }
+
+  // ---------------------------------------------------------------- Skeison Account
+  var COLORS = ['#ffcb05', '#ff6b6b', '#ff9f43', '#2ecc71', '#1abc9c', '#5b85ff', '#a55eea', '#ff5fa2', '#8395a7', '#e1b12c'];
+  function account(body) {
+    var S = st(), o = S.p.owner || {}, email = (Api.user && Api.user.email) || '';
+    body.innerHTML = '<form class="gform ecard" id="fAcc" novalidate><h3>Skeison Account</h3><p class="muted">Gilt für alle Skeison-Seiten (Gaming-Profil und Wunschliste). Geburtstag, Größen und „Über mich“ pflegst du im <a href="../wunschliste/?seite=profil">Profil der Wunschliste</a>.</p>' +
+      '<div class="row2"><label>Name<input name="name" maxlength="24" required value="' + esc(o.name) + '"></label><label>Avatar (Emoji)<input name="avatar" maxlength="8" value="' + esc(o.avatar) + '"></label></div>' +
+      '<fieldset class="colors"><legend>Farbe</legend>' + COLORS.concat(COLORS.indexOf(o.color) < 0 && o.color ? [o.color] : []).map(function (c) {
+        return '<label class="color-dot" style="--c:' + c + '"><input type="radio" name="color" value="' + c + '"' + (c === o.color ? ' checked' : '') + '><span aria-label="' + c + '"></span></label>'; }).join('') + '</fieldset>' +
+      '<p class="muted small">E-Mail: ' + esc(email) + '</p><p class="msg" hidden></p><div class="dlg-actions start"><button class="btn" type="submit">Speichern</button></div></form>' +
+      '<form class="gform ecard" id="fPw" novalidate><h3>Passwort ändern</h3><label>Neues Passwort <small class="muted">mindestens 8 Zeichen</small><input name="pw" type="password" autocomplete="new-password" minlength="8" maxlength="72"></label>' +
+      '<label>Wiederholen<input name="pw2" type="password" autocomplete="new-password" minlength="8" maxlength="72"></label><p class="msg" hidden></p><div class="dlg-actions start"><button class="btn" type="submit">Passwort speichern</button></div></form>';
+    var f = $('#fAcc', body), d = E.keepDraft(f, 'account', function () { E.show('account'); });
+    f.addEventListener('submit', async function (e) {
+      e.preventDefault(); var m = $('.msg', f), name = f.name.value.trim(), avatar = f.avatar.value.trim(), color = (f.querySelector('input[name="color"]:checked') || {}).value || o.color;
+      if (name.length < 2 || name.length > 24 || /#/.test(name)) return say(m, 'err', 'Der Name braucht 2 bis 24 Zeichen, ohne #.');
+      if (!avatar) return say(m, 'err', 'Bitte ein Emoji als Avatar eintragen.');
+      try {
+        await busy($('button[type="submit"]', f), function () { return Api.update('wl_profiles', 'id=eq.' + S.me, { name: name, avatar: avatar, color: color }); });
+        S.p.owner = Object.assign({}, o, { name: name, avatar: avatar, color: color }); S.changed = true; d.saved(); say(m, 'ok', 'Gespeichert.');
+      } catch (err) { say(m, 'err', errText(err)); }
+    });
+    var pf = $('#fPw', body);
+    pf.addEventListener('submit', async function (e) {
+      e.preventDefault(); var m = $('.msg', pf), pw = pf.pw.value;
+      if (pw.length < 8) return say(m, 'err', 'Mindestens 8 Zeichen.');
+      if (pw !== pf.pw2.value) return say(m, 'err', 'Die Passwörter stimmen nicht überein.');
+      try {
+        var r = await busy($('button[type="submit"]', pf), function () { return Api.fn('wl-account', { action: 'set-password', password: pw }); });
+        if (r && r.error) throw Object.assign(new Error(r.error), { code: r.error });
+        // Supabase beendet beim Passwortwechsel alle Sitzungen: still mit dem neuen Passwort neu anmelden (wie in der Wunschliste)
+        try { await Api.signIn(email, pw, true); } catch (x) { /* api.js meldet ab, sobald die Sitzung gebraucht wird */ }
+        pf.reset(); say(m, 'ok', 'Passwort geändert ✓');
+      } catch (err) { say(m, 'err', errText(err)); }
+    });
+  }
+
+  window.EditorExtra = { oeffentlich: oeffentlich, reiter: reiter, account: account };
+})();
