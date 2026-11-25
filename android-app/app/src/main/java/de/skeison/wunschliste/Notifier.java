@@ -38,10 +38,11 @@ import java.util.concurrent.TimeUnit;
  *  - Anlass: 7 Tage vorher, am Vortag und am Tag selbst; alle Listen desselben Datums in EINER Nachricht
  *  - Zu besorgen: 14 und 3 Tage vorher, solange reservierte Geschenke noch nicht gekauft sind
  *  - Geschenke ohne Datum: hoechstens einmal pro Woche
+ *  - Aktionstage (Black Friday …): am Tag selbst, wie viele Wuensche der Freunde reduziert sind
  * Nachts (21 bis 8 Uhr) wird nichts gezeigt. Jede Stufe erscheint nur einmal.
  */
 final class Notifier {
-    static final String CH_EVENTS = "anlaesse", CH_BUY = "besorgen";
+    static final String CH_EVENTS = "anlaesse", CH_BUY = "besorgen", CH_DEALS = "angebote";
     private static final String PREFS = "erinnerungen", K_SNAP = "snapshot", K_SENT = "sent", K_USER = "user";
 
     private Notifier() { }
@@ -68,8 +69,11 @@ final class Notifier {
         ev.setDescription("Erinnerungen, wenn Listen deiner Freunde bald ihren Anlass haben (z. B. Weihnachten oder ein Geburtstag)");
         NotificationChannel buy = new NotificationChannel(CH_BUY, "Zu besorgen", NotificationManager.IMPORTANCE_DEFAULT);
         buy.setDescription("Erinnerungen an reservierte Geschenke, die du noch kaufen musst");
+        NotificationChannel deals = new NotificationChannel(CH_DEALS, "Angebote", NotificationManager.IMPORTANCE_DEFAULT);
+        deals.setDescription("An Aktionstagen wie Black Friday: wie viele Wünsche deiner Freunde gerade reduziert sind");
         nm.createNotificationChannel(ev);
         nm.createNotificationChannel(buy);
+        nm.createNotificationChannel(deals);
     }
 
     /** Regelmaessige Pruefung (alle 3 Stunden) und auf Wunsch eine baldige, z. B. nach neuen Daten. */
@@ -120,6 +124,16 @@ final class Notifier {
                 // Wurde gerade an den Anlass erinnert, stehen die offenen Geschenke schon darin
                 if (!sent.contains(key) && (posted || postBuy(c, nm, g, d))) sent.add(key);
             }
+        }
+        // Aktionstage (Black Friday, Cyber Monday …): einmal am Tag selbst. Mit Zahlen (exact), sobald die Webseite sie
+        // geliefert hat, sonst ab 10 Uhr mit einem allgemeinen Text.
+        JSONArray deals = snap.optJSONArray("deals");
+        for (int i = 0; deals != null && i < deals.length(); i++) {
+            JSONObject dl = deals.optJSONObject(i);
+            if (dl == null || !today.toString().equals(dl.optString("date"))) continue;
+            String key = "deal:" + today + ":0";
+            if (sent.contains(key) || (!dl.optBoolean("exact") && hour < 10 && !BuildConfig.DEBUG)) continue;
+            if (postDeal(c, nm, dl)) sent.add(key);
         }
         int undated = snap.optInt("undated");
         String week = "buy:none:" + today.get(IsoFields.WEEK_BASED_YEAR) + "-" + today.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
@@ -186,6 +200,12 @@ final class Notifier {
         String text = "Ohne festen Termin. Schau in deine Einkaufsliste, damit nichts liegen bleibt.";
         return post(c, nm, CH_BUY, "buy-none".hashCode(), null, title, text, new NotificationCompat.BigTextStyle().bigText(text),
                 MainActivity.HOME + "?seite=geschenke");
+    }
+
+    private static boolean postDeal(Context c, NotificationManagerCompat nm, JSONObject dl) {
+        String title = dl.optString("title"), text = dl.optString("text");
+        return post(c, nm, CH_DEALS, ("deal" + dl.optString("date")).hashCode(), null, title, text,
+                new NotificationCompat.BigTextStyle().bigText(text), MainActivity.HOME + "?seite=angebote");
     }
 
     private static boolean post(Context c, NotificationManagerCompat nm, String channel, int id, JSONObject g, String title, String text,
