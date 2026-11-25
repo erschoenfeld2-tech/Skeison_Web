@@ -290,7 +290,7 @@
     // eigenes Profil ohne eigene Angabe: Weg zum Eintragen der genauen Spielzeit (z. B. "Total Playtime" von tracker.gg)
     if (view.mine && !view.demo && !(ph && ph.own) && Gaming.onEdit) {
       var hint = el('p', 'muted val-note val-time-hint', 'Riot gibt die Gesamtspielzeit nicht heraus. Die genaue Zahl (z. B. „Total Playtime“ von tracker.gg) kannst du beim Konto eintragen. ');
-      var go = el('button', 'link-btn', 'Genaue Spielzeit eintragen'); go.type = 'button'; go.addEventListener('click', function () { Gaming.onEdit('konten'); });
+      var go = el('button', 'link-btn', 'Genaue Spielzeit eintragen'); go.type = 'button'; go.addEventListener('click', function () { Gaming.onEdit('konten', 'valorant'); });
       hint.appendChild(go); box.appendChild(hint);
     }
     return box;

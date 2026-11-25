@@ -295,7 +295,17 @@
       open(me);
     }, tab);
   }
-  Gaming.onEdit = function (tab) { edit(typeof tab === 'string' ? tab : undefined); };
+  // tab: Bereich des Editors; hoursOf: Konto-Art, deren leeres Spielzeit-Feld gleich den Fokus bekommt (z. B. 'valorant')
+  Gaming.onEdit = function (tab, hoursOf) {
+    var p = edit(typeof tab === 'string' ? tab : undefined);
+    if (hoursOf) Promise.resolve(p).then(function () {
+      setTimeout(function () {
+        var all = Array.prototype.slice.call(document.querySelectorAll('#gdlg form[data-kind^="' + hoursOf + '"] input[name="hours"]'));
+        var f = all.filter(function (x) { return !x.value; })[0] || all[0];
+        if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); }
+      }, 60);
+    });
+  };
   // Auswahl auf der Buehne merkt sich das eigene Profil (Steam-Figur, aktiver Minecraft-Skin); nicht in der Vorschau
   var ownLive = function () { return shown && shown.mine && !shown.preview; };
   Gaming.pioneer.onPick = function (id) { if (ownLive()) Api.upsert('gp_profiles', [{ id: me, pioneer: id, updated_at: new Date().toISOString() }]).then(function () { if (shown.profile) shown.profile.pioneer = id; }).catch(function () {}); };
