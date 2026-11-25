@@ -121,6 +121,7 @@ body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
 /* Gaming-Buehne: Einflug der Figur und der Zahlen laeuft zu Ende (Laufschrift und Schweben bleiben angehalten) */
 :is(.fx-idle, .fx-still) .panel.on :is(.fig img, .fig .skin, .fig-name, .info-head, .subtabs, .pages, .page *, .skin-card, .hero-card.in, .xbars li) { animation-play-state: running !important; }
 :is(.fx-idle, .fx-still) .showcase .sc-card { animation-play-state: running !important; }
+:is(.fx-idle, .fx-still) .pm-list { animation-play-state: running !important; }
 /* 3D-Druck: Einblenden bei Zustandswechsel, Foto-Kacheln, Vorschau (Scanlinie und Atmen bleiben angehalten) */
 :is(.fx-idle, .fx-still) :is(.s3d-in, .thumbs li, #viewer canvas, .adv[open] .adv-body, .rec[open] dl) { animation-play-state: running !important; }
 

@@ -126,17 +126,26 @@
   function bundleSkins(c, b) { return (b && b.s || []).map(function (id) { return c.byId[id]; }).filter(Boolean); }
   function price(s) { var p = PREISE[s.p]; return p ? p[s.m ? 1 : 0] : 0; }
   // Auswahl (gp_val_items) -> Format von valorant-skins.json: { skins: [...], value: {...} }
+  // Bundle eines Skins fuer die Sortierung "Nach Bundle": zuerst ein selbst gewaehltes Bundle bzw. ein Battlepass,
+  // sonst das erste Bundle des Katalogs, in dem der Skin verkauft wurde (einzeln gewaehlte Skins)
+  function bundleOf(c) {
+    if (c.bundleOf) return c.bundleOf;
+    var m = {}; c.bundles.forEach(function (b) { b.s.forEach(function (id) { if (!m[id]) m[id] = b; }); });
+    return (c.bundleOf = m);
+  }
   function resolve(c, items) {
-    var seen = {}, skins = [], fromPass = {}, passes = [];
+    var seen = {}, skins = [], fromPass = {}, passes = [], inBundle = {};
     var add = function (s) { if (!s || seen[s.id]) return; seen[s.id] = 1; skins.push(s); };
     (items || []).forEach(function (x) {
       if (x.kind === 'skin') add(c.byId[x.item]);
       else if (x.kind === 'bundle' && c.bundleById[x.item]) {
         var b = c.bundleById[x.item];
         if (b.pass) { passes.push(b); b.s.forEach(function (id) { fromPass[id] = 1; }); }
+        b.s.forEach(function (id) { if (!inBundle[id]) inBundle[id] = b; });
         bundleSkins(c, b).forEach(add);
       }
     });
+    var cat = bundleOf(c);
     skins.sort(function (a, b) { return b.r - a.r || a.w.localeCompare(b.w, c.lang) || a.n.localeCompare(b.n, c.lang); });
     var byTier = {}, vp = 0, priced = 0, unpriced = 0;
     skins.forEach(function (s) {
@@ -146,7 +155,12 @@
     });
     if (passes.length) { var pv = passes.reduce(function (a, p) { return a + p.vp; }, 0); vp += pv; byTier.__pass = { tier: 'Battlepass', color: '', count: passes.length, vp: pv }; }
     return {
-      skins: skins.map(function (s) { return { name: s.n, weapon: s.wl || s.w, group: s.w, tier: fromPass[s.id] ? 'Battlepass' : s.t, color: s.c, image: s.i, vp: fromPass[s.id] ? 0 : price(s) }; }),
+      // rank: Seltenheit (Ultra 4 … Select 0, Battlepass -1); bundle/bundleImg: zugehoeriges Bundle oder Battlepass
+      skins: skins.map(function (s) {
+        var b = inBundle[s.id] || cat[s.id] || null;
+        return { name: s.n, weapon: s.wl || s.w, group: s.w, tier: fromPass[s.id] ? 'Battlepass' : s.t, color: s.c, image: s.i, vp: fromPass[s.id] ? 0 : price(s),
+          rank: fromPass[s.id] ? -1 : s.r, bundle: b ? b.n : '', bundleId: b ? b.id : '', bundleImg: b ? b.i || '' : '', pass: b && b.pass ? 1 : 0 };
+      }),
       value: { vp: vp, eur: Math.round(vp * EUR_JE_100_VP / 100), priced: priced, passes: passes.length, unpriced: unpriced, eurPer100Vp: Math.round(EUR_JE_100_VP * 100) / 100,
         tiers: Object.keys(byTier).map(function (k) { return byTier[k]; }).sort(function (a, b) { return b.vp - a.vp; }) }
     };
