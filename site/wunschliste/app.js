@@ -106,8 +106,8 @@
     });
     return best;
   }
-  var PRICE_BANDS = [['', 'Jeder Preis'], ['0-25', 'bis 25 €'], ['25-50', '25 – 50 €'], ['50-100', '50 – 100 €'], ['100-250', '100 – 250 €'], ['250-', 'über 250 €'], ['none', 'ohne Preis']];
-  var SORTS = [['prio', 'Wichtigste zuerst'], ['value', 'Wichtig & wertvoll zuerst'], ['cheap', 'Preis aufsteigend'], ['pricey', 'Preis absteigend'], ['cat', 'Nach Kategorie'], ['az', 'A – Z'], ['new', 'Neueste zuerst']];
+  var PRICE_BANDS = [['', 'Jeder Preis'], ['0-25', 'bis 25 €'], ['25-50', '25 – 50 €'], ['50-100', '50 – 100 €'], ['100-250', '100 – 250 €'], ['250-', 'über 250 €'], ['none', 'ohne Preis'], ['sale', '🏷️ Nur reduzierte']];
+  var SORTS = [['prio', 'Wichtigste zuerst'], ['deal', '🏷️ Größter Rabatt (%)'], ['value', 'Wichtig & wertvoll zuerst'], ['cheap', 'Preis aufsteigend'], ['pricey', 'Preis absteigend'], ['cat', 'Nach Kategorie'], ['az', 'A – Z'], ['new', 'Neueste zuerst']];
   // Profil-Symbole: Gruppen mit Auswahl; Eintraege mit Varianten (Farben, Hauttoene) klappen nach dem Anklicken eine Auswahl auf
   var HEARTS = ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '🩷', '🩵', '🩶'];
   var VARIANTS = {
@@ -162,6 +162,18 @@
     v = Number(v);
     try { return new Intl.NumberFormat('de-DE', { style: 'currency', currency: cur || 'EUR', minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(v); }
     catch (e) { return v + ' ' + cur; }
+  }
+  // Rabatt: Der eingetragene Preis bleibt stehen, price_now ist der Shop-Preis der letzten Pruefung an einem Aktionstag
+  // (supabase/wunschliste_deals.sql). Gleiche Grenzen wie private.wl_is_deal: hoechstens 4 Tage alt, 5 bis 85 % guenstiger.
+  function dealOf(it) {
+    if (!it || it.price == null || it.price_now == null || !it.price_checked_at || it.received) return null;
+    var was = Number(it.price), now = Number(it.price_now);
+    if (!(was > 0) || Date.now() - Date.parse(it.price_checked_at) > 4 * 864e5) return null;
+    if (now > was * 0.95 || now < was * 0.15) return null;
+    return { was: was, now: now, save: Math.round((was - now) * 100) / 100, pct: Math.round((1 - now / was) * 100) };
+  }
+  function dealPrice(it, d) {
+    return '<s>' + esc(money(d.was, it.currency)) + '</s> ' + esc(money(d.now, it.currency));
   }
   // Betraege je Waehrung addieren und als "120 € + 40 $" anzeigen (nie verschiedene Waehrungen zusammenwerfen)
   function sumCur(rows, val) { var o = {}; rows.forEach(function (r) { var v = val(r), c = r.currency || 'EUR'; if (v) o[c] = (o[c] || 0) + v; }); return o; }
@@ -529,6 +541,7 @@
       await (VIEWS[r.page] || VIEWS.home)(ctx, r);
       if (!ctx.stale()) syncTabbar(r);
       syncNotifications(false);
+      noticeToast(r.page).catch(function () {});
     } catch (e) {
       if (ctx.stale() || !Api.user) return;
       setTheme(me && me.theme);
@@ -657,14 +670,20 @@
     // Verknuepft: derselbe Wunsch steht auf weiteren eigenen Listen (nur der Besitzer sieht, auf welchen)
     var linkN = o.links ? o.links.length : 0;
     var live = !o.demo && !o.preview;
-    return '<article class="wish p' + it.priority + (it.received ? ' got' : '') + (full && !o.owner && !mine ? ' taken' : '') + (mine ? ' mine' : '') + '" data-id="' + esc(it.id) + '">' +
+    var deal = dealOf(it);
+    var dealHint = deal ? 'Gerade ' + deal.pct + ' % günstiger: ' + money(deal.now, it.currency) + ' statt ' + money(deal.was, it.currency) + ' (Shop-Preis vom ' +
+      new Date(it.price_checked_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long' }) + ')' : '';
+    return '<article class="wish p' + it.priority + (it.received ? ' got' : '') + (full && !o.owner && !mine ? ' taken' : '') + (mine ? ' mine' : '') + (deal ? ' on-sale' : '') + '" data-id="' + esc(it.id) + '">' +
       '<div class="wish-media"' + (live ? ' data-act="open" role="button" tabindex="0" aria-label="' + esc(it.title) + ' groß ansehen"' : '') + '>' +
       (img ? '<img src="' + esc(img) + '" alt="' + (live ? '' : esc(it.title)) + '" loading="lazy" referrerpolicy="no-referrer" data-ph="' + esc(o.emoji || '🎁') + '">' : placeholder(o.emoji, it.title)) +
-      (it.price != null ? '<span class="price">' + esc(money(it.price, it.currency)) + '</span>' : '') +
+      (deal ? '<span class="price deal" title="' + esc(dealHint) + '">' + dealPrice(it, deal) + '</span><span class="deal-tag" title="' + esc(dealHint) + '">−' + deal.pct + ' %</span>'
+        : it.price != null ? '<span class="price">' + esc(money(it.price, it.currency)) + '</span>' : '') +
       (it.priority === 3 ? '<span class="prio">♥ Herzenswunsch</span>' : '') +
       (it.quantity > 1 ? '<span class="qty">' + it.quantity + '×</span>' : '') + '</div>' +
       '<div class="wish-body"><h3>' + title + '</h3>' +
-      (it.price != null ? '<p class="price-line">' + esc(money(it.price, it.currency)) + '</p>' : '') +
+      (deal ? '<p class="price-line deal">' + dealPrice(it, deal) + ' <span class="deal-pct">−' + deal.pct + ' %</span></p>'
+        : it.price != null ? '<p class="price-line">' + esc(money(it.price, it.currency)) + '</p>' : '') +
+      (deal ? '<p class="deal-line" title="' + esc(dealHint) + '">🏷️ Gerade <b>' + esc(money(deal.save, it.currency)) + '</b> günstiger</p>' : '') +
       (it.note ? '<p class="use"><span>Wofür</span>' + esc(it.note) + '</p>' : '') +
       '<div class="wish-meta"><span class="dots" title="' + PRIO[it.priority] + '">' + '●●●'.slice(0, it.priority) + '<i>' + '●●●'.slice(it.priority) + '</i> ' + PRIO[it.priority] + '</span>' +
       (url ? '<a class="shop" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(host(url)) + ' ↗</a>' : '') +
@@ -758,9 +777,9 @@
     var res = await Promise.all([
       Api.get('wl_lists', 'owner=eq.' + me.id + '&select=*,wl_items(count)&order=archived.asc,created_at.desc'),
       Api.get('wl_lists', 'owner=neq.' + me.id + '&archived=is.false&select=*,owner:wl_profiles!wl_lists_owner_fkey(id,name,avatar,color),wl_items(count)&order=event_date.asc.nullslast,created_at.desc'),
-      loadFriends(), Api.rpc('wl_my_reservations')
+      loadFriends(), Api.rpc('wl_my_reservations'), loadNotices(true)
     ]);
-    var mine = res[0], others = res[1], fr = res[2], gifts = res[3];
+    var mine = res[0], others = res[1], fr = res[2], gifts = res[3], notes = res[4];
     setTheme(me.theme);
     var open = gifts.filter(function (g) { return !g.purchased; }).length;
     var ev = [];
@@ -793,6 +812,7 @@
     view(ctx,
       '<header class="page-head"><p class="eyebrow">' + hello + ', ' + esc(me.name) + '</p><h1>Deine Wunschwelt</h1></header>' +
       (fr.incoming.length ? '<a class="banner" href="./?seite=freunde"><span>🤝</span><b>' + plural(fr.incoming.length, 'neue Freundschaftsanfrage', 'neue Freundschaftsanfragen') + '</b><span class="arr">→</span></a>' : '') +
+      notes.map(noticeBanner).join('') +
       current +
       '<div class="home-top' + (TABS ? ' solo' : '') + '" data-stagger>' + (TABS ? '' : profileCard(me, { self: true, copy: true })) +
       '<div class="tiles">' +
@@ -811,6 +831,11 @@
         : emptyBox('🔭', 'Noch nichts zu sehen', fr.friends.length ? 'Deine Freunde haben noch keine Liste für dich freigegeben.' : 'Füge Freunde mit ihrem Namen und Code hinzu, dann siehst du hier ihre freigegebenen Listen.', '<a class="btn ghost" href="./?seite=freunde">Freunde hinzufügen</a>')) + '</section>');
     app.onclick = function (e) {
       var b = e.target.closest('[data-act]'); if (!b) return;
+      if (b.dataset.act === 'notice-off') {
+        e.preventDefault();
+        var box = b.closest('[data-nid]'); readNotice(box.getAttribute('data-nid')); box.remove();
+        return;
+      }
       if (b.dataset.act === 'new-list') listDialog(null);
       if (b.dataset.act === 'copy-handle') copy(me.name + '#' + me.code, 'Code kopiert');
     };
@@ -1026,8 +1051,11 @@
   function listView(st) {
     var items = st.items.slice();
     var pr = function (it) { return it.price == null ? -1 : it.price; };
+    var pct = function (it) { var d = dealOf(it); return d ? d.pct : -1; };
     var cmp = {
       prio: function (a, b) { return b.priority - a.priority; },
+      // Hoechster Rabatt in Prozent zuerst, bei Gleichstand die groessere Ersparnis; Unreduziertes danach nach Wichtigkeit
+      deal: function (a, b) { return (pct(b) - pct(a)) || ((dealOf(b) || { save: 0 }).save - (dealOf(a) || { save: 0 }).save) || (b.priority - a.priority); },
       value: function (a, b) { return (b.priority - a.priority) || (pr(b) - pr(a)); },
       cheap: function (a, b) { return (a.price == null ? 1e9 : a.price) - (b.price == null ? 1e9 : b.price); },
       pricey: function (a, b) { return pr(b) - pr(a); },
@@ -1035,7 +1063,8 @@
       az: function (a, b) { return a.title.localeCompare(b.title, 'de'); },
       new: function (a, b) { return a.created_at < b.created_at ? 1 : -1; }
     }[st.sort];
-    var sec = !!st.list.prio_sections;   // Abschnitte nach Wichtigkeit: erst die Wichtigkeit, darin die gewaehlte Sortierung
+    // Abschnitte nach Wichtigkeit: erst die Wichtigkeit, darin die gewaehlte Sortierung (bei "Groesster Rabatt" ohne Abschnitte)
+    var sec = !!st.list.prio_sections && st.sort !== 'deal';
     items.sort(function (a, b) { return (a.received - b.received) || (sec ? b.priority - a.priority : 0) || cmp(a, b); });
     var F = st.f, qq = F.q.trim().toLowerCase();
     var filtered = !!(qq || F.cat || F.prio || F.price || F.only);
@@ -1045,13 +1074,14 @@
       if (F.prio && String(it.priority) !== F.prio) return false;
       if (F.price) {
         if (F.price === 'none') { if (it.price != null) return false; }
+        else if (F.price === 'sale') { if (!dealOf(it)) return false; }
         else { var b = F.price.split('-'); if (it.price == null || it.price < +b[0] || (b[1] && it.price >= +b[1])) return false; }
       }
       if (F.only && (st.owner ? it.received : !isFree(it, st.res[it.id]))) return false;
       return true;
     });
     var total = fmtSums(sumCur(items, function (it) { return it.received || it.price == null ? 0 : it.price * it.quantity; }));
-    return { items: items, filtered: filtered, total: total };
+    return { items: items, filtered: filtered, total: total, sections: sec };
   }
   function listCount(st, v) {
     return (v.filtered ? v.items.length + ' von ' : '') + plural(st.items.length, 'Wunsch', 'Wünsche') + (v.total ? ' · zusammen ca. ' + esc(v.total) : '');
@@ -1059,7 +1089,7 @@
   function listResults(st, v) {
     var l = st.list;
     var card = function (it) { return wishCard(it, { owner: st.owner, res: st.res[it.id], emoji: l.emoji, links: linksOf(st, it) }); };
-    return v.items.length ? (l.prio_sections ? wishSections(v.items, card) : '<div class="wishes" data-stagger>' + v.items.map(card).join('') + '</div>')
+    return v.items.length ? (v.sections ? wishSections(v.items, card) : '<div class="wishes" data-stagger>' + v.items.map(card).join('') + '</div>')
       : st.items.length ? (v.filtered ? emptyBox('🔎', 'Nichts gefunden', 'Mit diesen Filtern passt gerade kein Wunsch.', '<button type="button" class="btn ghost" data-act="reset-filters">Filter zurücksetzen</button>') : emptyBox('🎉', 'Alles vergeben', 'Mit diesem Filter ist gerade nichts übrig.'))
         : st.owner ? emptyBox('✨', 'Füge deinen ersten Wunsch hinzu', 'Produktlink einfügen genügt: Bild, Titel und Preis werden automatisch übernommen.', '<button type="button" class="btn" data-act="add-item">+ Wunsch hinzufügen</button>')
           : emptyBox('🕊️', 'Noch leer', esc(l.owner.name) + ' hat hier noch keine Wünsche eingetragen.');
@@ -1083,6 +1113,13 @@
     var cats = Object.keys(catCount).sort(function (x, y) { return x.localeCompare(y, 'de'); });
     var nF = (F.prio ? 1 : 0) + (F.price ? 1 : 0) + (F.only ? 1 : 0) + (st.sort !== 'prio' ? 1 : 0);
     var nDup = st.dups.reduce(function (n, x) { return n + x.others.length; }, 0);
+    // Rabatte auf dieser Liste (Aktionstage): Hinweis mit Anzahl, groesstem Rabatt und Ersparnis, Knopf zum Sortieren
+    var deals = st.items.filter(function (it) { return dealOf(it) && (st.owner || isFree(it, st.res[it.id])); });
+    var dealSave = fmtSums(sumCur(deals, function (it) { return dealOf(it).save; }));
+    var dealMax = deals.reduce(function (m, it) { return Math.max(m, dealOf(it).pct); }, 0);
+    var dealBanner = deals.length ? '<div class="banner sale"><span>🏷️</span><b>' + plural(deals.length, 'Wunsch ist', 'Wünsche sind') + ' gerade reduziert' +
+      '<small>bis zu −' + dealMax + ' % · zusammen ' + esc(dealSave) + ' günstiger' + (st.owner ? '' : ', wenn du jetzt zuschlägst') + '</small></b>' +
+      (st.sort === 'deal' && F.price === 'sale' ? '' : '<button type="button" class="btn small" data-act="sort-deal">Nach Rabatt sortieren</button>') + '</div>' : '';
 
     // Bei "Alle Freunde" zusaetzlich die einzeln Freigeschalteten (z. B. per Link) zeigen, damit nichts unsichtbar bleibt
     var shared = st.share && st.share.length ? esc(st.share.join(', ')) : '';
@@ -1108,6 +1145,7 @@
             (safeUrl(s.url) ? '<a class="link-btn" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' + esc(host(s.url)) + ' ↗</a>' : '') +
             '<button type="button" class="btn small" data-act="sugg-ok">✓ Übernehmen</button><button type="button" class="btn small ghost" data-act="sugg-no">Verwerfen</button></li>';
         }).join('') + '</ul></section>' : '') +
+      dealBanner +
       (st.items.length ? '<div class="toolbar tb2"><input type="search" name="q" value="' + esc(F.q) + '" placeholder="Wünsche durchsuchen …" aria-label="Wünsche durchsuchen" autocomplete="off">' +
         '<button type="button" class="btn small ghost tb-filter" data-act="filters">⚙︎ Filter' + (nF ? ' <b class="badge">' + nF + '</b>' : '') + '</button>' +
         '<label class="tb-wide">Sortieren <select name="sort">' + SORTS.map(function (o) { return '<option value="' + o[0] + '"' + (st.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
@@ -1211,6 +1249,7 @@
     }
     if (act === 'cat') { st.f.cat = b.dataset.cat === st.f.cat ? '' : b.dataset.cat; return paintList(st, true); }
     if (act === 'reset-filters') { st.sort = 'prio'; st.f = { q: '', cat: '', prio: '', price: '', only: false }; return paintList(st, true); }
+    if (act === 'sort-deal') { st.sort = 'deal'; st.f.price = 'sale'; return paintList(st, true); }
     try {
       if (act === 'del-item') {
         var nL = linksOf(st, it).length;
@@ -1268,7 +1307,8 @@
     }
     if (url) rail.push('<a class="rail-btn" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer"><span>🛒</span><small>Shop</small></a>');
     rail.push(rb('more', '⋯', 'Mehr'));
-    var meta = [it.price != null ? '<b>' + esc(money(it.price, it.currency)) + '</b>' : '', it.quantity > 1 ? it.quantity + '×' : '', it.category ? esc(it.category) : '', url ? esc(host(url)) : ''].filter(Boolean).join(' · ');
+    var deal = dealOf(it);
+    var meta = [deal ? '<b class="deal">' + dealPrice(it, deal) + ' <span class="deal-pct">−' + deal.pct + ' %</span></b>' : it.price != null ? '<b>' + esc(money(it.price, it.currency)) + '</b>' : '', it.quantity > 1 ? it.quantity + '×' : '', it.category ? esc(it.category) : '', url ? esc(host(url)) : ''].filter(Boolean).join(' · ');
     return '<section class="fslide p' + it.priority + (it.received ? ' got' : '') + (s.full && !st.owner && !s.mine ? ' taken' : '') + '" data-id="' + esc(it.id) + '">' +
       '<div class="fs-stage">' + (img ? '<img src="' + esc(img) + '" alt="" referrerpolicy="no-referrer" data-ph="' + esc(l.emoji || '🎁') + '">' : placeholder(l.emoji, it.title)) + '</div>' +
       '<div class="fs-rail">' + rail.join('') + '</div>' +
@@ -1996,7 +2036,7 @@
   var FB_KINDS = [['idee', '💡', 'Idee', 'Was fehlt dir? Was wäre praktisch?'], ['fehler', '🐞', 'Fehler', 'Was ist passiert, und wo? Was hattest du erwartet?'],
     ['lob', '❤️', 'Lob', 'Was gefällt dir besonders?'], ['sonstiges', '💬', 'Sonstiges', 'Alles andere, was du loswerden möchtest.']];
   var FB_STATUS = { neu: ['📬', 'Angekommen'], geplant: ['🛠', 'Geplant'], erledigt: ['✅', 'Umgesetzt'], abgelehnt: ['🚫', 'Nicht geplant'] };
-  var PAGE_NAMES = { home: 'Übersicht', liste: 'Liste', freunde: 'Freunde', freund: 'Freundesprofil', geschenke: 'Meine Geschenke', profil: 'Profil', admin: 'Admin', anlass: 'Anlass' };
+  var PAGE_NAMES = { home: 'Übersicht', liste: 'Liste', freunde: 'Freunde', freund: 'Freundesprofil', geschenke: 'Meine Geschenke', profil: 'Profil', admin: 'Admin', anlass: 'Anlass', angebote: 'Angebote' };
   function fbKind(k) { return FB_KINDS.filter(function (x) { return x[0] === k; })[0] || FB_KINDS[3]; }
   function fbWhen(t) { return new Date(t).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }); }
   function fbItem(x, admin) {
@@ -2355,11 +2395,85 @@
         info.gifts = s.gifts.slice(0, 8).map(function (g) { return { title: g.title, owner: g.owner_name }; });
         return info;
       });
-      if (sendNotify({ v: 1, user: me.id, today: t, groups: groups, undated: undated })) lastSync = Date.now();
+      // Aktionstage (Black Friday …): heute mit der Nachricht samt Zahlen, kommende mit einem allgemeinen Text,
+      // damit die App auch erinnert, wenn sie an dem Tag nicht geoeffnet wird
+      var extra = await Promise.all([
+        Api.get('wl_sale_days', 'day=gte.' + t + '&notify=is.true&select=day,title,emoji&order=day&limit=5').catch(function () { return []; }),
+        loadNotices(false)
+      ]);
+      var deals = extra[0].map(function (s) {
+        var n = extra[1].filter(function (x) { return x.kind === 'deals' && x.data && x.data.day === s.day; })[0];
+        return { date: s.day, title: n ? n.title : s.emoji + ' ' + s.title, text: n ? n.body : 'Schau nach, welche Wünsche deiner Freunde und Bekannten gerade reduziert sind.', exact: !!n };
+      });
+      if (sendNotify({ v: 1, user: me.id, today: t, groups: groups, undated: undated, deals: deals })) lastSync = Date.now();
     } catch (e) { /* naechster Versuch beim naechsten Seitenwechsel */ }
     finally { syncing = false; }
   }
   function setTabCount(n) { var b = $('#tabBuy'); b.textContent = n; b.hidden = !n; }
+
+  // ---------- Nachrichten (z. B. Rabatte an Aktionstagen, supabase/wunschliste_deals.sql) ----------
+  // Ungelesene Nachrichten der letzten 3 Tage. Kennt die Datenbank die Tabelle noch nicht, gibt es einfach keine.
+  var notices = null, noticesAt = 0, noticeToasted = false;
+  async function loadNotices(force) {
+    if (!force && notices && Date.now() - noticesAt < 60000) return notices;
+    var since = new Date(Date.now() - 3 * 864e5).toISOString();
+    notices = await Api.get('wl_notices', 'read_at=is.null&created_at=gte.' + since + '&select=*&order=created_at.desc&limit=5').catch(function () { return []; });
+    noticesAt = Date.now();
+    return notices;
+  }
+  function readNotice(id) {
+    notices = (notices || []).filter(function (n) { return n.id !== id; });
+    return Api.rpc('wl_notice_read', { p_id: id }).catch(function () {});
+  }
+  function noticeBanner(n) {
+    var href = /^\.\/(\?[\w=&-]*)?$/.test(n.href || '') ? n.href : './';
+    return '<div class="banner notice ' + esc(n.kind) + '" data-nid="' + esc(n.id) + '"><span>' + esc((n.title.match(/^\S+/) || ['🔔'])[0]) + '</span>' +
+      '<a class="nt-text" href="' + href + '"><b>' + esc(n.title.replace(/^\S+\s+/, '')) + '</b><small>' + esc(n.body) + '</small></a>' +
+      '<a class="btn small" href="' + href + '">Ansehen</a>' +
+      '<button type="button" class="icon-btn" data-act="notice-off" aria-label="Nachricht ausblenden" title="Ausblenden">✕</button></div>';
+  }
+  // Auf anderen Seiten als der Uebersicht einmal pro Besuch als Meldung
+  async function noticeToast(page) {
+    if (noticeToasted || page === 'home' || page === 'angebote') return;
+    var n = (await loadNotices(false))[0];
+    if (!n || noticeToasted) return;
+    noticeToasted = true;
+    var cnt = n.data && n.data.count;
+    toastAct(n.title + (cnt ? ': ' + plural(cnt, 'Wunsch', 'Wünsche') + ' reduziert' : ''), 'Ansehen', function () { go(n.href || './'); });
+  }
+
+  // ---------- Angebote: reduzierte Wuensche auf den Listen von Freunden und Bekannten ----------
+  async function dealsPage(ctx) {
+    var res = await Promise.all([Api.rpc('wl_friend_deals').catch(function () { return null; }), loadNotices(true)]);
+    var rows = res[0], notes = res[1].filter(function (n) { return n.kind === 'deals'; });
+    setTheme(me.theme);
+    var save = fmtSums(sumCur(rows || [], function (r) { return (r.price - r.price_now) * Math.max(r.open_qty, 1); }));
+    var people = (rows || []).reduce(function (a, r) { if (a.indexOf(r.owner_name) < 0) a.push(r.owner_name); return a; }, []);
+    var head = notes[0] ? esc(notes[0].title) : '🏷️ Angebote';
+    view(ctx,
+      '<p class="back"><a href="./"><span class="arr">←</span> Übersicht</a></p>' +
+      '<header class="page-head"><p class="eyebrow">Gerade reduziert</p><h1>' + head + '</h1>' +
+      '<p class="lead">' + (rows === null ? 'Die Angebote lassen sich gerade nicht laden.'
+        : rows.length ? 'Auf den Listen deiner Freunde und Bekannten ' + (rows.length === 1 ? 'ist gerade <b>1 Wunsch</b>' : 'sind gerade <b>' + rows.length + ' Wünsche</b>') + ' reduziert' +
+          (people.length ? ' (' + esc(people.slice(0, 4).join(', ')) + (people.length > 4 ? ' und ' + (people.length - 4) + ' weitere' : '') + ')' : '') +
+          '. Du kannst bis zu <b>' + esc(save) + '</b> sparen.'
+        : 'Gerade ist auf den Listen deiner Freunde nichts reduziert, oder es ist schon alles reserviert.') + '</p>' +
+      '<p class="muted small">Preise aus den Shops vom letzten Aktionstag. Der Rabatt kann inzwischen vorbei sein; im Shop gilt der dort angezeigte Preis.</p></header>' +
+      (rows && rows.length ? '<div class="deal-grid" data-stagger>' + rows.map(function (r) {
+        var img = /^https:\/\//.test(r.image_url || '') ? r.image_url : '', url = safeUrl(r.url);
+        return '<article class="deal-card">' +
+          '<a class="dc-media" href="./?liste=' + r.list_id + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy" referrerpolicy="no-referrer" data-ph="' + esc(r.list_emoji || '🎁') + '">' : placeholder(r.list_emoji, r.title)) +
+          '<span class="deal-tag">−' + r.pct + ' %</span></a>' +
+          '<div class="dc-body"><h3>' + esc(r.title) + '</h3>' +
+          '<p class="dc-owner">' + esc(r.list_emoji || '🎁') + ' ' + esc(r.owner_name) + ' · ' + esc(r.list_title) + '</p>' +
+          '<p class="price-line deal">' + dealPrice(r, { was: Number(r.price), now: Number(r.price_now) }) + '</p>' +
+          '<p class="deal-line">🏷️ <b>' + esc(money(Math.round((r.price - r.price_now) * 100) / 100, r.currency)) + '</b> günstiger' + (r.open_qty > 1 ? ' · noch ' + r.open_qty + '× frei' : '') + '</p>' +
+          '<div class="dc-act"><a class="btn small" href="./?liste=' + r.list_id + '">Zur Liste</a>' +
+          (url ? '<a class="btn small ghost" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(host(url)) + ' ↗</a>' : '') + '</div></div></article>';
+      }).join('') + '</div>' : emptyBox('🏷️', 'Keine Angebote', 'An Aktionstagen wie Black Friday und Cyber Monday prüft die Wunschliste die Preise aller Wünsche neu.', '<a class="btn ghost" href="./">Zur Übersicht</a>')));
+    // Gesehen: Nachrichten zu den Angeboten als gelesen markieren
+    notes.forEach(function (n) { readNotice(n.id); });
+  }
 
   // ---------- Anlass-Seite: alle Listen eines Datums im Design des Anlasses (Ziel der Benachrichtigung) ----------
   async function eventPage(ctx, r) {
@@ -2390,7 +2504,7 @@
       (lists.length ? '' : emptyBox('🗓️', 'Keine Listen an diesem Tag', 'Für dieses Datum ist gerade keine Liste für dich sichtbar.', '<a class="btn" href="./">Zur Übersicht</a>')));
   }
 
-  var VIEWS = { teilen: redeemPage, einladung: invitePage, home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage, anlass: eventPage, feedback: feedbackPage };
+  var VIEWS = { teilen: redeemPage, einladung: invitePage, home: home, liste: listPage, freunde: friendsPage, freund: friendPage, geschenke: giftsPage, profil: profilePage, admin: adminPage, anlass: eventPage, feedback: feedbackPage, angebote: dealsPage };
 
   // ---------- Startseite fuer Abgemeldete ----------
   var DEMO = [
