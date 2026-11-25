@@ -187,6 +187,9 @@
       s.appendChild(sm); b.appendChild(s); pick.appendChild(b);
     });
     pick.style.setProperty('--n-tabs', list.length);
+    // mehr als 5 Reiter: schraege, schmalere Kacheln, damit alle ohne Scrollen sichtbar sind (am Handy in mehreren Reihen)
+    pick.classList.toggle('diag', list.length > 5);
+    pick.style.setProperty('--cols', list.length > 8 ? Math.ceil(list.length / 2) : list.length);   // ab 9 Reitern zwei Reihen
     // Kurzinfo-Zeilen ausgeblendeter fester Reiter versteckt vorhalten: die Ansichten schreiben weiter hinein
     var store = $('pkStore') || stage.appendChild(Object.assign(el('div'), { id: 'pkStore', hidden: true }));
     store.textContent = '';
@@ -269,8 +272,13 @@
       if (r.peak && r.peak.name) rt.appendChild(el('small', 'muted', 'Bestleistung: ' + r.peak.name + (r.peak.season ? ' (' + r.peak.season + ')' : '')));
       rank.appendChild(rt); box.appendChild(rank);
     }
+    // Spielzeit: eigene Angabe (z. B. von tracker.gg) oder Schaetzung aus den bei HenrikDev gespeicherten Spielen
+    // Die Schaetzung kennt nur die bei HenrikDev gespeicherten Spiele und ist deshalb ein Mindestwert
+    var ph = v.playHours, timeTile = ph ? stat(ph.own ? 'Spielzeit' : 'Spielzeit (mind.)', Math.round(ph.hours), ph.own ? 'eigene Angabe' : '≈ aus ' + nf.format(ph.matches || 0) + ' gespeicherten Spielen', 0, ' Std') : null;
+    if (timeTile && !s) { var pt = el('dl', 'stats'); pt.appendChild(timeTile); box.appendChild(pt); }
     if (s) {
       var dl = el('dl', 'stats');
+      if (timeTile) dl.appendChild(timeTile);
       dl.appendChild(stat('K/D', s.kd, s.kda ? 'KDA ' + num(s.kda, 2) : '', 2));
       dl.appendChild(stat('Siegquote', s.winrate, s.wins + ' von ' + s.matches, 0, ' %'));
       if (s.hs != null) dl.appendChild(stat('Kopftreffer', s.hs, '', 0, ' %'));
@@ -278,7 +286,13 @@
       box.appendChild(dl);
       box.appendChild(el('p', 'muted val-note', 'Aus den letzten ' + s.matches + ' gewerteten Spielen.'));
     }
-    if (!r && !s) box.appendChild(el('p', 'muted', 'Noch keine gewerteten Spiele in dieser Saison.'));
+    if (!r && !s && !ph) box.appendChild(el('p', 'muted', 'Noch keine gewerteten Spiele in dieser Saison.'));
+    // eigenes Profil ohne eigene Angabe: Weg zum Eintragen der genauen Spielzeit (z. B. "Total Playtime" von tracker.gg)
+    if (view.mine && !view.demo && !(ph && ph.own) && Gaming.onEdit) {
+      var hint = el('p', 'muted val-note val-time-hint', 'Riot gibt die Gesamtspielzeit nicht heraus. Die genaue Zahl (z. B. „Total Playtime“ von tracker.gg) kannst du beim Konto eintragen. ');
+      var go = el('button', 'link-btn', 'Genaue Spielzeit eintragen'); go.type = 'button'; go.addEventListener('click', function () { Gaming.onEdit('konten', 'valorant'); });
+      hint.appendChild(go); box.appendChild(hint);
+    }
     return box;
   }
   function valAgents(v) {
@@ -687,10 +701,16 @@
     var GA = window.GAccounts, barList = $('accBarList'), empty = $('accBarEmpty');
     barList.textContent = ''; empty.textContent = '';
     list = (list || []).filter(function (a) { return GA && GA.kindOf(a) && a.in_sidebar !== false; });
-    list.forEach(function (a) {
+    // nach Anbieter (Reihenfolge wie im Editor) und Konto-Nummer: Zweitkonten stehen direkt unter ihrem Hauptkonto
+    var pos = function (a) { return GA.KINDS.indexOf(GA.kindOf(a)) * 10 + GA.slot(a.kind); };
+    list = list.slice().sort(function (a, b) { return pos(a) - pos(b); });
+    list.forEach(function (a, i) {
       var k = GA.kindOf(a), link = GA.link(a, a.data), sum = GA.summary(a, a.data), lab = GA.label(a);
-      var li = el('li', 'acc-row'); li.style.setProperty('--c', k.color); li.appendChild(accBadge(k));
-      var t = el('span', 'acc-t'), nm = el('b', '', k.name); if (lab) nm.appendChild(el('small', 'acc-lab', lab)); t.appendChild(nm); t.appendChild(el('span', '', a.handle));
+      var sub = i > 0 && GA.base(list[i - 1].kind) === GA.base(a.kind);   // weiteres Konto desselben Anbieters: eingerueckt, ohne Namen
+      var li = el('li', 'acc-row' + (sub ? ' acc-sub' : '')); li.style.setProperty('--c', k.color); li.appendChild(accBadge(k));
+      var t = el('span', 'acc-t'), nm = el('b', '', sub ? lab || GA.slot(a.kind) + '. Konto' : k.name);
+      // eigener Name bzw. Spiel (HoYoverse) des Hauptkontos in der zweiten Zeile, damit der Anbieter nicht abgeschnitten wird
+      t.appendChild(nm); t.appendChild(el('span', '', lab && !sub ? a.handle + ' · ' + lab : a.handle));
       var more = sum && sum !== a.handle ? sum : GA.base(a.kind) === 'discord' && a.data && a.data.name ? a.data.name : '';
       if (more) t.appendChild(el('small', 'acc-sum', more));
       li.appendChild(t); li.appendChild(accActions(a, k, link));

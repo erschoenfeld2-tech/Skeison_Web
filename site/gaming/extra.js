@@ -12,7 +12,7 @@
     ['hours', 'Gesamtspielzeit'], ['games', 'Spiele'], ['ach', 'Errungenschaften'], ['accounts', 'Verknüpfte Konten'],
     ['steam_hours', 'Steam-Spielzeit'], ['steam_games', 'Steam-Bibliothek'], ['steam_level', 'Steam-Level'],
     ['mc_hours', 'Minecraft (Cobblemon Server)'], ['custom_hours', 'Spiele aus Launchern'],
-    ['val_rank', 'Bester Valorant-Rang'], ['val_kd', 'Valorant K/D'], ['val_win', 'Valorant-Siegquote'],
+    ['val_hours', 'Valorant-Spielzeit'], ['val_rank', 'Bester Valorant-Rang'], ['val_kd', 'Valorant K/D'], ['val_win', 'Valorant-Siegquote'],
     ['value', 'Wert aller Konten'], ['top', 'Meistgespielt über alle Spiele'], ['platforms', 'Spielzeit nach Quelle']
   ];
   var ACC_GAMES = ['valorant', 'lol', 'minecraft', 'hoyoverse', 'roblox'];
@@ -47,6 +47,19 @@
     // Launcher-Spiele zaehlen mit eigener Spielzeit; Steam-Spiele stecken schon in der Steam-Spielzeit
     r.customHours = custom.filter(function (g) { return !g.appid; }).reduce(function (a, g) { return a + (+g.hours || 0); }, 0);
     var kinds = {}; (v.accounts || []).forEach(function (a) { var b = String(a.kind).replace(/-[2-5]$/, ''); if (a.in_sidebar !== false) kinds[b] = 1; });
+    // Spielzeit aus Konten (Valorant, LoL, HoYoverse, Roblox): eigene Angabe oder bei Valorant die Schaetzung aus gp-sync
+    var GA = window.GAccounts, acc = {};
+    (v.accounts || []).forEach(function (a) {
+      var b = String(a.kind).replace(/-[2-5]$/, ''), k = GA && GA.BY[b], h = GA && k && k.hours && a.in_sidebar !== false ? GA.hours(a, a.data) : null;
+      if (!h) return;
+      var e = acc[b] = acc[b] || { name: k.name, hours: 0, own: true, some: false, kind: b };
+      e.hours += h.hours; if (!h.own) e.own = false; else e.some = true;
+    });
+    // Hinweis je Spiel: eigene Angabe, geschaetzt oder (bei mehreren Konten gemischt) teils geschaetzt
+    Object.keys(acc).forEach(function (b) { var e = acc[b]; e.how = e.own ? 'eigene Angabe' : e.some ? 'teils geschätzt' : 'geschätzt, mind.'; });
+    r.accGames = Object.keys(acc).map(function (b) { return acc[b]; });
+    r.accHours = r.accGames.reduce(function (s, e) { return s + e.hours; }, 0);
+    r.valHours = acc.valorant || null;
     r.accounts = (v.accounts || []).filter(function (a) { return a.in_sidebar !== false; }).length;
     r.games = r.steamGames + custom.filter(function (g) { return !g.appid || !lib[g.appid]; }).length + ACC_GAMES.filter(function (k) { return kinds[k]; }).length;
     // Errungenschaften: Steam (live) fuer eigene Reiter mit appid, sonst die selbst eingetragenen
@@ -69,6 +82,7 @@
     var top = [];
     Object.keys(lib).forEach(function (id) { var n = ''; steams.forEach(function (s) { (s.library || []).forEach(function (g) { if (String(g.appid) === id) n = g.name; }); }); if (lib[id] > 0) top.push({ name: n, hours: lib[id], appid: +id, src: 'Steam' }); });
     custom.forEach(function (g) { if (!g.appid && +g.hours > 0) top.push({ name: g.name, hours: +g.hours, src: g.platform || 'Launcher', image: g.image }); });
+    r.accGames.forEach(function (e) { top.push({ name: e.name, hours: e.hours, src: e.how, kind: e.kind }); });
     r.top = top.sort(function (a, b) { return b.hours - a.hours; });
     return r;
   }
@@ -94,7 +108,8 @@
     var dl = el('dl', 'stats xstat-tiles');
     var tile = function (k, label, value, sub, dec, suf) { if (want(k) && value != null && value !== '' && !(typeof value === 'number' && !isFinite(value))) { var d = U.stat(label, value, sub, dec, suf); d.setAttribute('data-k', k); dl.appendChild(d); return d; } return null; };
     var mcNames = (v.mcNames || []).filter(Boolean);
-    var hoursTile = tile('hours', 'Gesamtspielzeit', Math.round(r.steamHours + r.customHours) || (mcNames.length ? 0 : null),[r.steamHours ? 'Steam' : '', r.customHours ? 'Launcher' : ''].filter(Boolean).join(' und ') + (mcNames.length ? ' · Minecraft folgt …' : ''), 0, ' Std');
+    var baseH = r.steamHours + r.customHours + r.accHours, srcOf = function (mc) { return [r.steamHours ? 'Steam' : '', r.accHours ? r.accGames.map(function (e) { return e.name; }).join(', ') : '', r.customHours ? 'Launcher' : '', mc ? 'Minecraft' : ''].filter(Boolean).join(', '); };
+    var hoursTile = tile('hours', 'Gesamtspielzeit', Math.round(baseH) || (mcNames.length ? 0 : null), srcOf(false) + (mcNames.length ? ' · Minecraft folgt …' : ''), 0, ' Std');
     tile('games', 'Spiele', r.games || null, 'über alle Plattformen');
     if (r.achAll) tile('ach', 'Errungenschaften', r.achDone, 'von ' + nf.format(r.achAll) + ' (' + Math.round(r.achDone / r.achAll * 100) + ' %)');
     tile('accounts', 'Verknüpfte Konten', r.accounts || null);
@@ -106,6 +121,7 @@
     var mcTile = mcNames.length && want('mc_hours') ? tile('mc_hours', 'Minecraft', '…', 'Cobblemon Server') : null;
     if (r.customHours) tile('custom_hours', 'Spiele aus Launchern', Math.round(r.customHours), r.custom.filter(function (g) { return !g.appid; }).length + ' Spiele', 0, ' Std');
     if (r.valBest) tile('val_rank', 'Bester Valorant-Rang', r.valBest.name, r.vals.length > 1 ? 'über ' + r.vals.length + ' Konten' : (r.valBest.rr + ' RR'));
+    if (r.valHours) tile('val_hours', 'Valorant-Spielzeit', Math.round(r.valHours.hours), r.valHours.own ? 'eigene Angabe' : '≈ ' + r.valHours.how, 0, ' Std');
     if (r.valMain && r.valMain.stats) { tile('val_kd', 'Valorant K/D', r.valMain.stats.kd, r.valMain.stats.matches + ' Spiele', 2); tile('val_win', 'Valorant-Siegquote', r.valMain.stats.winrate, '', 0, ' %'); }
     if (r.value != null) tile('value', 'Wert aller Konten', Math.round(r.value), 'grobe Schätzung', 0, ' €');
     if (dl.children.length) box.appendChild(dl);
@@ -114,22 +130,23 @@
     var srcRows = [];
     if (r.steamHours) srcRows.push({ name: 'Steam', hours: r.steamHours });
     if (r.customHours) srcRows.push({ name: 'Launcher und andere', hours: r.customHours });
+    r.accGames.forEach(function (e) { srcRows.push({ name: e.name + (e.own ? '' : ' (' + e.how + ')'), hours: e.hours }); });
     var plat = null;
     if (want('platforms') && srcRows.length) { plat = el('section', 'xsec'); plat.appendChild(el('h3', '', 'Spielzeit nach Quelle')); plat.appendChild(bars(srcRows)); box.appendChild(plat); }
     if (want('top') && r.top.length) { var t = el('section', 'xsec'); t.appendChild(el('h3', '', 'Meistgespielt über alle Spiele')); t.appendChild(bars(r.top.slice(0, 10))); box.appendChild(t); }
     if (!box.children.length) box.appendChild(U.emptyPage('Noch keine Statistik', v.mine ? 'Verknüpfe Steam oder leg eigene Reiter für Spiele aus Launchern an, dann erscheinen hier Spielzeit, Spiele und Errungenschaften über alles.' : 'Hier gibt es noch keine Zahlen.', U.editLink('Reiter anlegen')));
-    var total = r.steamHours + r.customHours;
+    var total = baseH;
     pk.textContent = total ? nf.format(Math.round(total)) + ' Std gesamt' : 'Alle Spiele';
-    note.textContent = r.valMain && !r.steamHours && !r.customHours ? 'Valorant liefert keine Spielzeit, nur Spiele und Rang.' : '';
+    note.textContent = r.valMain && !r.valHours && v.mine ? 'Valorant liefert keine Gesamtspielzeit; trag sie im Editor beim Konto ein (z. B. von tracker.gg).' : '';
     U.countUp(box);
     // Minecraft-Spielzeit kommt nach (Server-Statistik)
     if (mcNames.length) mcHours(mcNames).then(function (h) {
       if (U.view() !== v) return;
       if (mcTile) { mcTile.querySelector('dd b').textContent = h != null ? nf.format(Math.round(h)) + ' Std' : '–'; if (h == null) mcTile.querySelector('dd').appendChild(el('small', '', 'nicht auf dem Server gefunden')); }
       if (hoursTile) {
-        var sum = Math.round(r.steamHours + r.customHours + (h || 0)), b = hoursTile.querySelector('dd b'), s = hoursTile.querySelector('dd small');
+        var sum = Math.round(baseH + (h || 0)), b = hoursTile.querySelector('dd b'), s = hoursTile.querySelector('dd small');
         b.textContent = nf.format(sum) + ' Std'; b.setAttribute('data-count', sum);
-        if (s) s.textContent = [r.steamHours ? 'Steam' : '', r.customHours ? 'Launcher' : '', h ? 'Minecraft' : ''].filter(Boolean).join(', ');
+        if (s) s.textContent = srcOf(!!h);
         // die Reiterleiste wird beim Zeichnen neu gebaut: Zeile frisch holen
         if ($('pkStats')) $('pkStats').textContent = sum ? nf.format(sum) + ' Std gesamt' : 'Alle Spiele';
       }

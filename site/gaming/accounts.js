@@ -13,7 +13,8 @@
   var LOL = [['euw', 'EU West'], ['eune', 'EU Nord/Ost'], ['na', 'Nordamerika'], ['kr', 'Korea'], ['br', 'Brasilien'], ['tr', 'Türkei'], ['oce', 'Ozeanien']];
 
   var KINDS = [
-    { key: 'valorant', name: 'Valorant', short: 'VAL', color: '#ff4655', live: true, label: 'Riot-ID', placeholder: 'Name#TAG',
+    // hours: eigene Spielzeit eintragbar (extra.hours), zaehlt in der Statistik mit; bei Valorant sonst eine Schaetzung aus gp-sync
+    { key: 'valorant', name: 'Valorant', short: 'VAL', color: '#ff4655', live: true, hours: true, label: 'Riot-ID', placeholder: 'Name#TAG',
       hint: 'Deine Riot-ID wie im Spiel, mit #Tag.', regions: REGIONS, check: riot,
       url: function (h) { return 'https://tracker.gg/valorant/profile/riot/' + enc(h) + '/overview'; } },
     { key: 'steam', name: 'Steam', short: 'ST', color: '#66c0f4', live: true, label: 'Profil-Link oder Steam-ID', placeholder: 'https://steamcommunity.com/id/…',
@@ -37,7 +38,7 @@
       },
       invite: function (h) { return /^discord\.gg\//.test(h); },
       url: function (h) { return /^discord\.gg\//.test(h) ? 'https://' + h : ''; } },
-    { key: 'epic', name: 'Epic Games / Fortnite', short: 'EG', color: '#d8d8d8', label: 'Epic-Anzeigename', placeholder: 'Anzeigename',
+    { key: 'epic', name: 'Epic Games', short: 'EG', color: '#d8d8d8', label: 'Epic-Anzeigename', placeholder: 'Anzeigename', hint: 'Auch für Fortnite: der Link führt zum Fortnite-Tracker.',
       check: plain(/^.{3,32}$/), url: function (h) { return 'https://fortnitetracker.com/profile/all/' + enc(h); } },
     { key: 'xbox', name: 'Xbox', short: 'XB', color: '#107c10', label: 'Gamertag', placeholder: 'Gamertag',
       check: plain(/^[A-Za-z0-9 ]{1,16}(#\d{1,4})?$/), url: function (h) { return 'https://www.xbox.com/de-DE/play/user/' + enc(h); } },
@@ -51,7 +52,7 @@
     { key: 'ea', name: 'EA', short: 'EA', color: '#ff4747', label: 'EA-ID', placeholder: 'EA-ID', check: plain(/^[A-Za-z0-9_-]{4,16}$/), url: function () { return ''; } },
     { key: 'ubisoft', name: 'Ubisoft Connect', short: 'UB', color: '#0070ff', label: 'Ubisoft-Name', placeholder: 'Benutzername',
       check: plain(/^[A-Za-z0-9._-]{3,15}$/), url: function (h) { return 'https://r6.tracker.network/r6siege/profile/ubi/' + enc(h) + '/overview'; } },
-    { key: 'lol', name: 'League of Legends', short: 'LoL', color: '#c89b3c', label: 'Riot-ID', placeholder: 'Name#TAG', regions: LOL, check: riot,
+    { key: 'lol', name: 'League of Legends', short: 'LoL', color: '#c89b3c', hours: true, label: 'Riot-ID', placeholder: 'Name#TAG', regions: LOL, check: riot,
       url: function (h, x) { var p = h.split('#'); return 'https://www.op.gg/summoners/' + ((x && x.region) || 'euw') + '/' + enc(p[0]) + '-' + enc(p[1] || ''); } },
     { key: 'twitch', name: 'Twitch', short: 'TW', color: '#9146ff', label: 'Twitch-Name', placeholder: 'kanalname',
       check: function (s) { s = lastPath(s); return /^[A-Za-z0-9_]{3,25}$/.test(s) ? s : ''; }, url: function (h) { return 'https://www.twitch.tv/' + enc(h); } },
@@ -67,12 +68,12 @@
       check: function (s) { s = lastPath(s); return /^[A-Za-z0-9._]{1,30}$/.test(s) ? '@' + s : ''; },
       url: function (h) { return 'https://www.instagram.com/' + enc(h.replace(/^@/, '')) + '/'; } },
     // HoYoverse: UID je Spiel (Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Honkai Impact 3rd); Link zur Vitrine auf enka.network
-    { key: 'hoyoverse', name: 'HoYoverse', short: 'HoYo', color: '#4fc3f7', label: 'UID', placeholder: '700123456',
+    { key: 'hoyoverse', name: 'HoYoverse', short: 'HoYo', color: '#4fc3f7', hours: true, label: 'UID', placeholder: '700123456',
       hint: 'Die UID aus dem Spiel (unten links bzw. im Profil). Für ein zweites Spiel einfach ein weiteres Konto anlegen.',
       games: [['genshin', 'Genshin Impact'], ['hsr', 'Honkai: Star Rail'], ['zzz', 'Zenless Zone Zero'], ['hi3', 'Honkai Impact 3rd']],
       check: function (s) { s = trim(s).replace(/\s/g, ''); return /^\d{8,10}$/.test(s) ? s : ''; },
       url: function (h, x) { var g = (x && x.game) || 'genshin'; return g === 'genshin' ? 'https://enka.network/u/' + h + '/' : g === 'hsr' ? 'https://enka.network/hsr/' + h + '/' : g === 'zzz' ? 'https://enka.network/zzz/' + h + '/' : ''; } },
-    { key: 'roblox', name: 'Roblox', short: 'RB', color: '#e2231a', label: 'Roblox-Name', placeholder: 'Benutzername',
+    { key: 'roblox', name: 'Roblox', short: 'RB', color: '#e2231a', hours: true, label: 'Roblox-Name', placeholder: 'Benutzername',
       check: plain(/^[A-Za-z0-9_]{3,20}$/), url: function (h) { return 'https://www.roblox.com/users/profile?username=' + enc(h); } },
     { key: 'gog', name: 'GOG Galaxy', short: 'GOG', color: '#a35dd6', label: 'GOG-Name', placeholder: 'Benutzername',
       check: function (s) { s = lastPath(s); return /^[A-Za-z0-9_.-]{3,30}$/.test(s) ? s : ''; }, url: function (h) { return 'https://www.gog.com/u/' + enc(h); } },
@@ -84,6 +85,14 @@
       check: function (s) { s = lastPath(trim(s).replace(/^\/?u\//, '')); return /^[A-Za-z0-9_-]{3,20}$/.test(s) ? s : ''; }, url: function (h) { return 'https://www.reddit.com/user/' + enc(h) + '/'; } },
     { key: 'kick', name: 'Kick', short: 'KI', color: '#53fc18', label: 'Kick-Kanal', placeholder: 'kanalname',
       check: function (s) { s = lastPath(s); return /^[A-Za-z0-9_-]{3,25}$/.test(s) ? s : ''; }, url: function (h) { return 'https://kick.com/' + enc(h); } },
+    // Spotify: Profil-Link (open.spotify.com/user/<id>) oder Benutzer-ID; nur Link, Live-Daten braeuchten eine Spotify-App
+    { key: 'spotify', name: 'Spotify', short: 'SP', color: '#1db954', label: 'Profil-Link oder Benutzer-ID', placeholder: 'https://open.spotify.com/user/…',
+      hint: 'In Spotify: Profil → ⋯ → Teilen → Link kopieren.',
+      check: function (s) {
+        s = trim(s); var m = s.match(/open\.spotify\.com\/(?:intl-[a-z]{2}\/)?user\/([A-Za-z0-9._-]{2,64})/); if (m) return m[1];
+        s = s.replace(/^spotify:user:/, '').replace(/^@/, ''); return /^[A-Za-z0-9._-]{2,64}$/.test(s) ? s : '';
+      },
+      url: function (h) { return 'https://open.spotify.com/user/' + enc(h); } },
     { key: 'snapchat', name: 'Snapchat', short: 'SC', color: '#fffc00', label: 'Snapchat-Name', placeholder: 'name',
       check: function (s) { s = lastPath(s); return /^[A-Za-z][A-Za-z0-9._-]{2,14}$/.test(s) ? s : ''; }, url: function (h) { return 'https://www.snapchat.com/add/' + enc(h); } }
   ];
@@ -113,7 +122,15 @@
     return acc.handle;
   }
 
-  window.GAccounts = { KINDS: KINDS, BY: BY, summary: summary, base: base, slot: slot, kindOf: kindOf, label: label, MAX_PER_KIND: MAX_PER_KIND,
+  // Spielzeit eines Kontos in Stunden: eigene Angabe (extra.hours) vor der Schaetzung aus den Live-Daten (Valorant: playtime)
+  function hours(acc, data) {
+    var h = acc && acc.extra && acc.extra.hours;
+    if (h != null && h !== '' && isFinite(+h)) return { hours: +h, own: true };
+    if (data && data.playtime && data.playtime.hours > 0) return { hours: data.playtime.hours, own: false, matches: data.playtime.matches };
+    return null;
+  }
+
+  window.GAccounts = { KINDS: KINDS, BY: BY, summary: summary, base: base, slot: slot, kindOf: kindOf, label: label, hours: hours, MAX_PER_KIND: MAX_PER_KIND,
     // gekuerzte Namen (oeffentliches Profil) bekommen keinen Link
     link: function (acc, data) { var k = kindOf(acc); if (!k || acc.masked) return ''; try { return k.url(acc.handle, acc.extra || {}, data) || ''; } catch (e) { return ''; } } };
 })();

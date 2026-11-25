@@ -250,7 +250,7 @@
   // und ob es im oeffentlichen Profil ungekuerzt erscheint. Verknuepfte Anbieter stehen oben, weitere kommen ueber die Auswahl.
   function tabKonten(body) {
     var GA = window.GAccounts, extra = {};   // extra: zusaetzlich geoeffnete, noch leere Zeilen je Art
-    body.innerHTML = '<p class="muted">Konten mit ✓ werden beim Speichern geprüft und liefern Live-Daten. Bei „Wer sieht das?“ legst du je Konto fest, ob es öffentlich, für Bekannte, Freunde, einen Kreis oder nur dich sichtbar ist. Im öffentlichen Profil werden Spielernamen gekürzt (empfohlen).</p>' +
+    body.innerHTML = '<p class="muted">Konten mit ✓ werden beim Speichern geprüft und liefern Live-Daten. Bei Spielen wie Valorant kannst du die Spielzeit eintragen (z. B. „Total Playtime“ von tracker.gg), sie zählt in der Statistik mit. Bei „Wer sieht das?“ legst du je Konto fest, ob es öffentlich, für Bekannte, Freunde, einen Kreis oder nur dich sichtbar ist. Im öffentlichen Profil werden Spielernamen gekürzt (empfohlen).</p>' +
       '<div class="acc-add"><label>Konto verknüpfen<select><option value="">Anbieter wählen …</option>' +
       GA.KINDS.map(function (k) { return '<option value="' + k.key + '">' + esc(k.name) + '</option>'; }).join('') + '</select></label></div><div class="acc-edit-list"></div>';
     var box = $('.acc-edit-list', body);
@@ -278,7 +278,10 @@
       row.innerHTML = '<div class="acc-edit-row"><input name="handle" aria-label="' + esc(k.label) + '" placeholder="' + esc(k.placeholder) + '" value="' + esc(a ? a.handle : '') + '" autocomplete="off" spellcheck="false">' +
         (k.regions ? '<select name="region" aria-label="Region">' + k.regions.map(function (r) { return '<option value="' + r[0] + '"' + (x.region === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select>' : '') +
         (k.games ? '<select name="game" aria-label="Spiel">' + k.games.map(function (g) { return '<option value="' + g[0] + '"' + (x.game === g[0] ? ' selected' : '') + '>' + g[1] + '</option>'; }).join('') + '</select>' : '') +
-        '<input name="label" class="acc-label" maxlength="24" placeholder="' + (GA.slot(kind) > 1 ? 'z. B. Smurf, Zweitkonto' : 'Name (optional)') + '" aria-label="Eigener Name für dieses Konto" value="' + esc(x.label || '') + '"></div>' +
+        '<input name="label" class="acc-label" maxlength="24" placeholder="' + (GA.slot(kind) > 1 ? 'z. B. Smurf, Zweitkonto' : 'Name (optional)') + '" aria-label="Eigener Name für dieses Konto" value="' + esc(x.label || '') + '">' +
+        (k.hours ? '<input name="hours" class="acc-hours" inputmode="decimal" maxlength="9" placeholder="Spielzeit (Std)" aria-label="Spielzeit in Stunden (optional)" title="' +
+          (k.key === 'valorant' ? 'Gesamtspielzeit, z. B. „Total Playtime“ von tracker.gg. Leer lassen: Schätzung aus den gespeicherten Spielen.' : 'Gesamtspielzeit in Stunden, zählt in der Statistik mit.') +
+          '" value="' + esc(x.hours != null ? String(x.hours).replace('.', ',') : '') + '">' : '') + '</div>' +
         '<div class="acc-edit-row"><label class="aud-l"><span class="muted small">Wer sieht das?</span>' + audSel('audience', a ? (a.in_sidebar === false ? 'me' : a.audience) : 'friends') + '</label>' +
         '<label class="pick small" title="Nicht empfohlen: vollständige Spielernamen lassen sich leicht weitergeben"><input type="checkbox" name="public_full"' + (a && a.public_full ? ' checked' : '') + '><span>Öffentlich ungekürzt zeigen</span></label>' +
         '<button class="btn small" type="submit">' + (a ? 'Speichern' : 'Verknüpfen') + '</button>' +
@@ -317,6 +320,14 @@
     if (row.region) extra.region = row.region.value;
     if (row.game) extra.game = row.game.value;
     if (row.label.value.trim()) extra.label = row.label.value.trim().slice(0, 24);
+    if (row.hours && row.hours.value.trim()) {
+      // "1.234,5" und "629,5" wie im Deutschen, "629.5" als Dezimalzahl, "1.234" als Tausender
+      var hv = row.hours.value.trim().replace(/\s|std\.?|hrs?|h$/gi, '');
+      hv = /,/.test(hv) || /^\d{1,3}(\.\d{3})+$/.test(hv) ? hv.replace(/\./g, '').replace(',', '.') : hv;
+      var h = +hv;
+      if (!(h >= 0 && h < 1e6)) return say('err', 'Die Spielzeit bitte als Zahl in Stunden, z. B. 629.');
+      extra.hours = Math.round(h * 10) / 10;
+    }
     var aud = row.audience.value;
     try {
       await busy(btn, async function () {

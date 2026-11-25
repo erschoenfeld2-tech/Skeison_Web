@@ -87,6 +87,22 @@ function normMatches(list: any) {
   rows.sort((a: { date: string }, b: { date: string }) => (a.date < b.date ? 1 : -1));
   return rows;
 }
+// Valorant liefert keine Gesamtspielzeit. Geschaetzt wird aus allen bei HenrikDev gespeicherten Spielen (die Liste hat Luecken)
+// mal einer ueblichen Dauer je Modus in Minuten. Genauer ist die Spielzeit, die man im Editor selbst eintraegt (extra.hours).
+const MODE_MIN: Record<string, number> = { competitive: 38, premier: 38, unrated: 34, swiftplay: 16, spikerush: 12, deathmatch: 8,
+  teamdeathmatch: 10, escalation: 12, replication: 16, snowball: 12, custom: 30, newmap: 34 };
+// deno-lint-ignore no-explicit-any
+function valPlaytime(list: any) {
+  if (!Array.isArray(list) || !list.length) return null;
+  let min = 0;
+  const by: Record<string, number> = {};
+  // deno-lint-ignore no-explicit-any
+  list.forEach((m: any) => {
+    const mode = String(m?.meta?.mode || '').toLowerCase().replace(/[^a-z]/g, '') || 'unrated';
+    min += MODE_MIN[mode] ?? 25; by[mode] = (by[mode] || 0) + 1;
+  });
+  return { hours: Math.round(min / 6) / 10, matches: list.length, byMode: by, estimate: true };
+}
 async function valorant(handle: string, region: string) {
   const m = handle.trim().match(/^(.{2,})#(.{2,})$/);
   if (!m) throw new Fail('bad_handle');
@@ -97,7 +113,12 @@ async function valorant(handle: string, region: string) {
   const api = (p: string) => getJson('https://api.henrikdev.xyz/valorant' + p, H).then((j) => (j && j.data !== undefined ? j.data : j));
   const account = normAccount(await api(`/v2/account/${name}/${tag}`).catch((e) => { if (e.code === 'not_found') throw e; return api(`/v1/account/${name}/${tag}`); }));
   const rank = normRank(await api(`/v3/mmr/${reg}/pc/${name}/${tag}`).catch(() => api(`/v2/mmr/${reg}/${name}/${tag}`)).catch(() => null));
-  const matches = normMatches(await api(`/v1/stored-matches/${reg}/${name}/${tag}?mode=competitive&size=30`).catch(() => []));
+  const [stored, all] = await Promise.all([
+    api(`/v1/stored-matches/${reg}/${name}/${tag}?mode=competitive&size=30`).catch(() => []),
+    api(`/v1/stored-matches/${reg}/${name}/${tag}`).catch(() => null),
+  ]);
+  const matches = normMatches(stored);
+  const playtime = valPlaytime(all);
   const sum = (f: (x: typeof matches[0]) => number) => matches.reduce((n: number, x: typeof matches[0]) => n + f(x), 0);
   const k = sum((x) => x.k), d = sum((x) => x.d), a = sum((x) => x.a), shots = sum((x) => x.head + x.body + x.leg), rounds = sum((x) => x.rounds);
   const wins = matches.filter((x: { won: boolean }) => x.won).length;
@@ -106,7 +127,7 @@ async function valorant(handle: string, region: string) {
   const riot = `${account.name || m[1].trim()}#${account.tag || m[2].trim()}`;
   return {
     riotId: riot, name: account.name || m[1].trim(), tag: account.tag || m[2].trim(), region: reg,
-    url: 'https://tracker.gg/valorant/profile/riot/' + encodeURIComponent(riot) + '/overview', level: account.level ?? null, card: account.card || null, rank,
+    url: 'https://tracker.gg/valorant/profile/riot/' + encodeURIComponent(riot) + '/overview', level: account.level ?? null, card: account.card || null, rank, playtime,
     stats: matches.length ? { matches: matches.length, wins, winrate: Math.round(wins / matches.length * 100), kd: round(k / Math.max(1, d), 2), kda: round((k + a) / Math.max(1, d), 2),
       hs: shots ? Math.round(sum((x) => x.head) / shots * 100) : null, adr: rounds ? Math.round(sum((x) => x.dmg) / rounds) : null } : null,
     agents: Object.values(by).sort((x, y) => y.games - x.games || y.wins - x.wins).slice(0, 3).map((x) => ({
@@ -139,7 +160,43 @@ function steamOut(base: { steamId: string; url: string; name: string; avatar: st
     // fuer die Auswahl der Lieblingsspiele (nach Spielzeit)
     library: games.slice().sort((a, b) => b.hours - a.hours).slice(0, 300).map((g) => ({ appid: Number(g.id), name: g.name, hours: g.hours })) };
 }
-async function steam(handle: string) {
+// Wert der Bibliothek (wie tools/fetch-steam.js): Summe der Shop-Preise aller Spiele im deutschen Shop (Euro). "initial" ist der
+// regulaere Preis, "final" der gerade gueltige (Angebot). Kostenlose und nicht mehr verkaufte Spiele zaehlen nicht mit.
+// Abgefragt in Paketen zu 40 Spielen, hoechstens 800 Spiele; scheitert ein Paket, bleibt es ungezaehlt.
+async function steamValue(games: Game[]) {
+  const ids = games.map((g) => g.id).slice(0, 800);
+  // deno-lint-ignore no-explicit-any
+  const price: Record<string, any> = {};
+  for (let i = 0; i < ids.length; i += 40) {
+    const part = ids.slice(i, i + 40);
+    try {
+      const j = await getJson(`https://store.steampowered.com/api/appdetails?appids=${part.join(',')}&filters=price_overview&cc=de`);
+      part.forEach((id) => { const d = j?.[id]?.success && j[id].data; if (d && d.price_overview) price[id] = d.price_overview; });
+    } catch (e) { if (i === 0) throw e; }   // erstes Paket gescheitert: gar kein Wert (der alte bleibt stehen)
+    if (i + 40 < ids.length) await new Promise((r) => setTimeout(r, 1200));
+  }
+  let eur = 0, eurNow = 0, priced = 0;
+  const rows: { name: string; eur: number; hours: number }[] = [];
+  games.forEach((g) => {
+    const p = price[g.id];
+    if (!p || p.currency !== 'EUR' || !(p.initial > 0)) return;
+    priced++; eur += p.initial / 100; eurNow += (p.final || p.initial) / 100;
+    rows.push({ name: g.name, eur: Math.round(p.initial) / 100, hours: g.hours });
+  });
+  if (!priced) return null;
+  rows.sort((a, b) => b.eur - a.eur);
+  const hours = games.reduce((a, g) => a + g.hours, 0);
+  return { eur: Math.round(eur), eurNow: Math.round(eurNow), priced, unpriced: games.length - priced, count: games.length,
+    perHour: hours > 0 ? Math.round(eur / hours * 100) / 100 : null, top: rows.slice(0, 8) };
+}
+async function steam(handle: string, withValue = false) {
+  const out = await steamProfile(handle);
+  // beim Verknuepfen (check) ohne Wert, das dauert bei grossen Bibliotheken einige Sekunden
+  // value: null = berechnet, aber kein Preis gefunden (oder Bibliothek nicht oeffentlich); so wird nicht staendig neu gerechnet
+  if (withValue) out.data.value = out.games.length ? await steamValue(out.games).catch(() => null) : null;
+  return out.data;
+}
+async function steamProfile(handle: string): Promise<{ data: Record<string, unknown>; games: Game[] }> {
   const s = steamBase(handle);
   if (STEAM_KEY) {
     let id = s.id;
@@ -162,20 +219,20 @@ async function steam(handle: string) {
     const extra: Record<string, unknown> = { private: !list.length };
     if (list.length) { extra.gameCount = owned.response.game_count || list.length; extra.totalHours = Math.round(games.reduce((a, g) => a + g.hours, 0)); }
     if (level?.response?.player_level != null) extra.level = level.response.player_level;
-    return steamOut({ steamId: id!, url: p.profileurl || 'https://steamcommunity.com/profiles/' + id + '/', name: p.personaname, avatar: p.avatarfull }, games, extra);
+    return { data: steamOut({ steamId: id!, url: p.profileurl || 'https://steamcommunity.com/profiles/' + id + '/', name: p.personaname, avatar: p.avatarfull }, games, extra), games };
   }
   const prof = await (await fetchRaw(s.base + '/?xml=1')).text();
   if (/<error>/i.test(prof) || !xtag(prof, 'steamID64')) throw new Fail('not_found');
   const id = xtag(prof, 'steamID64'), url = 'https://steamcommunity.com/profiles/' + id + '/';
   const base = { steamId: id, url, name: xtag(prof, 'steamID'), avatar: xtag(prof, 'avatarFull') };
-  if (xtag(prof, 'privacyState') && xtag(prof, 'privacyState') !== 'public') return steamOut(base, [], { private: true });
+  if (xtag(prof, 'privacyState') && xtag(prof, 'privacyState') !== 'public') return { data: steamOut(base, [], { private: true }), games: [] };
   const gx = await fetchRaw(url + 'games?tab=all&xml=1').then((r) => r.text()).catch(() => '');
   let games: Game[] = xblocks(gx, 'game').map((g) => ({ id: xtag(g, 'appID'), name: xtag(g, 'name'), hours: num(xtag(g, 'hoursOnRecord').replace(/,/g, '')), recent: num(xtag(g, 'hoursLast2Weeks').replace(/,/g, '')) })).filter((g) => g.id && g.name);
-  const extra: Record<string, unknown> = {};
+  const extra: Record<string, unknown> = {}, full = games.length > 0;   // nur mit ganzer Bibliothek einen Wert berechnen
   if (games.length) { extra.gameCount = games.length; extra.totalHours = Math.round(games.reduce((a, g) => a + g.hours, 0)); }
   else games = xblocks(prof, 'mostPlayedGame').map((g) => ({ id: (xtag(g, 'gameLink').match(/app\/(\d+)/) || [])[1] || '', name: xtag(g, 'gameName'), hours: num(xtag(g, 'hoursOnRecord')), recent: num(xtag(g, 'hoursPlayed')) })).filter((g) => g.id && g.name);
   extra.private = !games.length;
-  return steamOut(base, games, extra);
+  return { data: steamOut(base, games, extra), games: full ? games : [] };
 }
 async function steamSearch(q: string) {
   const term = q.trim().slice(0, 60);
@@ -258,11 +315,12 @@ async function discord(handle: string) {
 }
 
 // deno-lint-ignore no-explicit-any
-function load(kind: string, handle: string, extra: any) {
+// full: Live-Daten fuers Profil (mit Wert der Steam-Bibliothek); ohne full nur die schnelle Pruefung beim Verknuepfen
+function load(kind: string, handle: string, extra: any, full = false) {
   if (kind.startsWith('ach:')) return achievements(handle);
   kind = baseKind(kind);
   if (kind === 'valorant') return valorant(handle, String(extra?.region || 'eu'));
-  if (kind === 'steam') return steam(handle);
+  if (kind === 'steam') return steam(handle, full);
   if (kind === 'minecraft') return minecraft(handle);
   if (kind === 'mcserver') return mcserver(handle);
   if (kind === 'discord') return discord(handle);
@@ -349,6 +407,8 @@ Deno.serve(async (req: Request) => {
         const c = cache[j.kind];
         if (!c) return true;
         if ((c.data?._key ?? '') !== keyOf(j)) return true;                         // Konto oder Region geaendert
+        if (baseKind(j.kind) === 'steam' && c.data && !('value' in c.data) && !(c.error && now - ts(c.tried_at) < RETRY_GAP)) return true;   // Stand von vor der Wertberechnung
+        if (baseKind(j.kind) === 'valorant' && c.data && !('playtime' in c.data) && !(c.error && now - ts(c.tried_at) < RETRY_GAP)) return true;   // Stand von vor der Spielzeit-Schaetzung
         const fetched = ts(c.fetched_at), tried = ts(c.tried_at ?? c.fetched_at);
         if (force && now - Math.max(ts(c.forced_at), 0) > FORCE_GAP) return true;
         if (c.error && now - tried < RETRY_GAP) return false;
@@ -357,7 +417,11 @@ Deno.serve(async (req: Request) => {
       const stamp = new Date().toISOString();
       await Promise.allSettled(due.map(async (j) => {
         try {
-          const data = { ...(await load(j.kind, j.handle, j.extra)), _key: keyOf(j) };
+          // deno-lint-ignore no-explicit-any
+          const data: any = { ...(await load(j.kind, j.handle, j.extra, true)), _key: keyOf(j) };
+          // Steam-Preise nicht abrufbar: den letzten berechneten Wert behalten (gleiches Konto)
+          const prev = cache[j.kind]?.data;
+          if (baseKind(j.kind) === 'steam' && !data.value && prev?.value && prev._key === data._key) data.value = prev.value;
           await saveCache({ owner, kind: j.kind, data, error: null, fetched_at: stamp, tried_at: stamp, ...(force ? { forced_at: stamp } : {}) });
         } catch (e) {
           await saveCache({ owner, kind: j.kind, error: e instanceof Fail ? e.code : 'failed', tried_at: stamp, ...(force ? { forced_at: stamp } : {}) });
