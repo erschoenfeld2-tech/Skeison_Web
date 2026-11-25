@@ -164,7 +164,7 @@
       '<section class="ecard"><h3>Deine Spiele als Reiter</h3><p class="muted">Ein Klick macht ein Spiel zum Reiter auf der Bühne (oder nimmt ihn wieder weg). Aus deiner Steam-Bibliothek und deinen Spiel-Konten; Spielzeit und Errungenschaften kommen bei Steam-Spielen live.</p>' +
       '<input type="search" class="game-q" placeholder="Spiel suchen" aria-label="Eigene Spiele durchsuchen"><div class="game-pick"></div></section>' +
       '<section class="ecard"><h3>Eigene Reiter</h3><p class="muted">Für Spiele, die es nur in Launchern gibt (Epic, Battle.net, HoYoPlay, Konsole …), oder für ein einzelnes Steam-Spiel mit Errungenschaften. Spielzeit, eigene Zahlen und Errungenschaften trägst du selbst ein; bei Steam-Spielen kommen Spielzeit und Errungenschaften live von Steam.</p>' +
-      '<ul class="people-list custom-list"></ul><div class="dlg-actions start"><button type="button" class="btn ghost small" data-new>+ Neuer Reiter</button></div><div class="custom-form"></div></section>';
+      '<ul class="people-list custom-list"></ul><div class="dlg-actions start"><button type="button" class="btn ghost small" data-new>+ Spiel als Reiter</button><button type="button" class="btn ghost small" data-newl>+ Launcher mit Spielen</button></div><div class="custom-form"></div></section>';
     var ol = $('.tab-order', body), sp = $('.stat-pick', body);
     function changed() { saver.set(JSON.parse(JSON.stringify(lay))); }
     function paintOrder() {
@@ -199,7 +199,9 @@
     function paintList() {
       var list = S.p.custom || [];
       cl.innerHTML = list.length ? list.map(function (g) {
-        return '<li><span class="c-emo">🎮</span><b>' + esc(g.name) + '</b><small class="muted">' + esc([g.platform, g.appid ? 'Steam ' + g.appid : '', g.hours != null ? String(g.hours).replace('.', ',') + ' Std' : ''].filter(Boolean).join(' · ')) + '</small>' +
+        var L = g.launcher ? window.GAccounts.launcher(g.platform) : null, n = (g.games || []).length;
+        return '<li>' + (L ? '<span class="c-emo l-badge" style="--c:' + esc(L.color) + '">' + esc(L.short) + '</span>' : '<span class="c-emo">🎮</span>') + '<b>' + esc(g.name) + '</b><small class="muted">' +
+          esc([L ? 'Launcher' : g.platform, L ? n + (n === 1 ? ' Spiel' : ' Spiele') : '', g.appid ? 'Steam ' + g.appid : '', g.hours != null ? String(g.hours).replace('.', ',') + ' Std' : ''].filter(Boolean).join(' · ')) + '</small>' +
           '<span class="k-act"><button type="button" class="link-btn" data-edit="' + g.id + '">Bearbeiten</button><button type="button" class="link-btn danger-text" data-del="' + g.id + '">Löschen</button></span></li>'; }).join('')
         : '<li class="muted">Noch keine eigenen Reiter.</li>';
     }
@@ -217,6 +219,7 @@
       }
     });
     $('[data-new]', body).addEventListener('click', function () { gameForm(null); });
+    $('[data-newl]', body).addEventListener('click', function () { gameForm(null, true); });
 
     // Deine Spiele: Steam-Bibliothek (alle Steam-Konten, nach Spielzeit) und Lieblingsspiele, dazu Spiel-Konten ohne eigenen Reiter
     var gp = $('.game-pick', body), gq = $('.game-q', body), GA = window.GAccounts;
@@ -228,6 +231,11 @@
       var lib = [];
       Object.keys(c).forEach(function (k) { if (/^steam(-[2-5])?$/.test(k) && c[k].data && c[k].data.library) lib = lib.concat(c[k].data.library); });
       lib.sort(function (a, b) { return (b.hours || 0) - (a.hours || 0); }).forEach(function (g) { add({ appid: g.appid, name: g.name, platform: 'Steam', hours: g.hours }); });
+      // Launcher aus verknuepften Konten (Epic, Battle.net, EA, Ubisoft, GOG, Xbox …) als Launcher-Reiter mit Spieleliste
+      (S.p.accounts || []).forEach(function (a) {
+        var L = GA.LAUNCHERS.filter(function (l) { return l.kind && l.kind === GA.base(a.kind) && l.kind !== 'hoyoverse'; })[0];
+        if (L && !seen['l' + L.name]) { seen['l' + L.name] = 1; out.unshift({ name: L.name, platform: L.name, launcher: true }); }
+      });
       (S.p.accounts || []).forEach(function (a) {
         var b = GA.base(a.kind), x = a.extra || {};
         if (ACC_GAME[b]) add({ name: ACC_GAME[b][0], platform: ACC_GAME[b][1] });
@@ -235,16 +243,22 @@
       });
       return out;
     }
-    function existing(g) { return (S.p.custom || []).filter(function (x) { return g.appid ? x.appid === g.appid : !x.appid && x.name.toLowerCase() === g.name.toLowerCase(); })[0]; }
+    function existing(g) {
+      return (S.p.custom || []).filter(function (x) {
+        if (g.launcher) return x.launcher && String(x.platform).toLowerCase() === g.platform.toLowerCase();
+        return !x.launcher && (g.appid ? x.appid === g.appid : !x.appid && x.name.toLowerCase() === g.name.toLowerCase());
+      })[0];
+    }
     function paintGames() {
       var q = gq.value.trim().toLowerCase(), all = candidates(), list = all.filter(function (g) { return !q || g.name.toLowerCase().indexOf(q) >= 0; });
       // ohne Suche: die gewaehlten und die 24 meistgespielten zeigen
       if (!q) list = list.filter(function (g, i) { return i < 24 || existing(g); });
       gp.innerHTML = list.length ? list.map(function (g, i) {
-        var on = !!existing(g);
-        return '<button type="button" class="gtile' + (on ? ' on' : '') + '" data-i="' + all.indexOf(g) + '" aria-pressed="' + on + '">' +
-          (g.appid ? '<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/' + g.appid + '/capsule_184x69.jpg" alt="" loading="lazy">' : '<span class="gph">' + esc(g.name.slice(0, 2).toUpperCase()) + '</span>') +
-          '<span class="gt"><b>' + esc(g.name) + '</b><small>' + esc([g.platform, g.hours ? String(Math.round(g.hours)) + ' Std' : '', g.fav ? '★' : ''].filter(Boolean).join(' · ')) + '</small></span>' +
+        var on = !!existing(g), L = g.launcher ? GA.launcher(g.platform) : null;
+        return '<button type="button" class="gtile' + (on ? ' on' : '') + (L ? ' launcher' : '') + '" data-i="' + all.indexOf(g) + '" aria-pressed="' + on + '">' +
+          (g.appid ? '<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/' + g.appid + '/capsule_184x69.jpg" alt="" loading="lazy">'
+            : L ? '<span class="gph l-badge" style="--c:' + esc(L.color) + '">' + esc(L.short) + '</span>' : '<span class="gph">' + esc(g.name.slice(0, 2).toUpperCase()) + '</span>') +
+          '<span class="gt"><b>' + esc(g.name) + '</b><small>' + esc(L ? 'Launcher mit deinen Spielen' : [g.platform, g.hours ? String(Math.round(g.hours)) + ' Std' : '', g.fav ? '★' : ''].filter(Boolean).join(' · ')) + '</small></span>' +
           '<span class="gst" aria-hidden="true">' + (on ? '✓' : '+') + '</span></button>'; }).join('')
         : '<p class="muted">' + (all.length ? 'Nichts gefunden.' : 'Verknüpfe Steam oder Spiel-Konten (Epic, LoL, HoYoverse, Roblox), dann stehen deine Spiele hier zur Wahl.') + '</p>';
       gp._all = all;
@@ -256,34 +270,48 @@
       b.disabled = true;
       try {
         if (ex) {
-          if (((ex.stats || []).length || (ex.achievements || []).length) && !confirm('„' + ex.name + '“ hat eigene Zahlen oder Errungenschaften. Reiter trotzdem entfernen?')) return;
+          if (((ex.stats || []).length || (ex.achievements || []).length || (ex.games || []).length) && !confirm('„' + ex.name + '“ hat eingetragene Spiele, Zahlen oder Errungenschaften. Reiter trotzdem entfernen?')) return;
           await Api.remove('gp_custom_games', 'id=eq.' + ex.id);
           S.p.custom = S.p.custom.filter(function (x) { return x.id !== ex.id; });
           lay.tabs = lay.tabs.filter(function (k) { return k !== 'c-' + ex.id; }); changed();
           toast(g.name + ' ist kein Reiter mehr');
         } else {
           await E.ensureProfile();
-          var rows = await Api.insert('gp_custom_games', [{ owner: S.me, name: g.name.slice(0, 60), platform: g.platform || '', appid: g.appid || null, image: '', hours: null, stats: [], achievements: [], audience: 'friends', sort: (S.p.custom || []).length }]);
+          var row = { owner: S.me, name: g.name.slice(0, 60), platform: g.platform || '', appid: g.appid || null, image: '', hours: null, stats: [], achievements: [], audience: 'friends', sort: (S.p.custom || []).length };
+          if (g.launcher) { row.launcher = true; row.games = []; }
+          var rows = await Api.insert('gp_custom_games', [row]);
           if (rows && rows[0]) S.p.custom = (S.p.custom || []).concat([rows[0]]);
-          toast(g.name + ' ist jetzt ein Reiter');
+          toast(g.launcher ? g.name + ' ist jetzt ein Reiter. Trag unten deine Spiele ein.' : g.name + ' ist jetzt ein Reiter');
+          if (g.launcher && rows && rows[0]) setTimeout(function () { gameForm(rows[0]); cf.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 0);
         }
         S.changed = true; paintGames(); paintList(); paintOrder();
       } catch (err) { toast(errText(err)); }
       finally { b.disabled = false; }
     });
     paintGames();
-    function gameForm(g) {
-      g = g || { name: '', platform: '', image: '', appid: null, hours: null, stats: [], achievements: [], audience: 'friends' };
-      var stats = (g.stats || []).slice(), achs = (g.achievements || []).slice();
-      cf.innerHTML = '<form class="gform custom-edit" novalidate><h4>' + (g.id ? 'Reiter bearbeiten' : 'Neuer Reiter') + '</h4>' +
-        '<div class="row2"><label>Spiel<input name="name" maxlength="60" required value="' + esc(g.name) + '" placeholder="z. B. Fortnite, Genshin Impact"></label>' +
+    // Launcher-Reiter: Spiele des Launchers mit Spielzeit; Cover kommen ueber die Steam-Suche (appid nur fuers Bild)
+    var CAPSULE = function (a) { return 'https://cdn.cloudflare.steamstatic.com/steam/apps/' + a + '/capsule_184x69.jpg'; };
+    function gameForm(g, asLauncher) {
+      var isL = g ? !!g.launcher : !!asLauncher, GA = window.GAccounts;
+      g = g || { name: isL ? 'Epic Games' : '', platform: isL ? 'Epic Games' : '', image: '', appid: null, hours: null, stats: [], achievements: [], games: [], launcher: isL, audience: 'friends' };
+      var stats = (g.stats || []).slice(), achs = (g.achievements || []).slice(), games = (g.games || []).map(function (x) { return Object.assign({}, x); });
+      var single = '<div class="row2"><label>Spiel<input name="name" maxlength="60" required value="' + esc(g.name) + '" placeholder="z. B. Fortnite, Genshin Impact"></label>' +
         '<label>Plattform<input name="platform" maxlength="30" list="gpPlatforms" value="' + esc(g.platform) + '" placeholder="z. B. Epic Games"></label></div>' +
         '<datalist id="gpPlatforms">' + PLATFORMS.map(function (p) { return '<option value="' + esc(p) + '">'; }).join('') + '</datalist>' +
         '<div class="row2"><label>Spielzeit in Stunden<input name="hours" inputmode="decimal" value="' + (g.hours != null ? esc(String(g.hours).replace('.', ',')) : '') + '" placeholder="z. B. 320"></label>' +
         '<label class="aud-l">Wer sieht das?' + E.audSel('audience', g.audience || 'friends') + '</label></div>' +
         '<label>Steam-Spiel (optional) <small class="muted">Spielzeit und Errungenschaften kommen dann von Steam</small><span class="fav-add"><input type="search" data-q placeholder="Im Steam-Shop suchen" value=""><button type="button" class="btn ghost small" data-find>Suchen</button></span></label>' +
         '<p class="small" data-app>' + (g.appid ? 'Verknüpft mit Steam-Spiel <b>' + g.appid + '</b> <button type="button" class="link-btn" data-unapp>lösen</button>' : '<span class="muted">Kein Steam-Spiel verknüpft.</span>') + '</p><ul class="fav-results" data-res></ul>' +
-        '<label>Bild (Link, optional)<input name="image" maxlength="300" value="' + esc(g.image) + '" placeholder="https://… (Cover oder Figur)"></label>' +
+        '<label>Bild (Link, optional)<input name="image" maxlength="300" value="' + esc(g.image) + '" placeholder="https://… (Cover oder Figur)"></label>';
+      var launcherHtml = '<div class="row2"><label>Launcher<select name="platform">' + GA.LAUNCHERS.map(function (l) { return '<option' + (l.name === g.platform ? ' selected' : '') + '>' + esc(l.name) + '</option>'; }).join('') +
+          (g.platform && !GA.LAUNCHERS.some(function (l) { return l.name === g.platform; }) ? '<option selected>' + esc(g.platform) + '</option>' : '') + '</select></label>' +
+        '<label>Überschrift<input name="name" maxlength="60" required value="' + esc(g.name) + '" placeholder="z. B. Epic Games"></label></div>' +
+        '<label class="aud-l">Wer sieht das?' + E.audSel('audience', g.audience || 'friends') + '</label>' +
+        '<fieldset class="kv lgames"><legend>Spiele auf diesem Launcher <small class="muted">mit Spielzeit; zählen in der Statistik und bei „Zusammen spielen“</small></legend>' +
+        '<span class="fav-add"><input type="search" data-lq placeholder="Spiel suchen, z. B. Fortnite" aria-label="Spiel suchen"><button type="button" class="btn ghost small" data-lfind>Suchen</button></span>' +
+        '<ul class="fav-results" data-lres></ul><div data-games></div></fieldset>';
+      cf.innerHTML = '<form class="gform custom-edit" novalidate><h4>' + (g.id ? (isL ? 'Launcher-Reiter bearbeiten' : 'Reiter bearbeiten') : (isL ? 'Neuer Launcher-Reiter' : 'Neuer Reiter')) + '</h4>' +
+        (isL ? launcherHtml : single) +
         '<fieldset class="kv"><legend>Eigene Zahlen <small class="muted">z. B. Rang: Diamant, Siege: 120</small></legend><div data-stats></div><button type="button" class="link-btn" data-addstat>+ Zahl</button></fieldset>' +
         '<fieldset class="kv"><legend>Errungenschaften <small class="muted">' + (g.appid ? 'bei Steam-Spielen kommen sie live von Steam; eigene nur ohne Steam-Daten' : 'eigene Ziele und Erfolge') + '</small></legend><div data-achs></div><button type="button" class="link-btn" data-addach>+ Errungenschaft</button></fieldset>' +
         '<p class="msg" hidden></p><div class="dlg-actions start"><button class="btn" type="submit">' + (g.id ? 'Speichern' : 'Reiter anlegen') + '</button><button type="button" class="link-btn" data-cancel>Abbrechen</button></div></form>';
@@ -300,9 +328,54 @@
         $$('[data-achs] .kv-row', f).forEach(function (r) { var i = +r.dataset.i; achs[i] = { n: $('[data-f="n"]', r).value.trim(), d: $('[data-f="d"]', r).value.trim(), done: $('[data-f="done"]', r).checked, at: $('[data-f="at"]', r).value }; });
       }
       paintKV();
+      // Spiele des Launchers: Cover (Steam), Name, Spielzeit, entfernen; meistgespielte zuerst beim Speichern
+      function readGames() {
+        $$('[data-games] .lg-row', f).forEach(function (r) {
+          var i = +r.dataset.i, h = $('[data-f="h"]', r).value.trim().replace(',', '.');
+          games[i].n = $('[data-f="n"]', r).value.trim(); games[i].h = h === '' ? null : +h;
+        });
+      }
+      function paintGames2() {
+        var box = $('[data-games]', f); if (!box) return;
+        box.innerHTML = games.length ? games.map(function (x, i) {
+          return '<div class="kv-row lg-row" data-i="' + i + '">' + (x.a ? '<img src="' + CAPSULE(x.a) + '" alt="" loading="lazy">' : '<span class="gph">' + esc(String(x.n || '?').slice(0, 2).toUpperCase()) + '</span>') +
+            '<input data-f="n" maxlength="80" placeholder="Spiel" value="' + esc(x.n) + '" aria-label="Spiel">' +
+            '<input data-f="h" inputmode="decimal" placeholder="Std" value="' + (x.h != null && isFinite(x.h) ? esc(String(x.h).replace('.', ',')) : '') + '" aria-label="Spielzeit in Stunden">' +
+            '<button type="button" class="link-btn danger-text" data-rmgame="' + i + '" aria-label="' + esc(x.n) + ' entfernen">✕</button></div>'; }).join('')
+          : '<p class="muted small">Noch keine Spiele. Such oben nach einem Spiel und füge es hinzu.</p>';
+      }
+      function addGame(x) {
+        readGames();
+        if (games.length >= 300) return toast('Höchstens 300 Spiele je Launcher.');
+        if (games.some(function (y) { return (x.a && y.a === x.a) || String(y.n).toLowerCase() === String(x.n).toLowerCase(); })) return toast(x.n + ' steht schon in der Liste.');
+        games.unshift(x); paintGames2();
+        var h = $('[data-games] .lg-row [data-f="h"]', f); if (h) h.focus();
+      }
+      if (isL) {
+        paintGames2();
+        // Ueberschrift folgt dem Launcher, solange sie nicht selbst geaendert wurde
+        f.platform.addEventListener('change', function () { if (!f.name.dataset.own) f.name.value = f.platform.value; });
+        f.name.addEventListener('input', function () { f.name.dataset.own = '1'; });
+        $('[data-lq]', f).addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('[data-lfind]', f).click(); } });
+      }
       f.addEventListener('click', async function (e) {
         var b = e.target.closest('button'); if (!b) return;
         if (b.hasAttribute('data-cancel')) { cf.textContent = ''; return; }
+        if (b.dataset.rmgame != null) { readGames(); games.splice(+b.dataset.rmgame, 1); paintGames2(); return; }
+        if (b.hasAttribute('data-lfind')) {
+          var lq = $('[data-lq]', f).value.trim(); if (lq.length < 2) return;
+          var res = $('[data-lres]', f), own = '<li><span class="gph">' + esc(lq.slice(0, 2).toUpperCase()) + '</span><b>„' + esc(lq) + '“ ohne Cover</b><button type="button" class="btn small ghost" data-addname="' + esc(lq) + '">Hinzufügen</button></li>';
+          try {
+            var lr = await busy(b, function () { return Api.fn('gp-sync', { action: 'steam-search', q: lq }); });
+            res.innerHTML = ((lr && lr.items) || []).slice(0, 5).map(function (x) {
+              return '<li><img src="' + CAPSULE(x.appid) + '" alt="" loading="lazy"><b>' + esc(x.name) + '</b><button type="button" class="btn small" data-addgame="' + x.appid + '" data-name="' + esc(x.name) + '">Hinzufügen</button></li>'; }).join('') + own;
+          } catch (err) { res.innerHTML = own; }
+          return;
+        }
+        if (b.dataset.addgame || b.dataset.addname) {
+          addGame(b.dataset.addgame ? { n: b.dataset.name, a: +b.dataset.addgame, h: null } : { n: b.dataset.addname.slice(0, 80), h: null });
+          $('[data-lres]', f).textContent = ''; $('[data-lq]', f).value = ''; return;
+        }
         if (b.hasAttribute('data-addstat')) { readKV(); if (stats.length >= 24) return toast('Höchstens 24 Zahlen.'); stats.push({ l: '', v: '' }); paintKV(); return; }
         if (b.hasAttribute('data-addach')) { readKV(); if (achs.length >= 150) return toast('Höchstens 150 Errungenschaften.'); achs.push({ n: '', d: '', done: false, at: '' }); paintKV(); return; }
         if (b.dataset.rmstat != null) { readKV(); stats.splice(+b.dataset.rmstat, 1); paintKV(); return; }
@@ -324,14 +397,25 @@
         }
       });
       f.addEventListener('submit', async function (e) {
-        e.preventDefault(); readKV();
-        var m = $('.msg', f), name = f.name.value.trim(), h = f.hours.value.trim().replace(',', '.'), img = f.image.value.trim();
-        if (!name) return say(m, 'err', 'Bitte den Namen des Spiels eintragen.');
+        e.preventDefault(); readKV(); if (isL) readGames();
+        var m = $('.msg', f), name = f.name.value.trim(), h = isL ? '' : f.hours.value.trim().replace(',', '.'), img = isL ? '' : f.image.value.trim();
+        if (!name) return say(m, 'err', isL ? 'Bitte eine Überschrift eintragen.' : 'Bitte den Namen des Spiels eintragen.');
         if (h && !(+h >= 0 && +h < 1e6)) return say(m, 'err', 'Die Spielzeit bitte als Zahl in Stunden.');
         if (img && !/^https:\/\/\S+$/.test(img)) return say(m, 'err', 'Das Bild bitte als https-Link.');
-        var row = { owner: S.me, name: name.slice(0, 60), platform: f.platform.value.trim().slice(0, 30), image: img.slice(0, 300), appid: appid, hours: h ? Math.round(+h * 10) / 10 : null,
+        var list = [];
+        if (isL) {
+          var bad = games.filter(function (x) { return x.n && x.h != null && !(x.h >= 0 && x.h < 1e6); })[0];
+          if (bad) return say(m, 'err', 'Die Spielzeit von „' + bad.n + '“ bitte als Zahl in Stunden.');
+          list = games.filter(function (x) { return x.n; }).map(function (x) { var o = { n: x.n.slice(0, 80) }; if (x.a) o.a = x.a; if (x.h != null) o.h = Math.round(x.h * 10) / 10; if (x.i) o.i = x.i; return o; })
+            .sort(function (a, b) { return (b.h || 0) - (a.h || 0); });
+          var sum = list.reduce(function (s, x) { return s + (x.h || 0); }, 0);
+          h = list.some(function (x) { return x.h != null; }) ? String(sum) : '';
+        }
+        var row = { owner: S.me, name: name.slice(0, 60), platform: f.platform.value.trim().slice(0, 30), image: img.slice(0, 300), appid: isL ? null : appid, hours: h ? Math.round(+h * 10) / 10 : null,
           stats: stats.filter(function (s) { return s.l; }).slice(0, 24), achievements: achs.filter(function (a) { return a.n; }).slice(0, 150).map(function (a) { return { n: a.n, d: a.d, done: a.done, at: a.done ? a.at : '' }; }),
           audience: f.audience.value, sort: g.id ? g.sort || 0 : (S.p.custom || []).length };
+        // Spalten fuer Launcher erst mitsenden, wenn sie gebraucht werden (aeltere Datenbank kennt sie nicht)
+        if (isL || g.launcher) { row.launcher = true; row.games = list; }
         try {
           var rows = await busy($('button[type="submit"]', f), async function () {
             await E.ensureProfile();
@@ -339,10 +423,10 @@
           });
           var saved = rows && rows[0];
           if (saved) S.p.custom = (S.p.custom || []).filter(function (x) { return x.id !== saved.id; }).concat([saved]).sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
-          S.changed = true; cf.textContent = ''; paintList(); paintOrder(); toast(g.id ? 'Reiter gespeichert' : 'Reiter angelegt');
+          S.changed = true; cf.textContent = ''; paintList(); paintOrder(); paintGames(); toast(g.id ? 'Reiter gespeichert' : 'Reiter angelegt');
         } catch (err) { say(m, 'err', /check|violates/.test(String(err.message)) ? 'Ein Eintrag ist zu lang oder ungültig.' : errText(err)); }
       });
-      f.name.focus();
+      if (isL && g.id) $('[data-lq]', f).focus(); else f.name.focus();
     }
     paintList();
   }

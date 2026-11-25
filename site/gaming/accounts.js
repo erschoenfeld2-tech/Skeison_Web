@@ -130,7 +130,21 @@
     return null;
   }
 
+  // Launcher fuer Launcher-Reiter (gp_custom_games.launcher): Name wie in "Plattform", Farbe und Kurzzeichen;
+  // kind: passendes Konto (fuer den Vorschlag unter "Deine Spiele als Reiter" und den Profil-Link)
+  var LAUNCHERS = [
+    { name: 'Epic Games', kind: 'epic' }, { name: 'Battle.net', kind: 'battlenet' }, { name: 'EA App', kind: 'ea' }, { name: 'Ubisoft Connect', kind: 'ubisoft' },
+    { name: 'GOG Galaxy', kind: 'gog' }, { name: 'Riot Client', short: 'RC', color: '#eb0029' }, { name: 'Rockstar Launcher', kind: 'rockstar' },
+    { name: 'HoYoPlay', kind: 'hoyoverse' }, { name: 'Xbox', kind: 'xbox' }, { name: 'PlayStation', kind: 'playstation' }, { name: 'Nintendo Switch', kind: 'nintendo' },
+    { name: 'Amazon Games', short: 'AG', color: '#ff9900' }, { name: 'itch.io', short: 'IO', color: '#fa5c5c' }, { name: 'Mobil', short: 'MO', color: '#8395a7' }
+  ].map(function (l) { var k = l.kind && BY[l.kind]; return { name: l.name, kind: l.kind || '', short: l.short || (k ? k.short : l.name.slice(0, 2)), color: l.color || (k ? k.color : '#8395a7') }; });
+  function launcher(name) {
+    var n = String(name || '').toLowerCase();
+    return LAUNCHERS.filter(function (l) { return l.name.toLowerCase() === n; })[0] || { name: name || 'Launcher', kind: '', short: String(name || 'LA').slice(0, 2).toUpperCase(), color: '#8395a7' };
+  }
+
   window.GAccounts = { KINDS: KINDS, BY: BY, summary: summary, base: base, slot: slot, kindOf: kindOf, label: label, hours: hours, MAX_PER_KIND: MAX_PER_KIND,
+    LAUNCHERS: LAUNCHERS, launcher: launcher,
     // gekuerzte Namen (oeffentliches Profil) bekommen keinen Link
     link: function (acc, data) { var k = kindOf(acc); if (!k || acc.masked) return ''; try { return k.url(acc.handle, acc.extra || {}, data) || ''; } catch (e) { return ''; } } };
 })();

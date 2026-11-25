@@ -61,7 +61,11 @@
     r.accHours = r.accGames.reduce(function (s, e) { return s + e.hours; }, 0);
     r.valHours = acc.valorant || null;
     r.accounts = (v.accounts || []).filter(function (a) { return a.in_sidebar !== false; }).length;
-    r.games = r.steamGames + custom.filter(function (g) { return !g.appid || !lib[g.appid]; }).length + ACC_GAMES.filter(function (k) { return kinds[k]; }).length;
+    // Launcher-Reiter zaehlen mit ihren Spielen (ohne die, die schon in der Steam-Bibliothek stehen)
+    r.games = r.steamGames + custom.reduce(function (n, g) {
+      if (g.launcher) return n + launcherGames(g).filter(function (x) { return !x.a || !lib[x.a]; }).length;
+      return n + (!g.appid || !lib[g.appid] ? 1 : 0);
+    }, 0) + ACC_GAMES.filter(function (k) { return kinds[k]; }).length;
     // Errungenschaften: Steam (live) fuer eigene Reiter mit appid, sonst die selbst eingetragenen
     r.achDone = 0; r.achAll = 0;
     custom.forEach(function (g) {
@@ -81,7 +85,10 @@
     // Meistgespielt ueber alle Quellen
     var top = [];
     Object.keys(lib).forEach(function (id) { var n = ''; steams.forEach(function (s) { (s.library || []).forEach(function (g) { if (String(g.appid) === id) n = g.name; }); }); if (lib[id] > 0) top.push({ name: n, hours: lib[id], appid: +id, src: 'Steam' }); });
-    custom.forEach(function (g) { if (!g.appid && +g.hours > 0) top.push({ name: g.name, hours: +g.hours, src: g.platform || 'Launcher', image: g.image }); });
+    custom.forEach(function (g) {
+      if (g.launcher) launcherGames(g).forEach(function (x) { if (+x.h > 0) top.push({ name: x.n, hours: +x.h, src: g.platform || 'Launcher', appid: x.a || undefined, image: x.i }); });
+      else if (!g.appid && +g.hours > 0) top.push({ name: g.name, hours: +g.hours, src: g.platform || 'Launcher', image: g.image });
+    });
     r.accGames.forEach(function (e) { top.push({ name: e.name, hours: e.hours, src: e.how, kind: e.kind }); });
     r.top = top.sort(function (a, b) { return b.hours - a.hours; });
     return r;
@@ -119,7 +126,7 @@
       tile('steam_level', 'Steam-Level', r.steamLevel);
     }
     var mcTile = mcNames.length && want('mc_hours') ? tile('mc_hours', 'Minecraft', '…', 'Cobblemon Server') : null;
-    if (r.customHours) tile('custom_hours', 'Spiele aus Launchern', Math.round(r.customHours), r.custom.filter(function (g) { return !g.appid; }).length + ' Spiele', 0, ' Std');
+    if (r.customHours) tile('custom_hours', 'Spiele aus Launchern', Math.round(r.customHours), r.custom.reduce(function (n, g) { return n + (g.launcher ? launcherGames(g).length : g.appid ? 0 : 1); }, 0) + ' Spiele', 0, ' Std');
     if (r.valBest) tile('val_rank', 'Bester Valorant-Rang', r.valBest.name, r.vals.length > 1 ? 'über ' + r.vals.length + ' Konten' : (r.valBest.rr + ' RR'));
     if (r.valHours) tile('val_hours', 'Valorant-Spielzeit', Math.round(r.valHours.hours), r.valHours.own ? 'eigene Angabe' : '≈ ' + r.valHours.how, 0, ' Std');
     if (r.valMain && r.valMain.stats) { tile('val_kd', 'Valorant K/D', r.valMain.stats.kd, r.valMain.stats.matches + ' Spiele', 2); tile('val_win', 'Valorant-Siegquote', r.valMain.stats.winrate, '', 0, ' %'); }
@@ -184,13 +191,71 @@
     wrap.appendChild(seg); paint(); wrap.appendChild(ul);
     return wrap;
   }
+  // Launcher-Reiter (gp_custom_games.launcher): Bibliothek des Launchers wie bei Steam, Cover ueber die Steam-appid
+  function launcherGames(g) { return (g.games || []).filter(function (x) { return x && x.n; }); }
+  function launcherPanel(g, v, p) {
+    var GA = window.GAccounts, L = GA ? GA.launcher(g.platform) : { name: g.platform, short: 'LA', color: '#8395a7', kind: '' };
+    var list = launcherGames(g), hours = list.reduce(function (s, x) { return s + (+x.h || 0); }, 0), withH = list.filter(function (x) { return +x.h > 0; });
+    p.style.setProperty('--lc', L.color);
+    // Figur: drei Cover gefaechert, sonst das Zeichen des Launchers
+    var fig = el('div', 'fig'); fig.setAttribute('data-fig', 'launcher');
+    var covers = list.filter(function (x) { return x.a || U.safe(x.i); }).slice(0, 3);
+    if (covers.length) {
+      var fan = el('div', 'l-fan n' + covers.length);
+      covers.forEach(function (x, i) {
+        var card = el('figure', 'hero-card in'), im = el('img'); im.alt = x.n; im.src = U.safe(x.i) ? x.i : STEAM_CDN + x.a + '/library_600x900.jpg';
+        im.onerror = function () { if (x.a && !card.classList.contains('wide')) { card.classList.add('wide'); im.src = STEAM_CDN + x.a + '/header.jpg'; } else card.remove(); };
+        card.style.setProperty('--k', i); card.appendChild(im); fan.appendChild(card);
+      });
+      fig.appendChild(fan);
+    } else { var mark = el('div', 'custom-ph l-mark', L.short); mark.setAttribute('aria-hidden', 'true'); fig.appendChild(mark); }
+    var fn = el('p', 'fig-name'); fn.appendChild(el('b', '', g.name)); fn.appendChild(el('span', '', 'Launcher · ' + list.length + (list.length === 1 ? ' Spiel' : ' Spiele'))); fig.appendChild(fn);
+    p.appendChild(fig);
+    var info = el('div', 'info'), head = el('div', 'info-head'), h2 = el('h2');
+    var badge = U.accBadge({ short: L.short, color: L.color, name: L.name }); h2.appendChild(badge); h2.appendChild(document.createTextNode(' ' + g.name)); head.appendChild(h2);
+    // Profil-Link, wenn ein passendes Konto verknuepft ist
+    var acc = L.kind && (v.accounts || []).filter(function (a) { return GA.base(a.kind) === L.kind; })[0], url = acc ? GA.link(acc, acc.data) : '';
+    if (url) { var a = U.ext(el('a', 'more-link', 'Profil '), url); a.appendChild(el('span', 'arr', '↗')); head.appendChild(a); }
+    info.appendChild(head);
+    var tabs = el('div', 'subtabs'); tabs.id = 'ct-' + g.id; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', g.name + ': Ansicht'); tabs.hidden = true;
+    var pages = el('div', 'pages'); pages.id = 'cp-' + g.id;
+    info.appendChild(tabs); info.appendChild(pages); p.appendChild(info);
+    // Bibliothek: meistgespielte zuerst, wie die Steam-Listen
+    var lib = null;
+    if (list.length) {
+      lib = el('div', 'games'); var max = Math.max.apply(null, list.map(function (x) { return +x.h || 0; })) || 1;
+      list.slice().sort(function (a, b) { return (+b.h || 0) - (+a.h || 0) || String(a.n).localeCompare(String(b.n), 'de'); }).forEach(function (x, n) {
+        var card = x.a ? U.ext(el('a', 'game'), 'https://store.steampowered.com/app/' + x.a) : el('div', 'game'), im = el('div', 'im'); card.style.setProperty('--i', n);
+        if (x.a || U.safe(x.i)) { var i = el('img'); i.src = U.safe(x.i) ? x.i : U.header(x.a); i.alt = ''; i.loading = 'lazy'; i.onerror = function () { i.replaceWith(el('span', 'game-ph', String(x.n).slice(0, 2).toUpperCase())); }; im.appendChild(i); }
+        else im.appendChild(el('span', 'game-ph', String(x.n).slice(0, 2).toUpperCase()));
+        card.appendChild(im);
+        var d = el('div', 't'); d.appendChild(el('b', '', x.n));
+        if (+x.h > 0) { d.appendChild(el('span', '', U.fmtH(+x.h) + ' gespielt')); var bar = el('div', 'rr-bar'), fill = el('i'); fill.style.setProperty('--w', Math.max(4, Math.round(+x.h / max * 100)) + '%'); bar.appendChild(fill); d.appendChild(bar); }
+        else d.appendChild(el('span', '', 'auf ' + L.name));
+        card.appendChild(d); lib.appendChild(card);
+      });
+    }
+    var over = el('div'), dl = el('dl', 'stats');
+    if (list.length) dl.appendChild(U.stat('Spiele', list.length));
+    if (hours > 0) dl.appendChild(U.stat('Spielzeit', Math.round(hours), withH.length < list.length ? 'bei ' + withH.length + ' Spielen eingetragen' : 'alle Spiele', 0, ' Std'));
+    var top = withH.slice().sort(function (a, b) { return b.h - a.h; })[0];
+    if (top) dl.appendChild(U.stat('Meistgespielt', top.n, U.fmtH(+top.h)));
+    (g.stats || []).forEach(function (s) { if (s && s.l) dl.appendChild(U.stat(s.l, String(s.v || '–'))); });
+    if (dl.children.length) over.appendChild(dl);
+    else over.appendChild(U.emptyPage('', v.mine ? 'Trag im Editor die Spiele ein, die du auf ' + L.name + ' hast, gern mit Spielzeit.' : 'Hier stehen noch keine Spiele.', U.editLink('Spiele eintragen')));
+    var achList = g.achievements || [];
+    U.setPages(tabs.id, pages.id, [{ id: 'lib', title: 'Bibliothek', node: lib, count: list.length || null }, { id: 'over', title: 'Überblick', node: over },
+      { id: 'ach', title: 'Errungenschaften', node: achList.length ? achPage(achList, false) : null, count: achList.length || null }]);
+    return { key: 'c-' + g.id, title: g.name, sub: hours ? U.fmtH(hours) : list.length + (list.length === 1 ? ' Spiel' : ' Spiele'), color: L.color, word: g.name.toUpperCase(), short: L.short };
+  }
   function customPanel(g, v) {
     var key = 'c-' + g.id, p = $('p-' + key), live = g.appid && v.ach ? v.ach[g.appid] : null;
     if (!p) {
       p = el('article', 'panel panel-custom'); p.id = 'p-' + key; p.setAttribute('data-game', key); p.setAttribute('role', 'tabpanel'); p.setAttribute('aria-labelledby', 'tab-' + key); p.hidden = true;
       $('p-team').before(p);
     }
-    p.textContent = '';
+    p.textContent = ''; p.classList.toggle('panel-launcher', !!g.launcher); p.style.removeProperty('--lc');
+    if (g.launcher) return launcherPanel(g, v, p);
     var fig = el('div', 'fig'); fig.setAttribute('data-fig', 'custom');
     var src = U.safe(g.image) ? g.image : g.appid ? STEAM_CDN + g.appid + '/library_600x900.jpg' : '';
     if (src) {
@@ -217,7 +282,8 @@
     if (dl.children.length) over.appendChild(dl);
     else over.appendChild(U.emptyPage('', v.mine ? 'Trag im Editor Spielzeit, eigene Zahlen (z. B. Rang, Level, Siege) und Errungenschaften ein.' : 'Hier stehen noch keine Zahlen.', U.editLink('Reiter bearbeiten')));
     U.setPages(tabs.id, pages.id, [{ id: 'over', title: 'Überblick', node: over }, { id: 'ach', title: 'Errungenschaften', node: achPage(achList, !!live), count: achList.length || null }]);
-    return { key: key, title: g.name, sub: hours ? U.fmtH(hours) : g.platform || 'Eigenes Spiel', color: colorOf(g), word: g.name.toUpperCase() };
+    return { key: key, title: g.name, sub: hours ? U.fmtH(hours) : g.platform || 'Eigenes Spiel', color: colorOf(g), word: g.name.toUpperCase(),
+      short: g.name.split(/[\s:-]+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase() || g.name.slice(0, 2).toUpperCase() };
   }
   function renderCustom(v) {
     var want = {}, out = [];

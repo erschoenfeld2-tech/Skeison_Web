@@ -178,18 +178,20 @@
     GAMES = list.map(function (t) { return t.key; });
     tabColor = {}; list.forEach(function (t) { if (t.color) tabColor[t.key] = t.color; if (t.word) WORDS[t.key] = t.word; });
     pick.textContent = '';
+    // Eine Leiste: farbiges Kurzzeichen je Spiel, Name und Kurzinfo; bei vielen Reitern waagerecht scrollbar (Pfeile am Rand)
     list.forEach(function (t, i) {
       var b = el('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.id = 'tab-' + t.key; b.setAttribute('data-game', t.key); b.setAttribute('aria-controls', 'p-' + t.key);
       if (t.color) b.style.setProperty('--c', t.color);
-      b.appendChild(el('kbd', '', i < 9 ? String(i + 1) : '·'));
+      if (i < 9) b.title = t.title + ' (Taste ' + (i + 1) + ')';
+      var ic = el('i', 'tb-ic', t.short || TAB_SHORT[t.key] || String(t.title || '?').replace(/[^A-Za-z0-9ÄÖÜäöü]/g, '').slice(0, 2).toUpperCase()); ic.setAttribute('aria-hidden', 'true');
+      b.appendChild(ic);
       var s = el('span'); s.appendChild(el('b', '', t.title));
       var sm = el('small', '', t.sub || ''), fixed = TITLES[t.key]; if (fixed) { sm.id = fixed[2]; if (keep[fixed[2]]) sm.textContent = keep[fixed[2]]; }
       s.appendChild(sm); b.appendChild(s); pick.appendChild(b);
     });
     pick.style.setProperty('--n-tabs', list.length);
-    // mehr als 5 Reiter: schraege, schmalere Kacheln, damit alle ohne Scrollen sichtbar sind (am Handy in mehreren Reihen)
-    pick.classList.toggle('diag', list.length > 5);
-    pick.style.setProperty('--cols', list.length > 8 ? Math.ceil(list.length / 2) : list.length);   // ab 9 Reitern zwei Reihen
+    pick.classList.remove('diag');
+    pickerEdges();
     // Kurzinfo-Zeilen ausgeblendeter fester Reiter versteckt vorhalten: die Ansichten schreiben weiter hinein
     var store = $('pkStore') || stage.appendChild(Object.assign(el('div'), { id: 'pkStore', hidden: true }));
     store.textContent = '';
@@ -197,6 +199,27 @@
     Array.prototype.forEach.call(stage.querySelectorAll('.panel'), function (p) { if (GAMES.indexOf(p.getAttribute('data-game')) < 0) { p.hidden = true; p.classList.remove('on'); } });
     var want = GAMES.indexOf(cur) >= 0 ? cur : GAMES[0];
     cur = null; show(want, true);
+  }
+  // Kurzzeichen der festen Reiter (eigene Reiter bringen ihres mit: Launcher-Kuerzel bzw. Anfangsbuchstaben)
+  var TAB_SHORT = { val: 'VAL', steam: 'ST', mc: 'MC', stats: '∑', team: '⇄' };
+  // Pfeile links/rechts, sobald die Reiter nicht alle in die Leiste passen; Rand blendet weich aus
+  var pickWrap = (function () {
+    var pick = stage.querySelector('.picker'), wrap = el('div', 'picker-wrap');
+    pick.parentNode.insertBefore(wrap, pick); wrap.appendChild(pick);
+    [['prev', '‹', 'Vorherige Reiter', -1], ['next', '›', 'Weitere Reiter', 1]].forEach(function (d) {
+      var b = el('button', 'pk-arrow ' + d[0], d[1]); b.type = 'button'; b.setAttribute('aria-label', d[2]); b.tabIndex = -1;
+      b.addEventListener('click', function () { pick.scrollBy({ left: d[3] * pick.clientWidth * 0.7, behavior: 'smooth' }); });
+      wrap.appendChild(b);
+    });
+    pick.addEventListener('scroll', function () { pickerEdges(); }, { passive: true });
+    window.addEventListener('resize', function () { pickerEdges(); });
+    return wrap;
+  })();
+  function pickerEdges() {
+    var pick = stage.querySelector('.picker'); if (!pick || !pickWrap) return;
+    var max = pick.scrollWidth - pick.clientWidth;
+    pickWrap.classList.toggle('can-l', pick.scrollLeft > 16);
+    pickWrap.classList.toggle('can-r', pick.scrollLeft < max - 16);
   }
   stage.querySelector('.picker').addEventListener('click', function (e) { var b = e.target.closest('button[data-game]'); if (b) show(b.getAttribute('data-game')); });
   stage.querySelector('.picker').addEventListener('keydown', function (e) {
@@ -321,26 +344,95 @@
     return ul;
   }
   // Skins: Format { skins: [{ name, weapon, tier, color, image }], value } (valcat.js bzw. valorant-skins.json)
+  // Sortierung: nach Seltenheit (Ultra zuerst), nach Bundle, nach Waffe oder A-Z; jeweils mit Abschnitten.
+  // Die Wahl merkt sich das Geraet (gp-skin-sort). Seltenheit aus rank (valcat.js), sonst aus dem Namen der Stufe.
+  var SKIN_SORTS = [['tier', 'Seltenheit'], ['bundle', 'Bundle'], ['weapon', 'Waffe'], ['az', 'A–Z']];
+  var WEAPON_ORDER = ['Vandal', 'Phantom', 'Operator', 'Sheriff', 'Ghost', 'Classic', 'Spectre', 'Stinger', 'Guardian', 'Bulldog', 'Marshal', 'Outlaw', 'Judge', 'Bucky', 'Odin', 'Ares', 'Frenzy', 'Shorty'];
+  function skinRank(x) {
+    if (typeof x.rank === 'number') return x.rank;
+    var t = String(x.tier || '').toLowerCase();
+    return /ultra/.test(t) ? 4 : /exklusiv|exclusive/.test(t) ? 3 : /premium/.test(t) ? 2 : /deluxe/.test(t) ? 1 : /select/.test(t) ? 0 : /battlepass|pass/.test(t) ? -1 : 0;
+  }
+  function skinSort() { try { var s = localStorage.getItem('gp-skin-sort'); return SKIN_SORTS.some(function (x) { return x[0] === s; }) ? s : 'tier'; } catch (e) { return 'tier'; } }
   function valSkins(sk) {
     var list = sk && Array.isArray(sk.skins) ? sk.skins.filter(function (x) { return x && x.name; }) : [];
     if (!list.length) return null;
-    var wrap = el('div', 'skins-wrap'), weapons = [], curW = '';
+    var wrap = el('div', 'skins-wrap'), weapons = [], curW = '', mode = skinSort();
     var grp = function (x) { return x.group || x.weapon; };   // Nahkampf: alle Messer, Aexte ... unter einem Filter
+    var wIdx = function (x) { var i = WEAPON_ORDER.indexOf(grp(x)); return i < 0 ? 99 : i; };
+    var byName = function (a, b) { return a.name.localeCompare(b.name, 'de'); };
+    var byWeapon = function (a, b) { return (wIdx(a) - wIdx(b)) || String(grp(a)).localeCompare(String(grp(b)), 'de'); };
     list.forEach(function (x) { if (grp(x) && weapons.indexOf(grp(x)) < 0) weapons.push(grp(x)); });
-    var bar = el('div', 'skin-filter hscroll'), grid = el('div', 'skins');
+    weapons.sort(function (a, b) { return byWeapon({ group: a }, { group: b }); });
+    var hasBundles = list.some(function (x) { return x.bundle; });
+    var tools = el('div', 'skin-tools'), bar = el('div', 'skin-filter hscroll'), grid = el('div', 'skin-groups');
+    // Abschnitte je Sortierung: [{ key, title, sub, color, image, items }]
+    function groups(items) {
+      var out = [], at = {};
+      var put = function (key, make, x) { if (!at[key]) { at[key] = make(); at[key].items = []; out.push(at[key]); } at[key].items.push(x); };
+      if (mode === 'tier') {
+        items.slice().sort(function (a, b) { return (skinRank(b) - skinRank(a)) || byWeapon(a, b) || byName(a, b); }).forEach(function (x) {
+          var r = skinRank(x); put('t' + r, function () { return { title: x.tier || 'Ohne Stufe', color: x.color, rank: r }; }, x);
+        });
+      } else if (mode === 'bundle') {
+        items.slice().sort(byWeapon).forEach(function (x) {
+          var k = x.bundle ? 'b' + (x.bundleId || x.bundle) : 'zz';
+          put(k, function () { return { title: x.bundle || 'Ohne Bundle', image: x.bundle ? x.bundleImg : '', pass: x.pass, none: !x.bundle }; }, x);
+        });
+        // groesste Bundles zuerst, Battlepaesse danach, "Ohne Bundle" am Ende
+        out.forEach(function (g) { g.best = Math.max.apply(null, g.items.map(skinRank)); });
+        out.sort(function (a, b) { return (a.none - b.none) || ((a.pass || 0) - (b.pass || 0)) || (b.items.length - a.items.length) || (b.best - a.best) || a.title.localeCompare(b.title, 'de'); });
+      } else if (mode === 'weapon') {
+        items.slice().sort(function (a, b) { return byWeapon(a, b) || (skinRank(b) - skinRank(a)) || byName(a, b); }).forEach(function (x) {
+          put('w' + grp(x), function () { return { title: grp(x) || 'Sonstige' }; }, x);
+        });
+      } else {
+        out.push({ title: '', items: items.slice().sort(byName) });
+      }
+      return out;
+    }
+    function card(x, i) {
+      var c = el('figure', 'skin-card'); c.style.setProperty('--i', Math.min(i, 14));
+      if (/^#[0-9a-f]{6}$/i.test(x.color || '')) c.style.setProperty('--tier', x.color);
+      var im = el('div', 'im'); if (safe(x.image)) im.appendChild(img(x.image, '', '')); else im.appendChild(el('span', 'noimg', '🔫')); c.appendChild(im);
+      var cap = el('figcaption'); cap.appendChild(el('b', '', x.name));
+      cap.appendChild(el('span', '', [mode === 'weapon' ? '' : x.weapon, mode === 'tier' ? '' : x.tier, mode === 'bundle' || !x.bundle ? '' : x.bundle].filter(Boolean).join(' · ')));
+      c.appendChild(cap);
+      return c;
+    }
     function paint() {
-      grid.textContent = '';
-      list.filter(function (x) { return !curW || grp(x) === curW; }).forEach(function (x, i) {
-        var c = el('figure', 'skin-card'); c.style.setProperty('--i', Math.min(i, 14));
-        if (/^#[0-9a-f]{6}$/i.test(x.color || '')) c.style.setProperty('--tier', x.color);
-        var im = el('div', 'im'); if (safe(x.image)) im.appendChild(img(x.image, '', '')); else im.appendChild(el('span', 'noimg', '🔫')); c.appendChild(im);
-        var cap = el('figcaption'); cap.appendChild(el('b', '', x.name)); cap.appendChild(el('span', '', [x.weapon, x.tier].filter(Boolean).join(' · '))); c.appendChild(cap);
-        grid.appendChild(c);
+      grid.textContent = ''; var n = 0;
+      groups(list.filter(function (x) { return !curW || grp(x) === curW; })).forEach(function (g) {
+        var sec = el('section', 'skin-group');
+        if (g.title) {
+          var h = el('header', 'sg-head');
+          if (g.image && safe(g.image)) { var bi = img(g.image, 'sg-img', ''); h.appendChild(bi); }
+          else if (g.rank != null) { var dot = el('i', 'sg-dot'); if (/^#[0-9a-f]{6}$/i.test(g.color || '')) dot.style.setProperty('--tier', g.color); h.appendChild(dot); }
+          h.appendChild(el('h4', '', g.title + (g.pass ? ' · Battlepass' : '')));
+          h.appendChild(el('span', 'sg-count', g.items.length + (g.items.length === 1 ? ' Skin' : ' Skins')));
+          sec.appendChild(h);
+        }
+        var gr = el('div', 'skins'); g.items.forEach(function (x) { gr.appendChild(card(x, n++)); }); sec.appendChild(gr);
+        grid.appendChild(sec);
       });
     }
+    // Sortieren (Segmente) und Waffen-Filter (Chips) in einer Zeile
+    if (mode === 'bundle' && !hasBundles) mode = 'tier';
+    var seg = el('div', 'seg skin-sort'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Skins sortieren');
+    SKIN_SORTS.filter(function (s) { return s[0] !== 'bundle' || hasBundles; }).forEach(function (s) {
+      var b = el('button', s[0] === mode ? 'on' : '', s[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(s[0] === mode));
+      b.addEventListener('click', function () {
+        mode = s[0]; try { localStorage.setItem('gp-skin-sort', mode); } catch (e) { /* nur jetzt */ }
+        Array.prototype.forEach.call(seg.children, function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+        paint();
+      });
+      seg.appendChild(b);
+    });
+    tools.appendChild(el('span', 'skin-tools-l muted', 'Sortieren')); tools.appendChild(seg);
+    wrap.appendChild(tools);
     if (weapons.length > 1) {
       [''].concat(weapons).forEach(function (w) {
-        var b = el('button', 'chip' + (w ? '' : ' on'), w || 'Alle'); b.type = 'button'; b.setAttribute('aria-pressed', String(!w));
+        var b = el('button', 'chip' + (w ? '' : ' on'), w || 'Alle Waffen'); b.type = 'button'; b.setAttribute('aria-pressed', String(!w));
         b.addEventListener('click', function () { curW = w; Array.prototype.forEach.call(bar.children, function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }); paint(); });
         bar.appendChild(b);
       });
@@ -740,6 +832,15 @@
     // eigene Reiter: Steam-Spiele ueber die appid, Launcher-Spiele ueber den Namen
     (p.custom || []).forEach(function (g) {
       if (!g || !g.name) return;
+      // Launcher-Reiter: jedes Spiel einzeln (mit Steam-appid ueber die appid, sonst ueber den Namen)
+      if (g.launcher || (g.games && g.games.length)) {
+        (g.games || []).forEach(function (x) {
+          if (!x || !x.n) return;
+          var lk = x.a ? 's' + x.a : 'n' + nkey(x.n);
+          map[lk] = Object.assign(map[lk] || { key: lk, appid: x.a || null, name: x.n, hours: null }, { hours: (map[lk] && map[lk].hours) || (x.h != null ? +x.h : null) });
+        });
+        return;
+      }
       var k = g.appid ? 's' + g.appid : 'n' + nkey(g.name);
       map[k] = Object.assign(map[k] || { key: k, appid: g.appid || null, name: g.name, hours: null }, { hours: (map[k] && map[k].hours) || (g.hours != null ? +g.hours : null) });
     });

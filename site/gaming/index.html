@@ -84,17 +84,27 @@
   </section>
 
   <!-- Angemeldet: Profil waehlen (eigenes und freigegebene), bearbeiten, teilen, aktualisieren -->
+  <!-- Links die Profile (eigenes und freigegebene), rechts die Hauptaktionen; alles Weitere im Menue "⋯" (profile.js) -->
   <section class="pbar in-only" id="pbar" aria-label="Profil wählen">
-    <div class="pbar-list hscroll" id="pbarList" role="tablist" aria-label="Gaming-Profile"></div>
+    <div class="pbar-who">
+      <span class="pbar-label">Profile</span>
+      <div class="pbar-list hscroll" id="pbarList" role="tablist" aria-label="Gaming-Profile"></div>
+    </div>
     <div class="pbar-act">
-      <button type="button" class="btn small" id="btnEdit" hidden>Bearbeiten</button>
-      <button type="button" class="btn ghost small" id="btnShare" hidden>Teilen</button>
-      <button type="button" class="btn ghost small" id="btnShow" aria-expanded="false" aria-controls="ausstellung">🏛 Ausstellung</button>
-      <label class="pbar-as" id="asWrap" hidden><span class="muted small">Ansehen als</span>
-        <select id="asSel"><option value="">Ich</option><option value="friend">Freunde</option><option value="known">Bekannte</option><option value="public">Öffentlich</option></select></label>
       <button type="button" class="btn small" id="btnKnown" hidden>Als Bekannte anfragen</button>
-      <button type="button" class="btn ghost small" id="btnRefresh" title="Live-Daten neu laden">↻ Aktualisieren</button>
-      <button type="button" class="link-btn" id="btnLogout">Abmelden</button>
+      <button type="button" class="btn small pb-main" id="btnEdit" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg>Bearbeiten</button>
+      <button type="button" class="btn ghost small" id="btnShare" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Teilen</button>
+      <div class="pmenu">
+        <button type="button" class="btn ghost small pm-btn" id="btnMore" aria-haspopup="true" aria-expanded="false" aria-controls="pbarMenu" title="Weitere Aktionen" aria-label="Weitere Aktionen"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+        <div class="pm-list" id="pbarMenu" role="menu" aria-label="Weitere Aktionen" hidden>
+          <button type="button" role="menuitem" id="btnShow" aria-expanded="false" aria-controls="ausstellung"><span class="pm-ic" aria-hidden="true">🏛</span><span>Ausstellung<small>Öffentliche Profile entdecken</small></span></button>
+          <label class="pm-as" id="asWrap" hidden><span class="pm-ic" aria-hidden="true">👁</span><span>Ansehen als<small>So sehen andere dein Profil</small></span>
+            <select id="asSel"><option value="">Ich</option><option value="friend">Freunde</option><option value="known">Bekannte</option><option value="public">Öffentlich</option></select></label>
+          <button type="button" role="menuitem" id="btnRefresh"><span class="pm-ic" aria-hidden="true">↻</span><span>Aktualisieren<small>Live-Daten neu laden</small></span></button>
+          <hr>
+          <button type="button" role="menuitem" id="btnLogout" class="pm-danger"><span class="pm-ic" aria-hidden="true">⎋</span><span>Abmelden</span></button>
+        </div>
+      </div>
     </div>
     <p class="pbar-note muted" id="pbarNote" hidden></p>
   </section>
