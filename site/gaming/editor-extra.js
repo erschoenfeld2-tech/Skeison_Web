@@ -16,16 +16,16 @@
   async function friendsAndKnown() {
     var r = await Promise.all([
       Api.get('wl_friendships', 'status=eq.accepted&select=requester,addressee'),
-      Api.get('wl_profiles', 'select=id,name,avatar,color&id=neq.' + st().me),
+      Api.get('wl_profiles', 'select=id,name,avatar,color,avatar_url&id=neq.' + st().me),
       Api.rpc('gp_known_list')
     ]);
     var ids = {}; r[0].forEach(function (f) { ids[f.requester === st().me ? f.addressee : f.requester] = 'friend'; });
     var people = r[1].filter(function (p) { return ids[p.id]; }).map(function (p) { return Object.assign({ rel: 'Freund' }, p); });
-    (r[2] || []).forEach(function (k) { if (k.state === 'known' && !ids[k.id]) people.push({ id: k.id, name: k.name, avatar: k.avatar, color: k.color, rel: 'Bekannt' }); });
+    (r[2] || []).forEach(function (k) { if (k.state === 'known' && !ids[k.id]) people.push({ id: k.id, name: k.name, avatar: k.avatar, avatar_url: k.avatar_url, color: k.color, rel: 'Bekannt' }); });
     people.sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
     return { people: people, known: r[2] || [] };
   }
-  function av(p) { return '<i class="av" style="--c:' + esc(p.color) + '">' + esc(p.avatar) + '</i>'; }
+  function av(p) { var G = window.Gaming && window.Gaming.u; return G ? G.avatar(p).outerHTML : '<i class="av" style="--c:' + esc(p.color) + '">' + esc(p.avatar) + '</i>'; }
 
   function oeffentlich(body) {
     var S = st(), pub = S.p.public || { enabled: false, tagline: '' }, aud = (S.p.profile && S.p.profile.audience) || {};
@@ -435,13 +435,69 @@
   var COLORS = ['#ffcb05', '#ff6b6b', '#ff9f43', '#2ecc71', '#1abc9c', '#5b85ff', '#a55eea', '#ff5fa2', '#8395a7', '#e1b12c'];
   function account(body) {
     var S = st(), o = S.p.owner || {}, email = (Api.user && Api.user.email) || '';
-    body.innerHTML = '<form class="gform ecard" id="fAcc" novalidate><h3>Skeison Account</h3><p class="muted">Gilt für alle Skeison-Seiten (Gaming-Profil und Wunschliste). Geburtstag, Größen und „Über mich“ pflegst du im <a href="../wunschliste/?seite=profil">Profil der Wunschliste</a>.</p>' +
+    body.innerHTML = '<section class="ecard pic-card"><h3>Profilbild</h3><div class="pic-row"><span class="pic-prev"></span><div class="pic-act">' +
+      '<p class="muted small">Ein eigenes Bild statt des Emojis: Es wird quadratisch aus der Mitte zugeschnitten und auf 256 × 256 Pixel verkleinert. Es erscheint oben rechts, in der Profilauswahl und bei deinen Freunden.</p>' +
+      '<div class="dlg-actions start"><label class="btn small file-btn">Bild wählen<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>' +
+      '<button type="button" class="btn ghost small" data-rmpic' + (o.avatar_url ? '' : ' hidden') + '>Entfernen</button></div></div></div><p class="msg" hidden></p></section>' +
+      '<form class="gform ecard" id="fAcc" novalidate><h3>Skeison Account</h3><p class="muted">Gilt für alle Skeison-Seiten (Gaming-Profil und Wunschliste). Geburtstag, Größen und „Über mich“ pflegst du im <a href="../wunschliste/?seite=profil">Profil der Wunschliste</a>.</p>' +
       '<div class="row2"><label>Name<input name="name" maxlength="24" required value="' + esc(o.name) + '"></label><label>Avatar (Emoji)<input name="avatar" maxlength="8" value="' + esc(o.avatar) + '"></label></div>' +
       '<fieldset class="colors"><legend>Farbe</legend>' + COLORS.concat(COLORS.indexOf(o.color) < 0 && o.color ? [o.color] : []).map(function (c) {
         return '<label class="color-dot" style="--c:' + c + '"><input type="radio" name="color" value="' + c + '"' + (c === o.color ? ' checked' : '') + '><span aria-label="' + c + '"></span></label>'; }).join('') + '</fieldset>' +
       '<p class="muted small">E-Mail: ' + esc(email) + '</p><p class="msg" hidden></p><div class="dlg-actions start"><button class="btn" type="submit">Speichern</button></div></form>' +
       '<form class="gform ecard" id="fPw" novalidate><h3>Passwort ändern</h3><label>Neues Passwort <small class="muted">mindestens 8 Zeichen</small><input name="pw" type="password" autocomplete="new-password" minlength="8" maxlength="72"></label>' +
       '<label>Wiederholen<input name="pw2" type="password" autocomplete="new-password" minlength="8" maxlength="72"></label><p class="msg" hidden></p><div class="dlg-actions start"><button class="btn" type="submit">Passwort speichern</button></div></form>';
+    // Profilbild: Vorschau, Hochladen (Storage-Bucket "avatars", eigener Ordner), Entfernen
+    var pc = $('.pic-card', body), pm = $('.msg', pc), G = window.Gaming && window.Gaming.u;
+    function paintPic() {
+      var prev = $('.pic-prev', pc); prev.textContent = ''; if (G) prev.appendChild(G.avatar(S.p.owner, 'xl'));
+      $('[data-rmpic]', pc).hidden = !S.p.owner.avatar_url;
+      var h = document.querySelector('#gdlg .gh-av'); if (h && G) { var n = G.avatar(S.p.owner, 'gh-av'); n.setAttribute('aria-hidden', 'true'); h.replaceWith(n); }
+      document.dispatchEvent(new CustomEvent('gp:me', { detail: S.p.owner }));
+    }
+    function oldPath(u) { var i = String(u || '').indexOf('/avatars/'); return i >= 0 ? u.slice(i + 9) : ''; }
+    // Quadrat aus der Mitte, 256 px, WebP (sonst JPEG)
+    function shrink(file) {
+      return new Promise(function (ok, fail) {
+        var url = URL.createObjectURL(file), im = new Image();
+        im.onload = function () {
+          var s = Math.min(im.naturalWidth, im.naturalHeight), c = document.createElement('canvas'); c.width = c.height = 256;
+          c.getContext('2d').drawImage(im, (im.naturalWidth - s) / 2, (im.naturalHeight - s) / 2, s, s, 0, 0, 256, 256);
+          URL.revokeObjectURL(url);
+          c.toBlob(function (b) {
+            if (b && b.type === 'image/webp') return ok(b);
+            c.toBlob(function (j) { j ? ok(j) : fail(new Error('bad_image')); }, 'image/jpeg', 0.88);
+          }, 'image/webp', 0.86);
+        };
+        im.onerror = function () { URL.revokeObjectURL(url); fail(new Error('bad_image')); };
+        im.src = url;
+      });
+    }
+    $('input[type="file"]', pc).addEventListener('change', async function (e) {
+      var file = e.target.files && e.target.files[0]; e.target.value = ''; if (!file) return;
+      if (!/^image\//.test(file.type)) return say(pm, 'err', 'Bitte ein Bild wählen (PNG, JPG, WebP).');
+      if (file.size > 15 * 1024 * 1024) return say(pm, 'err', 'Das Bild ist zu groß (höchstens 15 MB).');
+      var lbl = $('.file-btn', pc); lbl.classList.add('busy');
+      try {
+        say(pm, '', 'Wird hochgeladen …');
+        var blob = await shrink(file), old = S.p.owner.avatar_url;
+        var url = await Api.upload('avatars', S.me + '/avatar-' + Date.now() + (blob.type === 'image/webp' ? '.webp' : '.jpg'), blob);
+        await Api.update('wl_profiles', 'id=eq.' + S.me, { avatar_url: url });
+        S.p.owner = Object.assign({}, S.p.owner, { avatar_url: url }); S.changed = true; paintPic();
+        if (oldPath(old)) Api.removeFiles('avatars', [oldPath(old)]).catch(function () {});
+        say(pm, 'ok', 'Profilbild gespeichert ✓');
+      } catch (err) { say(pm, 'err', err && err.message === 'bad_image' ? 'Das Bild ließ sich nicht lesen. Bitte ein anderes wählen.' : errText(err)); }
+      finally { lbl.classList.remove('busy'); }
+    });
+    $('[data-rmpic]', pc).addEventListener('click', async function (e) {
+      var old = S.p.owner.avatar_url;
+      try {
+        await busy(e.currentTarget, function () { return Api.update('wl_profiles', 'id=eq.' + S.me, { avatar_url: null }); });
+        S.p.owner = Object.assign({}, S.p.owner, { avatar_url: null }); S.changed = true; paintPic();
+        if (oldPath(old)) Api.removeFiles('avatars', [oldPath(old)]).catch(function () {});
+        say(pm, 'ok', 'Profilbild entfernt. Jetzt erscheint wieder dein Emoji.');
+      } catch (err) { say(pm, 'err', errText(err)); }
+    });
+    paintPic();
     var f = $('#fAcc', body), d = E.keepDraft(f, 'account', function () { E.show('account'); });
     f.addEventListener('submit', async function (e) {
       e.preventDefault(); var m = $('.msg', f), name = f.name.value.trim(), avatar = f.avatar.value.trim(), color = (f.querySelector('input[name="color"]:checked') || {}).value || o.color;
@@ -449,7 +505,7 @@
       if (!avatar) return say(m, 'err', 'Bitte ein Emoji als Avatar eintragen.');
       try {
         await busy($('button[type="submit"]', f), function () { return Api.update('wl_profiles', 'id=eq.' + S.me, { name: name, avatar: avatar, color: color }); });
-        S.p.owner = Object.assign({}, o, { name: name, avatar: avatar, color: color }); S.changed = true; d.saved(); say(m, 'ok', 'Gespeichert.');
+        S.p.owner = Object.assign({}, S.p.owner, { name: name, avatar: avatar, color: color }); S.changed = true; d.saved(); paintPic(); say(m, 'ok', 'Gespeichert.');
       } catch (err) { say(m, 'err', errText(err)); }
     });
     var pf = $('#fPw', body);

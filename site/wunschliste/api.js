@@ -78,6 +78,17 @@
     upsert: function (table, rows) { return rest(table, { method: 'POST', body: rows, prefer: 'return=representation,resolution=merge-duplicates' }); },
     remove: function (table, filter) { return rest(table + '?' + filter, { method: 'DELETE', prefer: 'return=minimal' }); },
     rpc: function (fn, args) { return rest('rpc/' + fn, { method: 'POST', body: args || {} }); },
+    // Datei in Supabase Storage hochladen (z. B. Profilbilder im Bucket "avatars"); liefert die oeffentliche Adresse
+    upload: async function (bucket, path, blob) {
+      var t = await token();
+      await call('/storage/v1/object/' + bucket + '/' + path, { method: 'POST', body: blob,
+        headers: { apikey: KEY, Authorization: 'Bearer ' + t, 'Content-Type': blob.type || 'application/octet-stream', 'x-upsert': 'true' } });
+      return URL_ + '/storage/v1/object/public/' + bucket + '/' + path;
+    },
+    removeFiles: async function (bucket, paths) {
+      var t = await token();
+      return call('/storage/v1/object/' + bucket, { method: 'DELETE', headers: { apikey: KEY, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: paths }) });
+    },
     // Funktionen, die auch ohne Anmeldung erlaubt sind (z. B. Vorschau einer geteilten Liste)
     pub: function (fn, args) {
       return call('/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}) });

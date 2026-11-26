@@ -65,8 +65,8 @@
   function sharePreview(p) {
     var box = $('gateShare'); box.textContent = ''; box.hidden = false;
     if (!p) { box.appendChild(el('p', 'msg err', 'Dieser Link ist nicht mehr gültig. Frag nach einem neuen.')); return; }
-    var head = el('div', 'gs-head'), av = el('span', 'av big', p.owner.avatar); av.style.setProperty('--c', p.owner.color);
-    head.appendChild(av); var t = el('div'); t.appendChild(el('b', '', p.owner.name + ' hat dir sein Gaming-Profil geteilt'));
+    var head = el('div', 'gs-head');
+    head.appendChild(Gaming.u.avatar(p.owner, 'big')); var t = el('div'); t.appendChild(el('b', '', p.owner.name + ' hat dir sein Gaming-Profil geteilt'));
     if (p.tagline) t.appendChild(el('span', 'muted', p.tagline)); head.appendChild(t); box.appendChild(head);
     var kinds = el('div', 'gs-kinds');
     (p.kinds || []).filter(function (k, i, a) { return a.indexOf(k) === i; }).forEach(function (k) { var d = window.GAccounts.kindOf({ kind: k }); if (!d || kinds.querySelector('[title="' + d.name + '"]')) return; var s = el('span', 'acc-badge', d.short); s.style.setProperty('--c', d.color); s.title = d.name; kinds.appendChild(s); });
@@ -97,7 +97,7 @@
       history.replaceState(null, '', location.pathname + (wanted && wanted !== me ? '?u=' + wanted : '') + location.hash);
     }
     await loadPeople();
-    paintBar();
+    paintMe(); paintBar();
     loadTeam(true);
     // ?u= darf auch ein oeffentliches Profil aus der Ausstellung sein; gp_view entscheidet
     open(wanted && wanted !== me ? wanted : me);
@@ -110,18 +110,66 @@
       if (n && current === me) note(n === 1 ? 'Eine neue Bekannten-Anfrage.' : n + ' neue Bekannten-Anfragen.', ['Ansehen', function () { edit('oeffentlich'); }]);
     }).catch(function () {});
   }
+  // Eigenes Profil oben rechts: Profilbild (sonst Emoji) und Name
+  function paintMe() {
+    var p = list.filter(function (x) { return x.id === me; })[0] || {}, A = Gaming.u.avatar;
+    [['meAv', ''], ['meAvBig', 'xl']].forEach(function (x) { var o = $(x[0]), n = A(p, x[1]); n.id = x[0]; n.setAttribute('aria-hidden', 'true'); o.replaceWith(n); });
+    var name = p.name && p.name !== 'Ich' ? p.name : 'Ich';
+    $('meName').textContent = name; $('meNameBig').textContent = name;
+  }
+  // Profil-Leiste: nur ich und meine Freunde (plus das gerade gezeigte Profil); alle anderen im Fenster "Alle Profile"
   function paintBar() {
     var box = $('pbarList'); box.textContent = '';
-    var shownList = list.slice();
-    if (current && !shownList.some(function (p) { return p.id === current; }) && shown && shown.owner) shownList.push({ id: current, name: shown.owner.name, avatar: shown.owner.avatar, color: shown.owner.color, tier: shown.tier });
+    var shownList = list.filter(function (p) { return p.me || p.id === me || !p.tier || p.tier === 'friend' || p.id === current; });
+    if (current && !shownList.some(function (p) { return p.id === current; }) && shown && shown.owner) shownList.push({ id: current, name: shown.owner.name, avatar: shown.owner.avatar, avatar_url: shown.owner.avatar_url, color: shown.owner.color, tier: shown.tier });
     shownList.forEach(function (p) {
       var b = el('button', 'pchip' + (p.id === current ? ' on' : '')); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(p.id === current));
-      var av = el('span', 'av', p.avatar); av.style.setProperty('--c', p.color); b.appendChild(av);
+      b.appendChild(Gaming.u.avatar(p));
       b.appendChild(el('span', '', p.me ? 'Ich' : p.name));
       if (!p.me && p.tier && p.tier !== 'friend') b.appendChild(el('small', 'pchip-tier', TIER[p.tier] || ''));
       b.addEventListener('click', function () { if (p.id !== current) open(p.id); });
       box.appendChild(b);
     });
+    var others = list.filter(function (p) { return !p.me && p.id !== me; }).length;
+    var all = $('btnPeople');
+    all.hidden = !others; all.querySelector('i').textContent = others;
+  }
+  // Fenster "Alle Profile": Freunde und Gaming-Bekannte mit Suche, dazu der Weg zur Ausstellung
+  var peopleDlg = null;
+  function people() {
+    if (!peopleDlg) {
+      peopleDlg = el('dialog', 'gdlg people-dlg'); peopleDlg.setAttribute('aria-labelledby', 'pplTitle'); document.body.appendChild(peopleDlg);
+      peopleDlg.addEventListener('click', function (e) {
+        if (e.target === peopleDlg || e.target.closest('[data-close]')) return peopleDlg.close();
+        var c = e.target.closest('[data-open]'); if (c) { peopleDlg.close(); open(c.getAttribute('data-open')); return; }
+        if (e.target.closest('[data-show]')) { peopleDlg.close(); showcase(true); $('ausstellung').scrollIntoView({ behavior: 'smooth' }); }
+      });
+    }
+    peopleDlg.innerHTML = '<div class="gdlg-head"><div class="gh-t"><h2 id="pplTitle">Alle Profile</h2><small class="muted">Freunde und Gaming-Bekannte, deren Profil du sehen darfst</small></div>' +
+      '<button type="button" class="gdlg-x" data-close aria-label="Schließen">✕</button></div>' +
+      '<div class="ppl-body"><input type="search" class="ppl-q" placeholder="Name suchen" aria-label="Name suchen"><div class="ppl-groups"></div></div>' +
+      '<div class="gdlg-foot"><button type="button" class="btn ghost small" data-show>🏛 Ausstellung: öffentliche Profile</button><button type="button" class="btn" data-close>Fertig</button></div>';
+    var q = peopleDlg.querySelector('.ppl-q'), box = peopleDlg.querySelector('.ppl-groups');
+    function paint() {
+      var s = q.value.trim().toLowerCase(), ppl = list.filter(function (p) { return !p.me && p.id !== me && (!s || String(p.name).toLowerCase().indexOf(s) >= 0); });
+      var groups = [['friend', 'Freunde'], ['known', 'Gaming-Bekannte']];
+      box.textContent = '';
+      groups.forEach(function (g) {
+        var l = ppl.filter(function (p) { return (p.tier || 'friend') === g[0]; }); if (!l.length) return;
+        var sec = el('div', 'ppl-group'); sec.appendChild(el('p', 'gt-group', g[1] + ' · ' + l.length));
+        var grid = el('div', 'ppl-grid');
+        l.forEach(function (p) {
+          var c = el('button', 'ppl-card' + (p.id === current ? ' on' : '')); c.type = 'button'; c.setAttribute('data-open', p.id); c.style.setProperty('--c', p.color);
+          c.appendChild(Gaming.u.avatar(p, 'big')); var t = el('span'); t.appendChild(el('b', '', p.name)); t.appendChild(el('small', '', p.id === current ? 'wird gerade gezeigt' : TIER[p.tier || 'friend'])); c.appendChild(t);
+          grid.appendChild(c);
+        });
+        sec.appendChild(grid); box.appendChild(sec);
+      });
+      if (!box.children.length) box.appendChild(el('p', 'muted', s ? 'Niemand mit diesem Namen.' : 'Noch keine Freunde oder Bekannten mit Gaming-Profil. Freunde fügst du in der Wunschliste hinzu, Bekannte im Editor unter „Öffentlich & Bekannte“.'));
+    }
+    q.addEventListener('input', paint); paint();
+    if (!peopleDlg.open) peopleDlg.showModal();
+    q.focus();
   }
   async function open(id) {
     current = id; note(''); Gaming.team(undefined, id);
@@ -289,7 +337,7 @@
     if (!shown || !shown.mine || shown.preview) { asView = ''; $('asSel').value = ''; return open(me).then(function () { if (shown && shown.mine) edit(tab); }); }
     Editor.open(shown, function () {
       // nach dem Bearbeiten neu laden; danach holt gp-sync die Live-Daten fuer neue Konten
-      loadPeople().then(paintBar).catch(function () {});
+      loadPeople().then(function () { paintMe(); paintBar(); }).catch(function () {});
       loadTeam(false);
       if (!$('ausstellung').hidden) showcase(true);
       open(me);
@@ -314,9 +362,9 @@
     Api.upsert('gp_profiles', [{ id: me, mc_active_skin: /^[0-9a-f-]{36}$/.test(id) ? id : null, updated_at: new Date().toISOString() }])
       .then(function () { if (shown.profile) shown.profile.mc_active_skin = /^[0-9a-f-]{36}$/.test(id) ? id : null; }).catch(function () {});
   };
-  // Menue "⋯" der Profil-Leiste: oeffnet unter dem Knopf, schliesst bei Klick daneben, Escape oder nach einer Aktion
-  (function () {
-    var btn = $('btnMore'), menu = $('pbarMenu');
+  // Aufklapp-Menues ("⋯" der Profil-Leiste, eigenes Profil oben rechts): oeffnen unter dem Knopf, schliessen bei Klick
+  // daneben, Escape oder nach einer Aktion; Pfeiltasten wandern durch die Eintraege
+  function bindMenu(btn, menu, wrapSel) {
     function items() { return Array.prototype.filter.call(menu.querySelectorAll('button, select'), function (x) { return !x.closest('[hidden]'); }); }
     function set(open, focus) {
       menu.hidden = !open; btn.setAttribute('aria-expanded', String(open)); btn.classList.toggle('on', open);
@@ -331,12 +379,28 @@
       e.preventDefault(); var l = items(), i = l.indexOf(document.activeElement);
       l[(i + (e.key === 'ArrowDown' ? 1 : -1) + l.length) % l.length].focus();
     });
-    document.addEventListener('click', function (e) { if (!menu.hidden && !e.target.closest('.pmenu')) set(false); });
+    document.addEventListener('click', function (e) { if (!menu.hidden && !e.target.closest(wrapSel)) set(false); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) { set(false); btn.focus(); } });
-    $('asSel').addEventListener('change', function () { set(false); });
-  })();
+    return set;
+  }
+  var setMore = bindMenu($('btnMore'), $('pbarMenu'), '.pmenu');
+  $('asSel').addEventListener('change', function () { setMore(false); });
+  bindMenu($('meBtn'), $('meMenu'), '.me-nav');
+  $('meMenu').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-me]'); if (!b || !Api.user) return;
+    var a = b.dataset.me;
+    if (a === 'edit') edit();
+    else if (a === 'pic') edit('account');
+    else if (a === 'share') Editor.share();
+    else if (a === 'view') { asView = ''; $('asSel').value = ''; open(me).then(function () { window.scrollTo({ top: 0, behavior: 'smooth' }); }); }
+  });
+  // Nach dem Hochladen eines Profilbilds oder Aendern des Namens sofort oben rechts und in der Leiste zeigen
+  document.addEventListener('gp:me', function (e) {
+    var o = e.detail || {}; list.forEach(function (p) { if (p.id === me) Object.assign(p, { name: o.name, avatar: o.avatar, color: o.color, avatar_url: o.avatar_url }); });
+    paintMe(); paintBar();
+  });
   $('btnEdit').addEventListener('click', function () { edit(); });
-  $('navEdit').addEventListener('click', function (e) { e.preventDefault(); if (Api.user) edit(); });
+  $('btnPeople').addEventListener('click', function () { people(); });
   $('btnShare').addEventListener('click', function () { Editor.share(); });
   $('btnShow').addEventListener('click', function () { showcase($('ausstellung').hidden); });
   $('asSel').addEventListener('change', function (e) { asView = e.target.value; open(me); });

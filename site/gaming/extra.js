@@ -310,7 +310,7 @@
       (p.games || []).slice(0, 3).forEach(function (g) { cov.appendChild(U.img(STEAM_CDN + g.appid + '/library_600x900.jpg', '', '')); });
       if (!cov.children.length) cov.classList.add('empty');
       c.appendChild(cov);
-      var who = el('div', 'sc-who'), av = el('span', 'av big', p.avatar); av.style.setProperty('--c', p.color); who.appendChild(av);
+      var who = el('div', 'sc-who'); who.appendChild(U.avatar(p, 'big'));
       var t = el('div'); t.appendChild(el('b', '', p.me ? p.name + ' (du)' : p.name)); if (p.tagline) t.appendChild(el('span', 'muted', p.tagline)); who.appendChild(t); c.appendChild(who);
       var kinds = el('div', 'gs-kinds'); (p.kinds || []).forEach(function (k) { var d = GA && GA.BY[k]; if (d) kinds.appendChild(U.accBadge(d)); }); if (kinds.children.length) c.appendChild(kinds);
       var facts = [p.hours ? nf.format(Math.round(p.hours)) + ' Std' : '', (p.custom || []).length ? (p.custom || []).join(', ') : '',

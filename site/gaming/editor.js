@@ -169,7 +169,8 @@
     dlg.classList.add('wide');
     var o = st.p.owner || {}, group = '';
     // Kopf: Titel und wessen Profil; links die Bereiche in Gruppen; unten Speicherstand und "Fertig"
-    dlg.innerHTML = '<div class="gdlg-head"><span class="gh-av av" style="--c:' + esc(o.color || '#5b85ff') + '" aria-hidden="true">' + esc(o.avatar || '🎮') + '</span>' +
+    var G = window.Gaming && window.Gaming.u, headAv = G ? G.avatar(o, 'gh-av').outerHTML.replace('<span ', '<span aria-hidden="true" ') : '<span class="gh-av av" aria-hidden="true">' + esc(o.avatar || '🎮') + '</span>';
+    dlg.innerHTML = '<div class="gdlg-head">' + headAv +
       '<div class="gh-t"><h2 id="gdlgTitle">Gaming-Profil bearbeiten</h2><small class="muted">' + esc(o.name || '') + '</small></div>' +
       '<button type="button" class="gdlg-x" data-close aria-label="Schließen">✕</button></div>' +
       '<div class="gdlg-main"><nav class="gdlg-tabs" role="tablist" aria-label="Bereiche">' + TABS.map(function (t) {
@@ -210,7 +211,7 @@
   async function loadPeople() {
     var r = await Promise.all([
       Api.get('wl_friendships', 'status=eq.accepted&select=requester,addressee'),
-      Api.get('wl_profiles', 'select=id,name,avatar,color&id=neq.' + st.me),
+      Api.get('wl_profiles', 'select=id,name,avatar,color,avatar_url&id=neq.' + st.me),
       Api.get('wl_groups', 'select=id,name,emoji,color&order=created_at'),
       Api.get('gp_share_people', 'select=person'),
       Api.get('gp_share_groups', 'select=group_id')
@@ -247,7 +248,7 @@
       who.innerHTML = (d.groups.length ? '<p class="small"><b>Gruppen</b></p><div class="pick-list">' + d.groups.map(function (g) {
         return '<label class="pick"><input type="checkbox" name="groups" value="' + g.id + '"' + (d.groupSel.indexOf(g.id) >= 0 ? ' checked' : '') + '><span>' + esc(g.emoji) + ' ' + esc(g.name) + '</span></label>'; }).join('') + '</div>' : '') +
         '<p class="small"><b>Personen</b></p>' + (d.friends.length ? '<div class="pick-list">' + d.friends.map(function (p) {
-          return '<label class="pick"><input type="checkbox" name="people" value="' + p.id + '"' + (d.people.indexOf(p.id) >= 0 ? ' checked' : '') + '><span><i class="av" style="--c:' + esc(p.color) + '">' + esc(p.avatar) + '</i> ' + esc(p.name) + '</span></label>'; }).join('') + '</div>'
+          return '<label class="pick"><input type="checkbox" name="people" value="' + p.id + '"' + (d.people.indexOf(p.id) >= 0 ? ' checked' : '') + '><span>' + (window.Gaming ? window.Gaming.u.avatar(p).outerHTML : '') + ' ' + esc(p.name) + '</span></label>'; }).join('') + '</div>'
           : '<p class="muted">Noch keine Freunde. Füge sie in der Wunschliste hinzu oder teile deinen Link.</p>');
       draft.more(); paintWho();
     }).catch(function (e) { who.innerHTML = '<p class="msg err">' + esc(errText(e)) + '</p>'; });

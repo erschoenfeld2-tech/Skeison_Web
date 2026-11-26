@@ -27,8 +27,22 @@
     <div class="links" id="navLinks">
       <span class="nav-ind" aria-hidden="true"></span>
       <a href="#spiele">Spiele</a><a href="../cobblemon/">Cobblemon Server</a><a href="../wunschliste/">Wunschliste</a>
-      <a class="nav-cta in-only" href="#pbar" id="navEdit">Profil bearbeiten <span class="arr">→</span></a>
       <a class="nav-cta out-only" href="#anmelden">Anmelden <span class="arr">→</span></a>
+    </div>
+    <!-- Angemeldet: das eigene Profil immer oben rechts (Profilbild bzw. Emoji), Menue mit Bearbeiten, Profilbild, Ansehen, Teilen, Abmelden -->
+    <div class="me-nav in-only">
+      <button type="button" class="me-btn" id="meBtn" aria-haspopup="true" aria-expanded="false" aria-controls="meMenu" title="Dein Profil">
+        <span class="av" id="meAv" aria-hidden="true">🎮</span><span class="me-n" id="meName">Ich</span><svg class="me-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="pm-list me-menu" id="meMenu" role="menu" aria-label="Dein Profil" hidden>
+        <div class="me-head"><span class="av xl" id="meAvBig" aria-hidden="true">🎮</span><span><b id="meNameBig">Ich</b><small>Dein Gaming-Profil</small></span></div>
+        <button type="button" role="menuitem" data-me="edit"><span class="pm-ic" aria-hidden="true">✎</span><span>Profil bearbeiten<small>Konten, Reiter, Skins, Sichtbarkeit</small></span></button>
+        <button type="button" role="menuitem" data-me="pic"><span class="pm-ic" aria-hidden="true">🖼</span><span>Profilbild ändern<small>Eigenes Bild hochladen</small></span></button>
+        <button type="button" role="menuitem" data-me="view"><span class="pm-ic" aria-hidden="true">👤</span><span>Mein Profil ansehen</span></button>
+        <button type="button" role="menuitem" data-me="share"><span class="pm-ic" aria-hidden="true">↗</span><span>Profil teilen<small>Link und QR-Code</small></span></button>
+        <hr>
+        <button type="button" role="menuitem" id="btnLogout" class="pm-danger"><span class="pm-ic" aria-hidden="true">⎋</span><span>Abmelden</span></button>
+      </div>
     </div>
   </nav>
   <div class="nav-progress"></div>
@@ -87,8 +101,9 @@
   <!-- Links die Profile (eigenes und freigegebene), rechts die Hauptaktionen; alles Weitere im Menue "⋯" (profile.js) -->
   <section class="pbar in-only" id="pbar" aria-label="Profil wählen">
     <div class="pbar-who">
-      <span class="pbar-label">Profile</span>
-      <div class="pbar-list hscroll" id="pbarList" role="tablist" aria-label="Gaming-Profile"></div>
+      <span class="pbar-label">Freunde</span>
+      <div class="pbar-list hscroll" id="pbarList" role="tablist" aria-label="Du und deine Freunde"></div>
+      <button type="button" class="ppl-more" id="btnPeople" hidden title="Alle Profile: Freunde und Gaming-Bekannte"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c2.6.1 4.6 1.7 5.1 4.8"/></svg><span>Alle</span><i>0</i></button>
     </div>
     <div class="pbar-act">
       <button type="button" class="btn small" id="btnKnown" hidden>Als Bekannte anfragen</button>
@@ -101,8 +116,6 @@
           <label class="pm-as" id="asWrap" hidden><span class="pm-ic" aria-hidden="true">👁</span><span>Ansehen als<small>So sehen andere dein Profil</small></span>
             <select id="asSel"><option value="">Ich</option><option value="friend">Freunde</option><option value="known">Bekannte</option><option value="public">Öffentlich</option></select></label>
           <button type="button" role="menuitem" id="btnRefresh"><span class="pm-ic" aria-hidden="true">↻</span><span>Aktualisieren<small>Live-Daten neu laden</small></span></button>
-          <hr>
-          <button type="button" role="menuitem" id="btnLogout" class="pm-danger"><span class="pm-ic" aria-hidden="true">⎋</span><span>Abmelden</span></button>
         </div>
       </div>
     </div>
