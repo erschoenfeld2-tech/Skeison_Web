@@ -23,8 +23,16 @@
   async function busy(btn, fn) { var t = btn.innerHTML; btn.disabled = true; btn.innerHTML = '…'; try { return await fn(); } finally { btn.disabled = false; btn.innerHTML = t; } }
 
   var st = null, meId = null;   // st: { p, me, changed, tab, onDone }; meId bleibt nach dem Schliessen fuer laufende Speicherungen
-  var TABS = [['profil', '👤', 'Profil & Freigabe'], ['oeffentlich', '🌐', 'Öffentlich & Bekannte'], ['konten', '🔗', 'Konten'], ['reiter', '🗂️', 'Reiter & Statistik'],
-    ['valorant', '🎯', 'Valorant-Skins'], ['minecraft', '⛏️', 'Minecraft'], ['steam', '🎮', 'Steam'], ['account', '🪪', 'Skeison Account']];
+  // Bereiche: [Schluessel, Symbol, Name, Gruppe in der Navigation, Erklaerung oben im Bereich, Zaehler]
+  var TABS = [
+    ['profil', '👤', 'Profil & Sichtbarkeit', 'Profil', 'Spruch, Lieblingsagent und wer dein Gaming-Profil sehen darf.'],
+    ['oeffentlich', '🌐', 'Öffentlich & Bekannte', 'Profil', 'Dein öffentliches Profil für die Ausstellung, Gaming-Bekannte, Kreise und wer welchen Bereich sieht.'],
+    ['konten', '🔗', 'Konten', 'Inhalte', 'Spiele, Launcher und Kanäle verknüpfen. Konten mit ✓ werden geprüft und liefern Live-Daten.', function (p) { return (p.accounts || []).length; }],
+    ['reiter', '🗂️', 'Reiter & Statistik', 'Inhalte', 'Reihenfolge der Bühne, Statistik-Kacheln und eigene Reiter für Spiele und Launcher.', function (p) { return (p.custom || []).length; }],
+    ['valorant', '🎯', 'Valorant-Skins', 'Spiele', 'Skins, Bundles und Battlepässe auswählen, die du besitzt. Speichert sich selbst.', function (p) { return (p.val_items || []).length; }],
+    ['minecraft', '⛏️', 'Minecraft', 'Spiele', 'Eigene Skins hochladen und deinen Lieblingsserver zeigen.', function (p) { return (p.mc_skins || []).length; }],
+    ['steam', '🎮', 'Steam', 'Spiele', 'Bis zu 24 Lieblingsspiele aus deiner Bibliothek oder dem Steam-Shop. Speichert sich selbst.', function (p) { return (p.steam_favs || []).length; }],
+    ['account', '🪪', 'Skeison Account', 'Konto', 'Name, Avatar, Farbe und Passwort. Gilt auch für die Wunschliste.']];
 
   // ---------------------------------------------------------------- Publikum ("Wer sieht das?") je Konto, Reiter und Bereich
   // Werte wie in der Datenbank (private.gp_aud): public, known, friends, circle:<id>, me. Kreise laedt circles() einmal je Editor.
@@ -93,7 +101,7 @@
   function status(state, text) {
     var s = dlg.open && $('#gdlgStatus'); if (!s) return;
     s.className = 'gdlg-status ' + state;
-    s.textContent = text || { saving: 'Speichert …', saved: 'Alles gespeichert ✓', pending: 'Änderungen werden gleich gespeichert …', error: 'Nicht gespeichert, neuer Versuch gleich' }[state] || '';
+    s.textContent = text || { saving: 'Speichert …', saved: 'Alles gespeichert ✓', pending: 'Änderungen werden gleich gespeichert …', error: 'Nicht gespeichert, neuer Versuch gleich', idle: 'Auswahl und Reihenfolge speichern sich selbst' }[state] || '';
   }
   function autosaver(key, send, onSaved) {
     var t = 0, data = null, running = null, tries = 0;
@@ -159,25 +167,43 @@
     st = { p: JSON.parse(JSON.stringify(p)), me: Api.user.id, changed: false, tab: TABS.some(function (t) { return t[0] === tab; }) ? tab : 'profil', onDone: onDone };
     meId = st.me;
     dlg.classList.add('wide');
-    dlg.innerHTML = '<div class="gdlg-head"><h2 id="gdlgTitle">Gaming-Profil bearbeiten</h2><span class="gdlg-status" id="gdlgStatus" aria-live="polite"></span>' +
+    var o = st.p.owner || {}, group = '';
+    // Kopf: Titel und wessen Profil; links die Bereiche in Gruppen; unten Speicherstand und "Fertig"
+    dlg.innerHTML = '<div class="gdlg-head"><span class="gh-av av" style="--c:' + esc(o.color || '#5b85ff') + '" aria-hidden="true">' + esc(o.avatar || '🎮') + '</span>' +
+      '<div class="gh-t"><h2 id="gdlgTitle">Gaming-Profil bearbeiten</h2><small class="muted">' + esc(o.name || '') + '</small></div>' +
       '<button type="button" class="gdlg-x" data-close aria-label="Schließen">✕</button></div>' +
       '<div class="gdlg-main"><nav class="gdlg-tabs" role="tablist" aria-label="Bereiche">' + TABS.map(function (t) {
-        return '<button type="button" role="tab" data-tab="' + t[0] + '"><span class="ti" aria-hidden="true">' + t[1] + '</span><span>' + t[2] + '</span></button>'; }).join('') + '</nav>' +
+        var g = t[3] !== group ? '<p class="gt-group" aria-hidden="true">' + esc(t[3]) + '</p>' : ''; group = t[3];
+        return g + '<button type="button" role="tab" data-tab="' + t[0] + '"><span class="ti" aria-hidden="true">' + t[1] + '</span><span class="tl">' + esc(t[2]) + '</span><i class="tc" hidden></i></button>'; }).join('') + '</nav>' +
       '<div class="gdlg-body" id="gdlgBody"></div></div>' +
-      '<div class="gdlg-foot"><span class="muted small">Änderungen bleiben erhalten, auch wenn du zwischendurch schließt.</span><button type="button" class="btn" data-close>Fertig</button></div>';
+      '<div class="gdlg-foot"><span class="gdlg-status idle" id="gdlgStatus" aria-live="polite"></span><button type="button" class="btn" data-close>Fertig</button></div>';
     $('.gdlg-tabs').addEventListener('click', function (e) { var b = e.target.closest('[data-tab]'); if (b && b.dataset.tab !== st.tab) show(b.dataset.tab); });
     if (!dlg.open) dlg.showModal();
+    status('idle');
     show(st.tab);
+  }
+  // Zaehler in der Navigation (Konten, Reiter, Skins …) nach jedem Wechsel auffrischen
+  function paintNav() {
+    TABS.forEach(function (t) {
+      var c = $('.gdlg-tabs [data-tab="' + t[0] + '"] .tc'); if (!c) return;
+      var n = t[5] ? t[5](st.p) : 0; c.hidden = !n; c.textContent = n || '';
+    });
   }
   function show(tab) {
     flushAll();
     st.tab = tab;
-    $$('.gdlg-tabs [data-tab]').forEach(function (b) { var on = b.dataset.tab === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
+    var t = TABS.filter(function (x) { return x[0] === tab; })[0] || TABS[0];
+    $$('.gdlg-tabs [data-tab]').forEach(function (b) {
+      var on = b.dataset.tab === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on));
+      if (on && b.scrollIntoView && window.matchMedia('(max-width: 760px)').matches) b.scrollIntoView({ block: 'nearest', inline: 'center' });
+    });
+    paintNav();
     var body = $('#gdlgBody'); body.textContent = ''; body.scrollTop = 0;
     body.setAttribute('data-tab', tab);
+    body.innerHTML = '<header class="ed-head"><span class="ed-ic" aria-hidden="true">' + t[1] + '</span><div><h3>' + esc(t[2]) + '</h3><p class="muted">' + esc(t[4]) + '</p></div></header><div class="ed-content"></div>';
     var X = window.EditorExtra || {};
     var fn = ({ profil: tabProfil, konten: tabKonten, valorant: tabValorant, minecraft: tabMinecraft, steam: tabSteam, oeffentlich: X.oeffentlich, reiter: X.reiter, account: X.account })[tab] || tabProfil;
-    fn(body);
+    fn($('.ed-content', body));
   }
 
   // ---------------------------------------------------------------- Profil & Freigabe
@@ -205,7 +231,7 @@
       '<div class="pick-who" hidden><p class="muted">Lädt Freunde und Gruppen …</p></div></fieldset>' +
       '<p class="muted small">Freunde und Gruppen verwaltest du in der <a href="../wunschliste/?seite=freunde">Wunschliste</a>; sie gelten hier genauso. Was Bekannte und alle mit öffentlichem Profil sehen, stellst du unter <button type="button" class="link-btn" data-goto="oeffentlich">Öffentlich & Bekannte</button> ein.</p></section>' +
       '<p class="msg" hidden></p>' +
-      '<div class="dlg-actions start sticky-actions"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" id="btnLink">🔗 Teilen-Link & QR-Code</button></div></form>';
+      '<div class="dlg-actions start sticky-actions"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" id="btnLink" title="Teilen-Link und QR-Code für dein Profil">🔗 Link & QR-Code</button></div></form>';
     var f = $('#fProfil'), who = $('.pick-who', f), people = null;
     var draft = keepDraft(f, 'profil', function () { show('profil'); });
     window.ValCat.load().then(function (c) {
@@ -250,10 +276,43 @@
   // und ob es im oeffentlichen Profil ungekuerzt erscheint. Verknuepfte Anbieter stehen oben, weitere kommen ueber die Auswahl.
   function tabKonten(body) {
     var GA = window.GAccounts, extra = {};   // extra: zusaetzlich geoeffnete, noch leere Zeilen je Art
-    body.innerHTML = '<p class="muted">Konten mit ✓ werden beim Speichern geprüft und liefern Live-Daten. Bei Spielen wie Valorant kannst du die Spielzeit eintragen (z. B. „Total Playtime“ von tracker.gg), sie zählt in der Statistik mit. Bei „Wer sieht das?“ legst du je Konto fest, ob es öffentlich, für Bekannte, Freunde, einen Kreis oder nur dich sichtbar ist. Im öffentlichen Profil werden Spielernamen gekürzt (empfohlen).</p>' +
-      '<div class="acc-add"><label>Konto verknüpfen<select><option value="">Anbieter wählen …</option>' +
-      GA.KINDS.map(function (k) { return '<option value="' + k.key + '">' + esc(k.name) + '</option>'; }).join('') + '</select></label></div><div class="acc-edit-list"></div>';
-    var box = $('.acc-edit-list', body);
+    // Anbieter-Auswahl: Kacheln in drei Gruppen mit Suche (statt eines langen Auswahlmenues)
+    var GROUPS = [['Spiele', ['valorant', 'lol', 'minecraft', 'hoyoverse', 'roblox']],
+      ['Plattformen & Launcher', ['steam', 'epic', 'battlenet', 'ea', 'ubisoft', 'gog', 'rockstar', 'xbox', 'playstation', 'nintendo']],
+      ['Community & Kanäle', ['discord', 'twitch', 'youtube', 'kick', 'tiktok', 'instagram', 'x', 'reddit', 'snapchat', 'spotify']]];
+    var listed = [].concat.apply([], GROUPS.map(function (g) { return g[1]; }));
+    GA.KINDS.forEach(function (k) { if (listed.indexOf(k.key) < 0) GROUPS[2][1].push(k.key); });
+    body.innerHTML = '<details class="ed-help"><summary>Wie funktioniert das?</summary><p>Konten mit ✓ werden beim Speichern geprüft und liefern Live-Daten (Rang, Spielzeit, Mitglieder). Bei Spielen wie Valorant kannst du die Spielzeit eintragen (z. B. „Total Playtime“ von tracker.gg), sie zählt in der Statistik mit. Je Anbieter gehen bis zu ' + GA.MAX_PER_KIND + ' Konten, z. B. ein Zweitkonto. Bei „Wer sieht das?“ legst du je Konto fest, ob es öffentlich, für Bekannte, Freunde, einen Kreis oder nur dich sichtbar ist. Im öffentlichen Profil werden Spielernamen gekürzt (empfohlen).</p></details>' +
+      '<div class="acc-add"><button type="button" class="btn small" data-addacc aria-expanded="false" aria-controls="accPick">+ Konto verknüpfen</button>' +
+      '<div class="acc-pick" id="accPick" hidden><input type="search" class="acc-q" placeholder="Anbieter suchen, z. B. Epic oder Twitch" aria-label="Anbieter suchen"><div class="acc-pick-groups"></div></div></div>' +
+      '<div class="acc-edit-list"></div>';
+    var box = $('.acc-edit-list', body), pick = $('.acc-pick', body), pq = $('.acc-q', body), addBtn = $('[data-addacc]', body);
+    function paintPick() {
+      var q = pq.value.trim().toLowerCase();
+      $('.acc-pick-groups', body).innerHTML = GROUPS.map(function (g) {
+        var ks = g[1].map(function (key) { return GA.BY[key]; }).filter(function (k) { return k && (!q || k.name.toLowerCase().indexOf(q) >= 0 || k.key.indexOf(q) >= 0); });
+        if (!ks.length) return '';
+        return '<div class="acc-pick-g"><p class="gt-group">' + esc(g[0]) + '</p><div class="acc-tiles">' + ks.map(function (k) {
+          var n = mine(k.key).length;
+          return '<button type="button" class="acc-tile' + (n ? ' has' : '') + '" data-kind="' + k.key + '"' + (n >= GA.MAX_PER_KIND ? ' disabled' : '') + '><span class="acc-badge" style="--c:' + k.color + '">' + esc(k.short) + '</span>' +
+            '<span class="at-t"><b>' + esc(k.name) + '</b><small>' + (n ? '✓ ' + n + ' verknüpft' : k.live ? 'mit Live-Daten' : 'Profil-Link') + '</small></span></button>'; }).join('') + '</div></div>';
+      }).join('') || '<p class="muted">Kein Anbieter mit diesem Namen.</p>';
+    }
+    function setPick(open) { pick.hidden = !open; addBtn.setAttribute('aria-expanded', String(open)); addBtn.textContent = open ? 'Auswahl schließen' : '+ Konto verknüpfen'; if (open) { pq.value = ''; paintPick(); pq.focus(); } }
+    addBtn.addEventListener('click', function () { setPick(pick.hidden); });
+    pq.addEventListener('input', paintPick);
+    pick.addEventListener('click', function (e) {
+      var t = e.target.closest('.acc-tile'); if (!t || t.disabled) return;
+      var key = t.dataset.kind; extra[key] = extra[key] || [];
+      var kk = freeKind(key); if (!kk) { toast('Höchstens ' + GA.MAX_PER_KIND + ' Konten je Anbieter.'); return; }
+      extra[key].push(kk); setPick(false); paint();
+      var f = box.querySelector('form[data-kind="' + kk + '"] input[name="handle"]'); if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); }
+    });
+    // Anzeigename fuer "Wer sieht das?" in der zugeklappten Zeile
+    function audName(v) {
+      if (/^circle:/.test(v)) { var c = (st.circles || []).filter(function (x) { return 'circle:' + x.id === v; })[0]; return c ? c.emoji + ' ' + c.name : 'Kreis'; }
+      var a = AUD.filter(function (x) { return x[0] === v; })[0]; return a ? a[1] : 'Freunde';
+    }
     function mine(key) { return (st.p.accounts || []).filter(function (a) { return GA.base(a.kind) === key; }).sort(function (a, b) { return GA.slot(a.kind) - GA.slot(b.kind); }); }
     function freeKind(key) { for (var i = 1; i <= GA.MAX_PER_KIND; i++) { var kk = i === 1 ? key : key + '-' + i; if (!(st.p.accounts || []).some(function (a) { return a.kind === kk; }) && extra[key].indexOf(kk) < 0) return kk; } return ''; }
     function paint() {
@@ -270,12 +329,17 @@
         if (more) more.addEventListener('click', function () { var kk = freeKind(k.key); if (kk) { extra[k.key].push(kk); paint(); var f = box.querySelector('form[data-kind="' + kk + '"] input[name="handle"]'); if (f) f.focus(); } });
         box.appendChild(sec);
       });
-      if (!box.children.length) box.innerHTML = '<p class="muted">Noch keine Konten. Wähle oben einen Anbieter.</p>';
+      if (!box.children.length) { box.innerHTML = '<p class="muted">Noch keine Konten. Wähle oben einen Anbieter.</p>'; setPick(true); }
     }
     function accRow(k, ki, kind, a) {
       var row = document.createElement('form'), x = (a && a.extra) || {};
-      row.className = 'acc-edit' + (a ? ' set' : ''); row.noValidate = true; row.setAttribute('data-kind', kind);
-      row.innerHTML = '<div class="acc-edit-row"><input name="handle" aria-label="' + esc(k.label) + '" placeholder="' + esc(k.placeholder) + '" value="' + esc(a ? a.handle : '') + '" autocomplete="off" spellcheck="false">' +
+      row.className = 'acc-edit' + (a ? ' set collapsed' : ''); row.noValidate = true; row.setAttribute('data-kind', kind);
+      // Gespeicherte Konten erscheinen zugeklappt als eine Zeile (Name, eigener Name, wer es sieht); Klick klappt das Formular auf
+      var aud = a ? (a.in_sidebar === false ? 'me' : a.audience) : 'friends';
+      row.innerHTML = (a ? '<button type="button" class="acc-sum" aria-expanded="false"><span class="as-h">' + esc(a.handle) + '</span>' + (x.label ? '<span class="as-l">' + esc(x.label) + '</span>' : '') +
+          (x.hours != null && x.hours !== '' ? '<span class="as-l">' + esc(String(x.hours).replace('.', ',')) + ' Std</span>' : '') +
+          '<span class="as-aud" data-aud="' + esc(aud) + '">' + esc(audName(aud)) + '</span><span class="as-chev" aria-hidden="true">Bearbeiten</span></button>' : '') +
+        '<div class="acc-edit-row"><input name="handle" aria-label="' + esc(k.label) + '" placeholder="' + esc(k.placeholder) + '" value="' + esc(a ? a.handle : '') + '" autocomplete="off" spellcheck="false">' +
         (k.regions ? '<select name="region" aria-label="Region">' + k.regions.map(function (r) { return '<option value="' + r[0] + '"' + (x.region === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select>' : '') +
         (k.games ? '<select name="game" aria-label="Spiel">' + k.games.map(function (g) { return '<option value="' + g[0] + '"' + (x.game === g[0] ? ' selected' : '') + '>' + g[1] + '</option>'; }).join('') + '</select>' : '') +
         '<input name="label" class="acc-label" maxlength="24" placeholder="' + (GA.slot(kind) > 1 ? 'z. B. Smurf, Zweitkonto' : 'Name (optional)') + '" aria-label="Eigener Name für dieses Konto" value="' + esc(x.label || '') + '">' +
@@ -287,6 +351,13 @@
         '<button class="btn small" type="submit">' + (a ? 'Speichern' : 'Verknüpfen') + '</button>' +
         '<button class="link-btn danger-text" type="button" data-act="del">' + (a ? 'Entfernen' : 'Verwerfen') + '</button></div><p class="msg" hidden></p>';
       var draft = keepDraft(row, 'acc:' + kind, function () { show('konten'); });
+      var sum = $('.acc-sum', row);
+      if (sum) {
+        if ($('.draft-note', row)) row.classList.remove('collapsed');   // nicht gespeicherte Eingaben: gleich offen zeigen
+        var syncSum = function () { var open = !row.classList.contains('collapsed'); sum.setAttribute('aria-expanded', String(open)); $('.as-chev', sum).textContent = open ? 'Zuklappen' : 'Bearbeiten'; };
+        sum.addEventListener('click', function () { row.classList.toggle('collapsed'); syncSum(); if (!row.classList.contains('collapsed')) row.handle.focus(); });
+        syncSum();
+      }
       row.addEventListener('submit', function (e) { e.preventDefault(); saveAccount(k, row, kind, ki * 10 + GA.slot(kind), draft); });
       $('[data-act="del"]', row).addEventListener('click', async function (e) {
         var del = e.currentTarget;
@@ -299,13 +370,6 @@
       });
       return row;
     }
-    $('.acc-add select', body).addEventListener('change', function (e) {
-      var key = e.target.value; e.target.value = ''; if (!key) return;
-      extra[key] = extra[key] || [];
-      var kk = freeKind(key); if (!kk) { toast('Höchstens ' + GA.MAX_PER_KIND + ' Konten je Anbieter.'); return; }
-      extra[key].push(kk); paint();
-      var f = box.querySelector('form[data-kind="' + kk + '"] input[name="handle"]'); if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); }
-    });
     // Entwuerfe von Zeilen, die noch nicht gespeichert waren, wieder oeffnen
     Object.keys(drafts()).forEach(function (d) { var m = d.match(/^acc:([a-z]+)(-[2-5])?$/); if (m && GA.BY[m[1]] && !(st.p.accounts || []).some(function (a) { return a.kind === m[1] + (m[2] || ''); })) { extra[m[1]] = extra[m[1]] || []; extra[m[1]].push(m[1] + (m[2] || '')); } });
     paint();
