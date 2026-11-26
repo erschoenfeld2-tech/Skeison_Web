@@ -39,6 +39,19 @@
   function when(iso) { return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr'; }
   function num(v, digits) { return Number(v).toLocaleString('de-DE', { minimumFractionDigits: digits || 0, maximumFractionDigits: digits || 0 }); }
   function calm() { return FX.reduced || FX.still; }
+  // Avatar einer Person: eigenes Profilbild (wl_profiles.avatar_url, Bucket "avatars"), sonst das Emoji in der Profilfarbe
+  var AV_BASE = 'https://pumdupjmmvimlxqvuymg.supabase.co/storage/v1/object/public/avatars/';
+  function hasPic(p) { return !!(p && p.avatar_url && String(p.avatar_url).indexOf(AV_BASE) === 0); }
+  function avatar(p, cls) {
+    p = p || {};
+    var a = el('span', 'av' + (cls ? ' ' + cls : '')); a.style.setProperty('--c', p.color || '#5b85ff');
+    if (hasPic(p)) {
+      var i = el('img'); i.src = p.avatar_url; i.alt = ''; i.decoding = 'async';
+      i.onerror = function () { a.classList.remove('pic'); a.textContent = p.avatar || '🎮'; };
+      a.classList.add('pic'); a.appendChild(i);
+    } else a.textContent = p.avatar || '🎮';
+    return a;
+  }
 
   $('year').textContent = new Date().getFullYear();
   var view = { demo: true, mine: false };   // was gerade gezeigt wird (Gaming.render)
@@ -858,7 +871,7 @@
   function avs(owners) {
     var span = el('span', 'team-avs');
     owners.forEach(function (o) {
-      var a = el('span', 'av', o.p.avatar); a.style.setProperty('--c', o.p.color);
+      var a = avatar(o.p);
       a.title = who(o.p) + (o.hours ? ' · ' + fmtH(o.hours) : '') + (o.fav ? ' · Lieblingsspiel' : '');
       span.appendChild(a);
     });
@@ -888,7 +901,7 @@
     var ppl = el('div', 'team-people hscroll'); ppl.setAttribute('role', 'group'); ppl.setAttribute('aria-label', 'Mit wem vergleichen?');
     people.forEach(function (p) {
       var on = !!team.sel[p.id], b = el('button', 'pchip' + (on ? ' on' : '')); b.type = 'button'; b.setAttribute('aria-pressed', String(on));
-      var av = el('span', 'av', p.avatar); av.style.setProperty('--c', p.color); b.appendChild(av); b.appendChild(el('span', '', p.me ? 'Ich' : p.name));
+      b.appendChild(avatar(p)); b.appendChild(el('span', '', p.me ? 'Ich' : p.name));
       b.addEventListener('click', function () { if (team.sel[p.id]) delete team.sel[p.id]; else team.sel[p.id] = 1; team.more = false; renderTeam(); });
       ppl.appendChild(b);
     });
@@ -1002,6 +1015,11 @@
     view = v;
     document.body.classList.toggle('is-demo', !!v.demo);
     $('meTag').textContent = v.demo ? 'Beispiel' : v.owner ? v.owner.name : 'Gaming';
+    // Eigenes Profilbild im Kopf statt des Minecraft-Gesichts
+    var face = $('face'), pic = $('facePic'), usePic = !v.demo && hasPic(v.owner);
+    if (usePic && !pic) { pic = el('img', 'face me-face me-photo'); pic.id = 'facePic'; pic.alt = ''; face.parentNode.insertBefore(pic, face); }
+    if (pic) { pic.hidden = !usePic; if (usePic && pic.getAttribute('src') !== v.owner.avatar_url) pic.src = v.owner.avatar_url; }
+    face.hidden = usePic;
     $('meLead').textContent = v.tagline || (v.demo ? 'So sieht ein Gaming-Profil aus: Taktik-Shooter, Fabrikbau und ein eigener Minecraft-Server.' : v.mine ? 'Dein Gaming-Profil. Wähl ein Spiel und schau, wie es gerade läuft.' : 'Wähl ein Spiel und schau, wie es gerade läuft.');
     var badge = $('viewBadge'); badge.hidden = !v.badge; badge.textContent = v.badge || '';
     setAgent(v.agent);
@@ -1049,7 +1067,7 @@
   var Gaming = window.Gaming = { render: render, demo: demo, cobblemon: cobblemon, show: show, team: setTeam, setTabs: setTabs, onEdit: null, onMcSkin: null,
     pioneer: pioneer, extra: null, get current() { return cur; },
     // Bausteine fuer extra.js (Statistik, eigene Reiter, Ausstellung)
-    u: { el: el, img: img, ext: ext, safe: safe, setPages: setPages, emptyPage: emptyPage, stat: stat, counter: counter, countUp: countUp, fmtH: fmtH,
+    u: { el: el, img: img, avatar: avatar, hasPic: hasPic, ext: ext, safe: safe, setPages: setPages, emptyPage: emptyPage, stat: stat, counter: counter, countUp: countUp, fmtH: fmtH,
       header: header, eur: eur, valueBox: valueBox, nf: nf, num: num, when: when, editLink: editLink, calm: calm, getJson: getJson, accBadge: accBadge,
       DATA_BASE: DATA_BASE, view: function () { return view; }, onShow: onShow } };
   fromHash(false);
