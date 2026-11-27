@@ -17,6 +17,19 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import android.content.SharedPreferences;
+
+import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -24,6 +37,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Update der App direkt in der App: Die neue Version wird im Hintergrund geladen (Fortschritt im Dialog) und ueber
@@ -34,13 +51,92 @@ import java.net.URL;
  * - Android installiert nur, was mit demselben Schluessel signiert ist; zusaetzlich wird vorab geprueft, dass die
  *   Datei wirklich eine neuere Version dieser App ist.
  * - Klappt etwas nicht (kein Netz, kein Platz, abgelehnt), bleibt der bisherige Weg: Download im Browser.
+ * - Automatisch im Hintergrund (UpdateWorker, alle 6 Stunden und kurz nach dem Schliessen der App): neue Version
+ *   laden und installieren, ohne dass jemand die App oeffnen muss. Wo Android nachfragen muss (erstes Update,
+ *   aeltere Android-Versionen), erscheint eine Benachrichtigung "Update bereit, tippen zum Installieren".
  */
 final class Updater {
 
     static final String ACTION_STATUS = "de.skeison.wunschliste.UPDATE_STATUS";
-    private static boolean running;
+    static final String PREFS = "app", K_AUTO = "autoUpdate", K_AUTO_CHECK = "autoUpdateCheck";
+    private static volatile boolean running;
+    /** Laeuft die App gerade sichtbar? (MainActivity) Dann darf die Rueckfrage direkt erscheinen. */
+    static volatile boolean inForeground;
 
     private Updater() { }
+
+    /** Neueste Version laut Release "app-latest" (Zeile "versionCode: N" im Text), sonst -1. */
+    static int latestVersion() {
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(MainActivity.RELEASE_API).openConnection();
+            c.setConnectTimeout(8000);
+            c.setReadTimeout(8000);
+            c.setRequestProperty("Accept", "application/vnd.github+json");
+            c.setRequestProperty("User-Agent", "SkeisonWunschlisteApp");
+            if (c.getResponseCode() != 200) return -1;
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            try (InputStream in = c.getInputStream()) { byte[] b = new byte[8192]; int n; while ((n = in.read(b)) > 0) buf.write(b, 0, n); }
+            JSONObject j = new JSONObject(buf.toString(StandardCharsets.UTF_8.name()));
+            Matcher m = Pattern.compile("versionCode[:=]\\s*(\\d+)").matcher(j.optString("body") + " " + j.optString("name"));
+            return m.find() ? Integer.parseInt(m.group(1)) : -1;
+        } catch (Exception e) {
+            return -1;
+        } finally {
+            if (c != null) c.disconnect();
+        }
+    }
+
+    /** Hintergrund-Pruefung planen: alle 6 Stunden, und mit soon zusaetzlich einmal in 2 Minuten (nur mit Internet). */
+    static void schedule(Context c, boolean soon) {
+        Constraints net = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+        WorkManager wm = WorkManager.getInstance(c);
+        wm.enqueueUniquePeriodicWork("app-update", ExistingPeriodicWorkPolicy.KEEP,
+                new PeriodicWorkRequest.Builder(UpdateWorker.class, 6, TimeUnit.HOURS).setConstraints(net).build());
+        if (soon) {
+            wm.enqueueUniqueWork("app-update-jetzt", ExistingWorkPolicy.REPLACE,
+                    new OneTimeWorkRequest.Builder(UpdateWorker.class).setConstraints(net).setInitialDelay(2, TimeUnit.MINUTES).build());
+        }
+    }
+
+    /**
+     * Automatisches Update (UpdateWorker): Gibt es eine neuere Version, wird sie geladen und installiert. Ab Android 12
+     * geschieht das ohne Rueckfrage, sobald die App sich einmal selbst aktualisiert hat; sonst meldet sich Android ueber
+     * UpdateReceiver (Benachrichtigung zum Antippen). Hoechstens alle 30 Minuten wird nachgesehen.
+     */
+    static void autoUpdate(Context c) {
+        if (running) return;
+        SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        if (now - p.getLong(K_AUTO_CHECK, 0) < 30 * 60_000L) return;
+        p.edit().putLong(K_AUTO_CHECK, now).apply();
+        int latest = latestVersion();
+        if (latest <= BuildConfig.VERSION_CODE) return;
+        running = true;
+        try {
+            File dir = new File(c.getCacheDir(), "update");
+            //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+            File apk = new File(dir, "Wunschliste.apk");
+            // schon geladen (z. B. Android wartet noch auf die Bestaetigung)? Dann nicht erneut herunterladen
+            if (versionOf(c, apk) < latest) download(MainActivity.APK_URL, apk, (done, total) -> { });
+            if (versionOf(c, apk) <= BuildConfig.VERSION_CODE) throw new IllegalStateException("keine neuere Version");
+            p.edit().putBoolean(K_AUTO, true).apply();
+            install(c, apk);
+        } catch (Exception ignored) {
+            // naechster Lauf versucht es erneut
+        } finally {
+            running = false;
+        }
+    }
+
+    /** versionCode einer geladenen APK dieser App, sonst -1 */
+    private static long versionOf(Context c, File apk) {
+        if (!apk.isFile()) return -1;
+        PackageInfo pi = c.getPackageManager().getPackageArchiveInfo(apk.getAbsolutePath(), 0);
+        if (pi == null || !c.getPackageName().equals(pi.packageName)) return -1;
+        return Build.VERSION.SDK_INT >= 28 ? pi.getLongVersionCode() : pi.versionCode;
+    }
 
     /** Hinweis auf die neue Version mit einem einzigen grossen Knopf. */
     static void offer(Activity a, int latest, String fallbackUrl) {
@@ -58,6 +154,7 @@ final class Updater {
     private static void start(Activity a, String fallbackUrl) {
         if (running) return;
         running = true;
+        a.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(K_AUTO, false).apply();   // von Hand gestartet
         final Handler ui = new Handler(Looper.getMainLooper());
         int pad = Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 24, a.getResources().getDisplayMetrics()));
         LinearLayout box = new LinearLayout(a);

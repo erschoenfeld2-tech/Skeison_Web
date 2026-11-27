@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit;
  * Nachts (21 bis 8 Uhr) wird nichts gezeigt. Jede Stufe erscheint nur einmal.
  */
 final class Notifier {
-    static final String CH_EVENTS = "anlaesse", CH_BUY = "besorgen", CH_DEALS = "angebote";
+    static final String CH_EVENTS = "anlaesse", CH_BUY = "besorgen", CH_DEALS = "angebote", CH_UPDATE = "updates";
     private static final String PREFS = "erinnerungen", K_SNAP = "snapshot", K_SENT = "sent", K_USER = "user";
 
     private Notifier() { }
@@ -74,6 +74,9 @@ final class Notifier {
         nm.createNotificationChannel(ev);
         nm.createNotificationChannel(buy);
         nm.createNotificationChannel(deals);
+        NotificationChannel upd = new NotificationChannel(CH_UPDATE, "App-Updates", NotificationManager.IMPORTANCE_DEFAULT);
+        upd.setDescription("Wenn eine neue Version der App bereitsteht oder installiert wurde");
+        nm.createNotificationChannel(upd);
     }
 
     /** Regelmaessige Pruefung (alle 3 Stunden) und auf Wunsch eine baldige, z. B. nach neuen Daten. */

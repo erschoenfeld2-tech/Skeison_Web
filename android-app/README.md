@@ -19,6 +19,7 @@ sind dieselben wie im Browser (Supabase).
 | Hell/dunkel, Designs | folgt dem Handy; Status- und Navigationsleiste nehmen die Hintergrundfarbe der Liste an |
 | Ohne Internet | eigener Hinweis, lädt von selbst weiter, sobald das Netz wieder da ist |
 | Update in der App | prüft alle 6 Stunden das Release `app-latest`; ein Tipp auf „Jetzt aktualisieren“ lädt die neue Version in der App (mit Fortschritt) und übergibt sie dem Installer von Android. Kein Browser, keine Datei suchen ([`Updater.java`](app/src/main/java/de/skeison/wunschliste/Updater.java)) |
+| Automatische Updates | auch bei geschlossener App: [`UpdateWorker`](app/src/main/java/de/skeison/wunschliste/UpdateWorker.java) sieht alle 6 Stunden und 2 Minuten nach dem Schließen der App nach (nur mit Internet, höchstens alle 30 Minuten), lädt eine neue Version und installiert sie. Muss Android nachfragen, erscheint die Benachrichtigung „Update für die Wunschliste bereit“ (Kanal „App-Updates“) |
 
 Die Ergänzungen stecken in [`bridge.js`](app/src/main/assets/bridge.js) (wird in die Seite eingespielt) und
 [`MainActivity.java`](app/src/main/java/de/skeison/wunschliste/MainActivity.java). Die Webseite merkt die App an der Klasse
@@ -28,10 +29,9 @@ Die Ergänzungen stecken in [`bridge.js`](app/src/main/assets/bridge.js) (wird i
 
 Die allermeisten Änderungen betreffen nur die Webseite und brauchen **gar kein** App-Update. Nur wenn sich die App selbst ändert:
 
-1. Die App meldet „Update für die Wunschliste“ mit dem Knopf **Jetzt aktualisieren**.
-2. Sie lädt die neue Version selbst (Fortschrittsbalken).
-3. Android fragt beim **ersten** Mal, ob die Wunschliste Updates installieren darf (ein Schalter „Dieser Quelle vertrauen“), danach genügt ein Tipp auf „Aktualisieren“.
-4. Ab Android 12 laufen alle **weiteren** Updates ohne Rückfrage durch, weil die App dann selbst als Quelle eingetragen ist. Die App schließt sich kurz; eine Meldung „Wunschliste ist aktualisiert“ öffnet sie wieder.
+1. **Automatisch im Hintergrund:** Spätestens 6 Stunden nach dem Erscheinen (oder 2 Minuten nachdem jemand die App geschlossen hat) lädt die App die neue Version selbst. Ab Android 12 wird sie danach **ohne Rückfrage** installiert, sobald die App sich einmal selbst aktualisiert hat; niemand muss etwas tun, auch keine Meldung danach. So kommen neue Benachrichtigungen (z. B. „Angebote“) früh auf die Handys.
+2. **Beim ersten Update** (und auf Android 8 bis 11 bei jedem) muss Android einmal fragen: Bei geschlossener App erscheint die Benachrichtigung „Update für die Wunschliste bereit“, ein Tipp öffnet die Rückfrage „Aktualisieren?“. Beim allerersten Mal kommt dazu der Schalter „Dieser Quelle vertrauen“.
+3. **Mit offener App:** Die App meldet „Update für die Wunschliste“ mit dem Knopf **Jetzt aktualisieren** und lädt die neue Version mit Fortschrittsbalken. Danach öffnet die Meldung „Wunschliste ist aktualisiert“ sie wieder.
 
 Grenzen: Die Sicherheitsprüfung von Android (Play Protect) lässt sich von einer App nicht abschalten und soll das auch nicht. Sie meldet sich bei gleichbleibendem Signaturschlüssel und Updates aus der App heraus in der Regel nicht mehr. Ganz ohne solche Hinweise ginge es nur über den Play Store. Wer noch eine App-Version **vor** dem Update in der App hat, bekommt dieses eine Mal noch den alten Weg (Download im Browser).
 

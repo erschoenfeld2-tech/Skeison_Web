@@ -1405,7 +1405,9 @@
           if (canLink) return Api.rpc('wl_copy_item', { p_item: it.id, p_lists: to, p_link: link });
           return Api.insert('wl_items', to.map(function (id) {   // ein Aufruf: alle oder keine
             return { list_id: id, title: it.title, url: it.url, image_url: it.image_url, price: it.price, currency: it.currency, note: foreign ? '' : it.note,
-              category: it.category || guessCategory(it.title, it.url), priority: foreign ? 2 : it.priority, quantity: it.quantity, group_gift: it.group_gift };
+              category: it.category || guessCategory(it.title, it.url), priority: foreign ? 2 : it.priority, quantity: it.quantity, group_gift: it.group_gift,
+              // Rabatt (letzter Shop-Preis) mitnehmen, sonst fehlt er bis zur naechsten Preispruefung
+              price_now: it.price_now != null ? it.price_now : null, price_checked_at: it.price_checked_at || null };
           }));
         });
         var names = lists.filter(function (l) { return to.indexOf(l.id) >= 0; }).map(function (l) { return l.title; });
