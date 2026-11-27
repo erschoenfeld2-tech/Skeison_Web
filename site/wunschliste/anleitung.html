@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Wunschliste: Anleitung fürs Handy</title>
+<meta name="description" content="Schritt für Schritt erklärt: die Wunschliste auf dem Android-Handy oder iPhone einrichten, anmelden, Wünsche reservieren und Geschenke besorgen.">
+<meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">
+<!-- Eigenstaendige Anleitung: CSS und JS stehen hier drin, alle Links zeigen auf die Live-Seite.
+     So funktioniert die Datei auch, wenn man sie einzeln per Mail oder Messenger weitergibt. -->
+<style>
+:root {
+  --bg: #fbfaf7; --fg: #141414; --mut: #3b3b3b; --line: #8d8a84; --panel: #ffffff;
+  --pri: #0b4fc4; --pri-fg: #ffffff; --pri-hover: #083d99;
+  --sec-bg: #ffffff; --sec-fg: #0b2f75;
+  --hint-bg: #fff3d1; --hint-line: #a65f00;
+  --hl: #e03a00; --hl-soft: rgba(224, 58, 0, .28);
+  --focus: #6a00d6;
+  /* Farben der gezeichneten Handy-Bildschirme */
+  --frame: #24262c; --s-bg: #f2f3f7; --s-fg: #15171c; --s-mut: #575c68; --s-card: #ffffff; --s-line: #d3d6de;
+  --s-acc: #5847e0; --s-acc-fg: #ffffff; --s-dim: rgba(10, 12, 20, .45); --s-sys: #ffffff;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121316; --fg: #f3f3f3; --mut: #cfcfcf; --line: #7b7f88; --panel: #1c1e23;
+    --pri: #a8c8ff; --pri-fg: #0a1630; --pri-hover: #cfe0ff;
+    --sec-bg: #1c1e23; --sec-fg: #cfe0ff;
+    --hint-bg: #2c2410; --hint-line: #ffb020;
+    --hl: #ffb020; --hl-soft: rgba(255, 176, 32, .3);
+    --focus: #ffd84d;
+    --frame: #4a4e58; --s-bg: #0f1320; --s-fg: #eef0f6; --s-mut: #a9afc1; --s-card: #1c2234; --s-line: #343c54;
+    --s-acc: #9286ff; --s-acc-fg: #0b0d18; --s-dim: rgba(0, 0, 0, .6); --s-sys: #262b3a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html.big { font-size: 118%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 400 1.3125rem/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-wrap: break-word; padding-bottom: calc(118px + env(safe-area-inset-bottom));
+}
+a { color: var(--sec-fg); text-underline-offset: 3px; text-decoration-thickness: 2px; }
+:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
+h1, h2 { line-height: 1.2; margin: 0; }
+h1 { font-size: 1.85rem; }
+h1:focus { outline: none; }
+h2 { font-size: 1.45rem; }
+p { margin: 0; }
+.wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
+
+/* Kopf mit Fortschritt */
+.top { border-bottom: 2px solid var(--line); background: var(--panel); }
+.top-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.25rem; text-align: left; color: var(--fg); text-decoration: none; background: none; border: 0; padding: 6px 0; font-family: inherit; cursor: pointer; }
+.brand-ic { width: 34px; height: 34px; border-radius: 10px; background: var(--s-acc); display: grid; place-items: center; font-size: 20px; flex: none; }
+.size-btn { font: inherit; font-size: 1.25rem; font-weight: 600; min-height: 48px; padding: 6px 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--sec-bg); color: var(--fg); cursor: pointer; white-space: nowrap; }
+html.big .size-btn { border-color: var(--pri); box-shadow: inset 0 0 0 2px var(--pri); }
+.prog { padding-bottom: 12px; }
+.prog p { font-weight: 700; font-size: 1.25rem; margin-bottom: 6px; }
+.bar { height: 12px; border-radius: 99px; background: color-mix(in srgb, var(--line) 35%, transparent); border: 1px solid var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--pri); border-radius: 99px; transition: width .3s ease; }
+
+/* Ein Schritt: Text und Bild */
+main { padding-top: 22px; }
+main:focus { outline: none; }
+.step { display: grid; gap: 22px; }
+.txt { display: grid; gap: 16px; align-content: start; }
+.txt b, .txt strong { font-weight: 700; }
+.q { font-weight: 700; padding: 0 .15em; border-radius: 4px; background: color-mix(in srgb, var(--hl) 16%, transparent); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.lead { color: var(--fg); }
+ol.do, ul.do { margin: 0; padding-left: 1.4em; display: grid; gap: 8px; }
+ul.keys { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+ul.keys li { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: center; }
+ul.keys .k { width: 44px; height: 44px; border-radius: 12px; border: 2px solid var(--line); display: grid; place-items: center; background: var(--panel); }
+ul.keys svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.hint { background: var(--hint-bg); border-left: 6px solid var(--hint-line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; }
+.hint p { font-size: 1.25rem; }
+.acts { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; text-align: center;
+  font: inherit; font-weight: 700; font-size: 1.3rem; min-height: 64px; padding: 12px 24px; border-radius: 16px;
+  border: 3px solid var(--pri); background: var(--pri); color: var(--pri-fg); text-decoration: none; cursor: pointer;
+}
+.btn:hover { background: var(--pri-hover); border-color: var(--pri-hover); }
+.btn.ghost { background: var(--sec-bg); color: var(--sec-fg); border-color: var(--line); }
+.btn.ghost:hover { border-color: var(--sec-fg); background: var(--sec-bg); }
+.btn.wide { width: 100%; }
+.btn[hidden] { display: none; }
+.skip-link { font-size: inherit; }
+
+/* Auswahl am Anfang */
+.choice { display: grid; gap: 14px; }
+.pick {
+  display: grid; grid-template-columns: 64px 1fr; gap: 16px; align-items: center; text-align: left; width: 100%;
+  font: inherit; color: var(--fg); background: var(--panel); border: 3px solid var(--line); border-radius: 18px;
+  padding: 18px; cursor: pointer; min-height: 96px;
+}
+.pick:hover { border-color: var(--pri); }
+.pick .pi { font-size: 44px; line-height: 1; text-align: center; }
+.pick b { display: block; font-size: 1.4rem; }
+.pick small { display: block; font-size: 1.25rem; color: var(--mut); }
+.pick .you { display: inline-block; margin-top: 6px; font-size: 1.25rem; font-weight: 700; padding: 2px 10px; border-radius: 99px; background: var(--pri); color: var(--pri-fg); }
+.pick.mine { border-color: var(--pri); }
+.desk-note[hidden] { display: none; }
+.url { font-weight: 700; word-break: break-all; }
+
+/* Fusszeile mit Zurueck/Weiter */
+.nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: var(--panel); border-top: 2px solid var(--line);
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+}
+.nav .wrap { display: grid; grid-template-columns: 1fr 1.6fr; gap: 12px; }
+.nav .btn { width: 100%; padding: 10px 12px; }
+.nav.solo .wrap { grid-template-columns: 1fr; }
+.nav[hidden] { display: none; }
+
+/* ---------- Gezeichnetes Handy ---------- */
+.fig { margin: 0; display: grid; justify-items: center; gap: 10px; }
+.fig figcaption { font-size: 1.25rem; color: var(--mut); text-align: center; max-width: 300px; }
+.phone {
+  width: 236px; max-width: 100%; height: 456px; border-radius: 36px; padding: 10px; background: var(--frame);
+  box-shadow: 0 20px 40px -24px rgba(0, 0, 0, .55);
+}
+.scr {
+  position: relative; height: 100%; border-radius: 27px; overflow: hidden; background: var(--s-bg); color: var(--s-fg);
+  font: 400 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; display: flex; flex-direction: column;
+}
+.scr * { box-sizing: border-box; }
+.m-st { display: flex; justify-content: space-between; align-items: center; padding: 7px 18px 4px; font-size: 11px; font-weight: 700; flex: none; }
+.m-st i { display: inline-block; width: 18px; height: 9px; border: 1.5px solid currentColor; border-radius: 3px; position: relative; }
+.m-st i::after { content: ""; position: absolute; inset: 1px 4px 1px 1px; background: currentColor; border-radius: 1px; }
+.m-url { margin: 4px 10px 6px; padding: 6px 10px; border-radius: 99px; background: var(--s-card); border: 1px solid var(--s-line); font-size: 11px; color: var(--s-mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+.m-nav { display: flex; align-items: center; gap: 7px; padding: 6px 12px 8px; font-weight: 700; flex: none; border-bottom: 1px solid var(--s-line); }
+.m-logo { width: 18px; height: 18px; border-radius: 6px; background: var(--s-acc); }
+.m-nav .m-burger { margin-left: auto; width: 16px; height: 10px; border-top: 2px solid currentColor; border-bottom: 2px solid currentColor; position: relative; }
+.m-nav .m-burger::after { content: ""; position: absolute; left: 0; right: 0; top: 2px; border-top: 2px solid currentColor; }
+.m-body { flex: 1; padding: 10px 12px; display: grid; gap: 9px; align-content: start; overflow: hidden; position: relative; }
+.m-eye { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--s-mut); font-weight: 700; }
+.m-h { font-size: 17px; font-weight: 800; line-height: 1.2; }
+.m-h.s { font-size: 14px; }
+.m-p { font-size: 11.5px; color: var(--s-mut); }
+.m-card { background: var(--s-card); border: 1px solid var(--s-line); border-radius: 12px; padding: 9px; display: grid; gap: 7px; }
+.m-btn { display: block; text-align: center; padding: 8px 10px; border-radius: 10px; background: var(--s-acc); color: var(--s-acc-fg); font-weight: 700; font-size: 12.5px; }
+.m-btn.ghost { background: transparent; color: var(--s-fg); border: 1.5px solid var(--s-line); }
+.m-btn.sm { display: inline-block; padding: 5px 9px; font-size: 11.5px; }
+.m-row { display: flex; gap: 8px; align-items: center; }
+.m-row.end { justify-content: flex-end; }
+.m-row.split { justify-content: space-between; }
+.m-tbtn { font-weight: 700; color: var(--s-acc); padding: 6px 8px; border-radius: 8px; font-size: 12.5px; }
+.m-dim { position: absolute; inset: 0; background: var(--s-dim); z-index: 2; }
+.m-dlg { position: absolute; left: 12px; right: 12px; top: 34%; z-index: 3; background: var(--s-sys); border-radius: 18px; padding: 14px; display: grid; gap: 8px; box-shadow: 0 12px 30px rgba(0, 0, 0, .35); }
+.m-dlg b { font-size: 14px; }
+.m-dlg p { font-size: 12px; color: var(--s-mut); }
+.m-dlg .m-center { text-align: center; justify-items: center; display: grid; gap: 6px; }
+.m-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; background: var(--s-sys); border-radius: 18px 18px 0 0; padding: 14px 14px 22px; display: grid; gap: 8px; box-shadow: 0 -10px 30px rgba(0, 0, 0, .25); }
+.m-sheet b { font-size: 14px; }
+.m-snack { position: absolute; left: 10px; right: 10px; bottom: 16px; z-index: 3; background: #2a2d36; color: #fff; border-radius: 10px; padding: 10px 10px 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11.5px; }
+.m-snack .m-tbtn { color: #b9b1ff; }
+.m-toast { position: absolute; left: 10px; right: 10px; bottom: 62px; z-index: 3; background: #2a2d36; color: #fff; border-radius: 10px; padding: 9px 10px; display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11px; }
+.m-toast span:last-child { color: #b9b1ff; font-weight: 700; }
+.m-appic { width: 46px; height: 46px; border-radius: 13px; background: linear-gradient(145deg, #7a6bff, #4b39d6); display: grid; place-items: center; font-size: 24px; }
+.m-field { display: grid; gap: 3px; font-size: 11px; font-weight: 600; }
+.m-field span { display: block; padding: 6px 8px; border-radius: 8px; border: 1.5px solid var(--s-line); background: var(--s-card); font-weight: 400; min-height: 26px; }
+.m-field span.ph { color: var(--s-mut); }
+.m-seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--s-bg); border: 1px solid var(--s-line); border-radius: 10px; padding: 3px; font-size: 12px; font-weight: 700; text-align: center; }
+.m-seg span { padding: 5px; border-radius: 7px; }
+.m-seg .on { background: var(--s-acc); color: var(--s-acc-fg); }
+.m-tiles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.m-tile { background: var(--s-card); border: 1px solid var(--s-line); border-radius: 10px; padding: 7px; display: grid; }
+.m-tile b { font-size: 16px; }
+.m-tile small { font-size: 9.5px; color: var(--s-mut); line-height: 1.2; }
+.m-list { display: grid; gap: 6px; }
+.m-lc { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; background: var(--s-card); border: 1px solid var(--s-line); border-radius: 12px; padding: 7px; }
+.m-lc .m-em { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-size: 18px; background: color-mix(in srgb, var(--s-acc) 18%, transparent); }
+.m-lc b { display: block; font-size: 12.5px; }
+.m-lc small { display: block; font-size: 10.5px; color: var(--s-mut); }
+.m-wish { background: var(--s-card); border: 1px solid var(--s-line); border-radius: 12px; overflow: hidden; display: grid; }
+.m-wish .m-img { height: 62px; display: grid; place-items: center; font-size: 30px; background: color-mix(in srgb, var(--s-acc) 14%, var(--s-card)); }
+.m-wish .m-wb { padding: 7px 8px 9px; display: grid; gap: 5px; }
+.m-wish b { font-size: 12.5px; }
+.m-wish small { font-size: 10.5px; color: var(--s-mut); }
+.m-state { font-size: 11px; font-weight: 700; padding: 4px 7px; border-radius: 8px; background: color-mix(in srgb, var(--s-mut) 18%, transparent); justify-self: start; }
+.m-banner { font-size: 10.5px; padding: 7px 8px; border-radius: 10px; background: color-mix(in srgb, var(--s-acc) 16%, var(--s-card)); border: 1px solid var(--s-line); }
+.m-gift { display: grid; grid-template-columns: auto 28px 1fr auto; gap: 6px; align-items: center; background: var(--s-card); border: 1px solid var(--s-line); border-radius: 10px; padding: 7px; font-size: 11px; }
+.m-gift .m-th { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; background: color-mix(in srgb, var(--s-acc) 14%, var(--s-card)); font-size: 15px; }
+.m-gift b { display: block; font-size: 11.5px; }
+.m-gift small { color: var(--s-mut); font-size: 10px; }
+.m-check { display: grid; justify-items: center; gap: 1px; font-size: 9px; font-weight: 700; }
+.m-check i { width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--s-mut); display: block; }
+.m-check.on i { background: var(--s-acc); border-color: var(--s-acc); }
+.m-tab { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; border-top: 1px solid var(--s-line); background: var(--s-card); padding: 5px 4px 12px; font-size: 9px; text-align: center; color: var(--s-mut); position: relative; }
+.m-tab span { display: grid; justify-items: center; gap: 1px; padding: 3px 0; border-radius: 8px; }
+.m-tab svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.m-tab .on { color: var(--s-acc); font-weight: 700; }
+.m-tab .plus { width: 34px; height: 34px; margin: 0 auto; border-radius: 50%; background: var(--s-acc); color: var(--s-acc-fg); display: grid; place-items: center; }
+.m-tab .plus svg { stroke-width: 2.4; }
+.m-av { width: 19px; height: 19px; border-radius: 50%; background: #f4a259; display: block; }
+.m-home { flex: 1; padding: 22px 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px 6px; align-content: start; background: linear-gradient(170deg, #4f6bd8, #8a5bd1 60%, #d4708f); color: #fff; }
+.m-home .m-ic { display: grid; justify-items: center; gap: 4px; font-size: 9.5px; text-align: center; text-shadow: 0 1px 2px rgba(0, 0, 0, .5); }
+.m-home .m-ic i { font-style: normal; width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 21px; background: rgba(255, 255, 255, .88); }
+.m-home .m-ic .wl { background: linear-gradient(145deg, #7a6bff, #4b39d6); }
+.m-home .m-dock { grid-column: 1 / -1; margin-top: auto; }
+.m-sw { width: 34px; height: 20px; border-radius: 99px; background: var(--s-line); position: relative; flex: none; }
+.m-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
+.m-sw.on { background: var(--s-acc); }
+.m-sw.on::after { left: 16px; }
+.m-set { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px; background: var(--s-card); border-radius: 12px; border: 1px solid var(--s-line); font-size: 12.5px; font-weight: 600; }
+.m-sbar { flex: none; background: var(--s-card); border-top: 1px solid var(--s-line); padding: 6px 10px 14px; display: grid; gap: 6px; }
+.m-sbar .m-url { margin: 0; text-align: center; }
+.m-tools { display: flex; justify-content: space-around; align-items: center; color: var(--s-acc); font-size: 18px; }
+.m-tools span { display: grid; place-items: center; width: 32px; height: 30px; border-radius: 8px; }
+.m-tools svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.m-share { display: grid; gap: 0; background: var(--s-card); border-radius: 12px; border: 1px solid var(--s-line); overflow: visible; }
+.m-share span { display: flex; justify-content: space-between; align-items: center; padding: 9px 10px; border-bottom: 1px solid var(--s-line); font-size: 12.5px; }
+.m-share span:last-child { border-bottom: 0; }
+.m-share svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.m-ios-top { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; font-size: 12px; border-bottom: 1px solid var(--s-line); flex: none; }
+.m-ios-top b { font-size: 11px; flex: 1; min-width: 0; text-align: center; line-height: 1.2; }
+.m-ios-top .m-tbtn { padding: 4px 5px; font-size: 11.5px; white-space: nowrap; flex: none; }
+
+/* Markierung: wo getippt wird (Ring und Finger) */
+.tap { position: relative; z-index: 4; outline: 3px solid var(--hl); outline-offset: 3px; animation: ring 1.6s ease-in-out infinite; }
+.tap::after {
+  content: "👆"; position: absolute; left: 50%; top: 100%; margin-left: -15px; margin-top: 2px; font-size: 30px; line-height: 1;
+  pointer-events: none; animation: bob 1.6s ease-in-out infinite; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .45));
+}
+.tap.up::after { content: "👇"; top: auto; bottom: 100%; margin-top: 0; margin-bottom: 2px; animation-name: bob-up; }
+.tap.left::after { left: auto; right: 100%; top: 50%; margin: -15px 0 0 0; content: "👉"; animation-name: bob-left; }
+.m-tab.tap { outline-offset: -4px; }
+@keyframes ring { 0%, 100% { box-shadow: 0 0 0 0 var(--hl-soft); } 50% { box-shadow: 0 0 0 9px var(--hl-soft); } }
+@keyframes bob { 0%, 100% { transform: translateY(5px); } 50% { transform: translateY(0); } }
+@keyframes bob-up { 0%, 100% { transform: translateY(-5px); } 50% { transform: translateY(0); } }
+@keyframes bob-left { 0%, 100% { transform: translateX(-5px); } 50% { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .tap, .tap::after { animation: none; }
+  .tap { box-shadow: 0 0 0 7px var(--hl-soft); }
+  .bar i { transition: none; }
+}
+
+.done-ic { font-size: 64px; line-height: 1; }
+
+@media (min-width: 820px) {
+  h1 { font-size: 2.2rem; }
+  .step { grid-template-columns: minmax(0, 1fr) 300px; gap: 48px; align-items: start; }
+  .step.nofig { grid-template-columns: minmax(0, 1fr); max-width: 720px; }
+  .phone { width: 270px; height: 520px; }
+  .choice { grid-template-columns: 1fr 1fr; }
+  .nav .wrap { grid-template-columns: 220px 300px; justify-content: end; }
+  .nav.solo .wrap { grid-template-columns: 300px; }
+}
+@media print { .nav, .size-btn { display: none; } body { padding-bottom: 0; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-in">
+    <button type="button" class="brand" id="home" aria-label="Wunschliste-Anleitung: zum Anfang"><span class="brand-ic" aria-hidden="true">🎁</span><span>Wunschliste-Anleitung</span></button>
+    <button type="button" class="size-btn" id="bigText" title="Schrift größer oder kleiner stellen">A+ Größer</button>
+  </div>
+  <div class="wrap prog" id="prog" hidden>
+    <p id="progText" aria-live="polite"></p>
+    <div class="bar" aria-hidden="true"><i id="progBar"></i></div>
+  </div>
+</header>
+
+<main class="wrap" id="main" tabindex="-1">
+  <noscript><p>Diese Anleitung braucht JavaScript. Die Wunschliste finden Sie unter <a href="https://erschoenfeld2-tech.github.io/Skeison_Web/wunschliste/">erschoenfeld2-tech.github.io/Skeison_Web/wunschliste</a>, die App unter <a href="https://erschoenfeld2-tech.github.io/Skeison_Web/wunschliste/app.html">app.html</a>.</p></noscript>
+</main>
+
+<nav class="nav" id="nav" aria-label="Schritte" hidden>
+  <div class="wrap">
+    <button type="button" class="btn ghost" id="back">← Zurück</button>
+    <button type="button" class="btn" id="next">Weiter →</button>
+  </div>
+</nav>
+
+<script>
+(function () {
+  'use strict';
+  var BASE = 'https://erschoenfeld2-tech.github.io/Skeison_Web/wunschliste/';
+  var APK = 'https://github.com/erschoenfeld2-tech/Skeison_Web/releases/download/app-latest/Wunschliste.apk';
+  var DISCORD = 'https://discord.gg/tjVKFGMRw7';
+  var main = document.getElementById('main'), nav = document.getElementById('nav');
+  var back = document.getElementById('back'), next = document.getElementById('next');
+  var prog = document.getElementById('prog'), progText = document.getElementById('progText'), progBar = document.getElementById('progBar');
+
+  // ---------- Bausteine fuer die gezeichneten Bildschirme ----------
+  // Symbole wie in der Menueleiste der Wunschliste (index.html, #tabbar)
+  var SVG = {
+    home: '<svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>',
+    freunde: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.7 3.2-6 6.5-6s5.9 2.3 6.5 6"/><circle cx="17" cy="8.5" r="2.8"/><path d="M16.5 14c2.7.2 4.6 2.2 5 5"/></svg>',
+    plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    geschenke: '<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
+    share: '<svg viewBox="0 0 24 24"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-2"/></svg>',
+    addhome: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/></svg>',
+    copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>',
+    book: '<svg viewBox="0 0 24 24"><path d="M4 5.5C6.5 4 9.5 4 12 6c2.5-2 5.5-2 8-.5V19c-2.5-1.5-5.5-1.5-8 .5-2.5-2-5.5-2-8-.5z"/><path d="M12 6v13.5"/></svg>',
+    star: '<svg viewBox="0 0 24 24"><path d="m12 4 2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/></svg>',
+    tabs: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/></svg>'
+  };
+  function st() { return '<div class="m-st"><span>9:41</span><i></i></div>'; }
+  function url(u) { return '<div class="m-url">🔒 ' + u + '</div>'; }
+  function wlNav() { return '<div class="m-nav"><span class="m-logo"></span>Wunschliste<span class="m-burger"></span></div>'; }
+  // Menueleiste unten; on = aktiver Reiter, tap = markierter Reiter (oder 'all' fuer die ganze Leiste)
+  function tabbar(on, tap) {
+    var items = [['home', 'Übersicht'], ['freunde', 'Freunde'], ['plus', ''], ['geschenke', 'Besorgen'], ['profil', 'Profil']];
+    return '<div class="m-tab' + (tap === 'all' ? ' tap up' : '') + '">' + items.map(function (t) {
+      var ic = t[0] === 'profil' ? '<i class="m-av"></i>' : SVG[t[0]];
+      var cls = (t[0] === on ? 'on' : '') + (t[0] === tap ? ' tap up' : '');
+      if (t[0] === 'plus') return '<span class="' + cls + '"><i class="plus">' + ic + '</i></span>';
+      return '<span class="' + cls + '">' + ic + t[1] + '</span>';
+    }).join('') + '</div>';
+  }
+  function screen(inner) { return '<div class="phone" aria-hidden="true"><div class="scr">' + inner + '</div></div>'; }
+  function homeScreen(tapWhat) {
+    var apps = [['📞', 'Telefon'], ['💬', 'Nachrichten'], ['📷', 'Kamera'], ['🖼️', 'Fotos'], ['⏰', 'Uhr'], ['🌤️', 'Wetter'], ['⚙️', 'Einstellungen']];
+    // Das gesuchte Symbol steht in der Mitte der zweiten Reihe, damit der Finger nicht am Rand abgeschnitten wird
+    apps.splice(5, 0, tapWhat === 'safari' ? ['🧭', 'Safari', 'tap'] : ['🎁', 'Wunschliste', 'wl tap']);
+    return '<div class="m-st" style="background:#4f6bd8;color:#fff"><span>9:41</span><i></i></div><div class="m-home">' + apps.map(function (a) {
+      return '<span class="m-ic"><i class="' + (a[2] || '') + '">' + a[0] + '</i>' + a[1] + '</span>';
+    }).join('') + '</div>';
+  }
+  function friendLists(tapFirst) {
+    return '<div class="m-list">' +
+      '<div class="m-lc' + (tapFirst ? ' tap' : '') + '"><span class="m-em">🎄</span><span><b>Weihnachten</b><small>Erik · 12 Wünsche · in 27 Tagen</small></span></div>' +
+      '<div class="m-lc"><span class="m-em">🎂</span><span><b>Mein Geburtstag</b><small>Lena · 8 Wünsche</small></span></div></div>';
+  }
+
+  // ---------- Schritte ----------
+  // t = Titel, b = Text, h = Tipp, a = Knoepfe/Links, s = Bildschirm, alt = Beschreibung des Bildes
+  var ANDROID = [
+    { t: 'Die App herunterladen',
+      b: '<p>Tippen Sie auf dem Handy auf den blauen Knopf <span class="q">App herunterladen</span>. Das Handy lädt dann die Datei <b>Wunschliste.apk</b>.</p>' +
+        '<p>Auf der Seite der Wunschliste heißt der Knopf <span class="q">App herunterladen (APK)</span>.</p>',
+      a: '<a class="btn" href="' + APK + '">⬇ App herunterladen</a><a class="btn ghost" href="' + BASE + 'app.html">Seite der App öffnen</a>',
+      h: '<p>Die App ist schon auf dem Handy? Dann geht es weiter mit dem <a href="#android-8" class="skip-link">Anmelden</a>.</p>',
+      s: screen(st() + url('erschoenfeld2-tech.github.io/Skeison_Web/wunschliste/app.html') +
+        '<div class="m-body"><span class="m-eye">Für dein Handy</span><span class="m-h">Die Wunschliste als App</span>' +
+        '<div class="m-card"><b>🤖 Android</b><span class="m-btn tap">App herunterladen (APK)</span><span class="m-p" style="margin-top:26px">1. Knopf antippen, die Datei Wunschliste.apk wird geladen.</span></div></div>'),
+      alt: 'Handy mit der Seite der Wunschliste-App. Der Knopf „App herunterladen (APK)“ ist markiert.' },
+    { t: 'Herunterladen bestätigen',
+      b: '<p>Das Handy fragt nach, ob es die Datei wirklich laden soll. Tippen Sie auf <span class="q">Herunterladen</span>.</p>' +
+        '<p>Steht dort <b>„Datei trotzdem herunterladen?“</b>, tippen Sie ebenfalls auf <span class="q">Herunterladen</span>. Diese Frage kommt bei jeder App, die nicht aus dem Play Store stammt.</p>',
+      s: screen(st() + url('erschoenfeld2-tech.github.io/…/app.html') + '<div class="m-body"><span class="m-h">Die Wunschliste als App</span><div class="m-card"><b>🤖 Android</b><span class="m-btn">App herunterladen (APK)</span></div></div>' +
+        '<div class="m-dim"></div><div class="m-sheet"><b>Datei herunterladen?</b><span class="m-p">Wunschliste.apk</span><div class="m-row end" style="margin-bottom:22px"><span class="m-tbtn">Abbrechen</span><span class="m-tbtn tap">Herunterladen</span></div></div>'),
+      alt: 'Unten erscheint die Frage „Datei herunterladen?“. Der Knopf „Herunterladen“ ist markiert.' },
+    { t: 'Die Datei öffnen',
+      b: '<p>Ist die Datei geladen, erscheint unten kurz eine Meldung. Tippen Sie dort auf <span class="q">Öffnen</span>.</p>',
+      h: '<p>Die Meldung ist schon weg? Wischen Sie vom oberen Rand des Bildschirms nach unten und tippen Sie auf <b>Wunschliste.apk</b>. Oder in Chrome oben rechts auf die drei Punkte <b>⋮</b> und dann auf <b>Downloads</b>.</p>',
+      s: screen(st() + url('erschoenfeld2-tech.github.io/…/app.html') + '<div class="m-body"><span class="m-h">Die Wunschliste als App</span><div class="m-card"><b>🤖 Android</b><span class="m-btn">App herunterladen (APK)</span></div></div>' +
+        '<div class="m-snack"><span>Wunschliste.apk heruntergeladen</span><span class="m-tbtn tap up">Öffnen</span></div>'),
+      alt: 'Unten steht die Meldung „Wunschliste.apk heruntergeladen“. Der Knopf „Öffnen“ ist markiert.' },
+    { t: 'Die Installation erlauben',
+      b: '<p>Beim ersten Mal sagt das Handy, dass es Apps aus dieser Quelle noch nicht installieren darf. Das ist normal.</p><p>Tippen Sie auf <span class="q">Einstellungen</span>.</p>',
+      s: screen(st() + '<div class="m-body"></div><div class="m-dim"></div><div class="m-dlg"><b>Unbekannte App</b><p>Aus Sicherheitsgründen darf dein Handy keine unbekannten Apps aus dieser Quelle installieren.</p><div class="m-row end" style="margin-bottom:26px"><span class="m-tbtn">Abbrechen</span><span class="m-tbtn tap">Einstellungen</span></div></div>'),
+      alt: 'Ein Hinweis des Handys: Apps aus dieser Quelle sind nicht erlaubt. Der Knopf „Einstellungen“ ist markiert.' },
+    { t: 'Den Schalter einschalten',
+      b: '<p>Tippen Sie auf den Schalter neben <span class="q">Dieser Quelle vertrauen</span>. Bei manchen Handys heißt er <b>„Von dieser Quelle zulassen“</b>. Der Schalter wird dann farbig.</p>' +
+        '<p>Gehen Sie danach mit der <b>Zurück-Taste</b> oder dem Pfeil <b>←</b> oben links einen Schritt zurück.</p>',
+      h: '<p>Das müssen Sie nur ein einziges Mal machen.</p>',
+      s: screen(st() + '<div class="m-ios-top" style="justify-content:flex-start;gap:10px"><b style="flex:none;font-size:15px">←</b><b style="text-align:left;font-size:12.5px">Unbekannte Apps installieren</b></div>' +
+        '<div class="m-body"><div class="m-row" style="gap:10px"><span class="m-appic" style="width:34px;height:34px;font-size:18px;background:#e8eaf0">🌐</span><b>Chrome</b></div>' +
+        '<div class="m-set"><span>Dieser Quelle vertrauen</span><span class="m-sw on tap"></span></div><span class="m-p" style="margin-top:22px">Apps aus dieser Quelle dürfen installiert werden.</span></div>'),
+      alt: 'Einstellungen des Handys. Der Schalter „Dieser Quelle vertrauen“ ist markiert und eingeschaltet.' },
+    { t: 'Installieren',
+      b: '<p>Jetzt fragt das Handy: <b>„Möchtest du diese App installieren?“</b> Tippen Sie auf <span class="q">Installieren</span> und warten Sie einen Moment.</p>',
+      h: '<p>Erscheint eine Warnung von <b>Play Protect</b>? Tippen Sie auf <b>Weitere Details</b> und dann auf <b>Trotzdem installieren</b>. Die App kommt von Skeison und nicht aus dem Play Store, deshalb kennt Google sie nicht.</p>',
+      s: screen(st() + '<div class="m-body"></div><div class="m-dim"></div><div class="m-dlg"><div class="m-center"><span class="m-appic">🎁</span><b>Wunschliste</b><p>Möchtest du diese App installieren?</p></div><div class="m-row end" style="margin-bottom:26px"><span class="m-tbtn">Abbrechen</span><span class="m-tbtn tap">Installieren</span></div></div>'),
+      alt: 'Frage des Handys „Möchtest du diese App installieren?“. Der Knopf „Installieren“ ist markiert.' },
+    { t: 'Die App öffnen',
+      b: '<p>Fertig installiert! Tippen Sie auf <span class="q">Öffnen</span>.</p><p>Später finden Sie die App auf dem Startbildschirm oder bei Ihren Apps: das lila Symbol mit dem Geschenk und dem Namen <span class="q">Wunschliste</span>.</p>',
+      s: screen(homeScreen('wl')),
+      alt: 'Startbildschirm des Handys. Das Symbol „Wunschliste“ ist markiert.' }
+  ];
+
+  var IPHONE = [
+    { t: 'Safari öffnen',
+      b: '<p>Auf dem iPhone gibt es keine eigene App. Sie legen die Wunschliste stattdessen wie eine App auf den Home-Bildschirm. Das geht nur mit <b>Safari</b>, dem Browser mit dem blauen Kompass.</p>' +
+        '<p>Tippen Sie auf dem iPhone auf diesen Knopf:</p>',
+      a: '<a class="btn" href="' + BASE + '">Wunschliste in Safari öffnen</a>',
+      h: '<p>Öffnet sich die Seite in WhatsApp oder einer anderen App? Tippen Sie dort auf <b>⋯</b> oder auf das Kompass-Symbol und wählen Sie <b>In Safari öffnen</b>.</p><p>Die Adresse zum Abtippen: <span class="url">erschoenfeld2-tech.github.io/Skeison_Web/wunschliste</span></p>' +
+        '<p>Die Wunschliste ist schon auf dem Home-Bildschirm? Dann geht es weiter mit dem <a href="#iphone-6" class="skip-link">Anmelden</a>.</p>',
+      s: screen(homeScreen('safari')),
+      alt: 'Home-Bildschirm des iPhones. Das Symbol „Safari“ ist markiert.' },
+    { t: 'Auf „Teilen“ tippen',
+      b: '<p>Die Wunschliste ist jetzt in Safari geöffnet. Tippen Sie unten auf das Teilen-Symbol: ein <span class="q">Quadrat mit einem Pfeil nach oben</span>.</p>',
+      h: '<p>Sie sehen unten kein solches Symbol? Tippen Sie zuerst auf die drei Punkte <b>⋯</b> neben der Adresse und dann auf <b>Teilen</b>. Liegt die Adresszeile oben, ist das Symbol oben rechts.</p>',
+      s: screen(st() + wlNav() + '<div class="m-body"><span class="m-eye">Für Freunde &amp; Familie</span><span class="m-h">Wünsche teilen, Überraschungen behalten.</span><span class="m-btn">Anmelden</span><span class="m-btn ghost">Neu hier? Konto erstellen</span></div>' +
+        '<div class="m-sbar"><div class="m-url">erschoenfeld2-tech.github.io</div><div class="m-tools"><span>‹</span><span>›</span><span class="tap up">' + SVG.share + '</span><span>' + SVG.book + '</span><span>' + SVG.tabs + '</span></div></div>'),
+      alt: 'Safari mit der Wunschliste. Unten ist das Teilen-Symbol markiert.' },
+    { t: '„Zum Home-Bildschirm“ wählen',
+      b: '<p>Es öffnet sich eine Liste. Wischen Sie darin etwas nach oben, bis Sie <span class="q">Zum Home-Bildschirm</span> sehen, und tippen Sie darauf.</p>',
+      s: screen(st() + wlNav() + '<div class="m-body"></div><div class="m-dim"></div><div class="m-sheet"><div class="m-row" style="gap:10px"><span class="m-appic" style="width:34px;height:34px;font-size:18px">🎁</span><span><b>Wunschliste · Skeison</b><br><span class="m-p">erschoenfeld2-tech.github.io</span></span></div>' +
+        '<div class="m-share"><span>Kopieren ' + SVG.copy + '</span><span>Zur Leseliste hinzufügen ' + SVG.book + '</span><span>Zu Favoriten hinzufügen ' + SVG.star + '</span><span class="tap">Zum Home-Bildschirm ' + SVG.addhome + '</span></div><div style="height:28px"></div></div>'),
+      alt: 'Das Teilen-Menü von Safari. Der Eintrag „Zum Home-Bildschirm“ ist markiert.' },
+    { t: '„Hinzufügen“ tippen',
+      b: '<p>Sie sehen das Symbol und den Namen <b>Wunschliste</b>. Tippen Sie oben rechts auf <span class="q">Hinzufügen</span>.</p>',
+      h: '<p>Gibt es einen Schalter <b>„Als Web-App öffnen“</b>, lassen Sie ihn eingeschaltet.</p>',
+      s: screen(st() + '<div class="m-ios-top"><span class="m-tbtn">Abbrechen</span><b>Zum Home-Bildschirm</b><span class="m-tbtn tap">Hinzufügen</span></div>' +
+        '<div class="m-body" style="margin-top:22px"><div class="m-card"><div class="m-row" style="gap:10px"><span class="m-appic">🎁</span><span><b>Wunschliste</b><br><span class="m-p">erschoenfeld2-tech.github.io</span></span></div></div>' +
+        '<div class="m-set"><span>Als Web-App öffnen</span><span class="m-sw on"></span></div></div>'),
+      alt: 'Seite „Zum Home-Bildschirm“. Oben rechts ist „Hinzufügen“ markiert.' },
+    { t: 'Die Wunschliste öffnen',
+      b: '<p>Auf dem Home-Bildschirm ist jetzt das lila Symbol mit dem Geschenk: <span class="q">Wunschliste</span>. Tippen Sie es an. Die Wunschliste startet dann wie eine App.</p>',
+      s: screen(homeScreen('wl')),
+      alt: 'Home-Bildschirm des iPhones. Das neue Symbol „Wunschliste“ ist markiert.' }
+  ];
+
+  function common(os) {
+    var steps = [
+      { t: 'Konto erstellen oder anmelden',
+        b: '<p>Beim ersten Öffnen sehen Sie die Startseite der Wunschliste.</p>' +
+          '<ul class="do"><li>Sie sind neu? Tippen Sie auf <span class="q">Neu hier? Konto erstellen</span>.</li><li>Sie haben schon ein Konto? Tippen Sie auf <span class="q">Anmelden</span> und geben Sie E-Mail und Passwort ein.</li></ul>',
+        s: screen(st() + wlNav() + '<div class="m-body"><span class="m-eye">Für Freunde &amp; Familie</span><span class="m-h">Wünsche teilen, <em>Überraschungen behalten.</em></span><span class="m-p">Wunschlisten mit Bild und Preis, nur für die Menschen, die sie sehen sollen.</span>' +
+          '<span class="m-btn">Anmelden</span><span class="m-btn ghost tap">Neu hier? Konto erstellen</span></div>'),
+        alt: 'Startseite der Wunschliste mit den Knöpfen „Anmelden“ und „Neu hier? Konto erstellen“. Der zweite ist markiert.' },
+      { t: 'Ihre Angaben eintragen',
+        b: '<ol class="do"><li><b>Anzeigename:</b> so finden Sie Ihre Freunde, z. B. „Oma Inge“.</li><li><b>E-Mail:</b> Ihre E-Mail-Adresse.</li><li><b>Passwort:</b> mindestens 8 Zeichen, zweimal gleich eintippen.</li></ol>' +
+          '<p>Dann auf <span class="q">Konto erstellen</span> tippen. Sie sind sofort angemeldet, es kommt keine E-Mail.</p>',
+        h: '<p>Schreiben Sie sich E-Mail und Passwort auf. Passwort vergessen? Melden Sie sich bei der Person, die Ihnen diese Anleitung geschickt hat, oder im <a href="' + DISCORD + '">Skeison-Discord</a>. Sie bekommen dann ein neues.</p>',
+        s: screen(st() + '<div class="m-body"><span class="m-h s">Schön, dass du da bist</span><div class="m-seg"><span>Anmelden</span><span class="on">Neues Konto</span></div>' +
+          '<div class="m-field">Anzeigename<span>Oma Inge</span></div><div class="m-field">E-Mail<span>inge@beispiel.de</span></div><div class="m-field">Passwort<span>••••••••</span></div><div class="m-field">Passwort wiederholen<span>••••••••</span></div>' +
+          '<span class="m-btn tap">Konto erstellen</span></div>'),
+        alt: 'Formular „Neues Konto“ mit Anzeigename, E-Mail und zweimal Passwort. Der Knopf „Konto erstellen“ ist markiert.' },
+      { t: 'Die Übersicht',
+        b: '<p>Das ist Ihre Startseite, die <b>„Wunschwelt“</b>. Unten am Rand ist immer die Leiste mit fünf Knöpfen:</p>' +
+          '<ul class="keys"><li><span class="k">' + SVG.home + '</span><span><b>Übersicht:</b> zurück zur Startseite</span></li>' +
+          '<li><span class="k">' + SVG.freunde + '</span><span><b>Freunde:</b> Familie und Freunde hinzufügen</span></li>' +
+          '<li><span class="k">' + SVG.plus + '</span><span><b>Plus:</b> eine eigene Wunschliste anlegen</span></li>' +
+          '<li><span class="k">' + SVG.geschenke + '</span><span><b>Besorgen:</b> Ihre Geschenke-Einkaufsliste</span></li>' +
+          '<li><span class="k"><i class="m-av" style="width:24px;height:24px"></i></span><span><b>Profil:</b> Ihr Name und Ihre Einstellungen</span></li></ul>',
+        h: '<p>Am Computer stehen dieselben Punkte oben in der Leiste. „Besorgen“ heißt dort <b>„Meine Geschenke“</b>.</p>',
+        s: screen(st() + wlNav() + '<div class="m-body"><span class="m-eye">Hallo, Oma Inge</span><span class="m-h">Deine Wunschwelt</span>' +
+          '<div class="m-tiles"><span class="m-tile"><b>0</b><small>Listen</small></span><span class="m-tile"><b>3</b><small>Freunde</small></span><span class="m-tile"><b>1</b><small>noch zu besorgen</small></span></div>' +
+          '<span class="m-h s">Listen deiner Freunde</span>' + friendLists(false) + '</div>' + tabbar('home', 'all')),
+        alt: 'Die Übersicht „Deine Wunschwelt“. Die Leiste unten mit Übersicht, Freunde, Plus, Besorgen und Profil ist markiert.' },
+      { t: 'Freunde hinzufügen',
+        b: '<p>Die Listen Ihrer Familie sehen Sie, sobald Sie befreundet sind. Am einfachsten: Lassen Sie sich einen <b>Einladungslink</b> schicken, z. B. per WhatsApp. Tippen Sie ihn an und dann auf <span class="q">Freunde werden</span>.</p>' +
+          '<p>Oder selbst suchen: unten auf <span class="q">Freunde</span> tippen, im Feld <b>Freund hinzufügen</b> den Namen mit Code eintippen (z. B. <b>Erik#7KQ2M</b>) und auf <span class="q">Anfrage senden</span> tippen. Die andere Person muss die Anfrage noch bestätigen.</p>',
+        h: '<p>Ihren eigenen Namen mit Code finden Sie unter <b>Profil</b>. Geben Sie ihn an Ihre Familie weiter, dann findet sie Sie.</p>',
+        s: screen(st() + wlNav() + '<div class="m-body"><span class="m-eye">Nur Freunde sehen sich gegenseitig</span><span class="m-h">Freunde &amp; Gruppen</span>' +
+          '<div class="m-card"><div class="m-field">Freund hinzufügen<span>Erik#7KQ2M</span></div><span class="m-btn tap">Anfrage senden</span></div>' +
+          '<span class="m-h s" style="margin-top:24px">Deine Freunde <small class="m-p">3</small></span><div class="m-lc"><span class="m-em">🙂</span><span><b>Lena</b><small>Enkelin</small></span></div></div>' + tabbar('freunde', '')),
+        alt: 'Seite „Freunde & Gruppen“. Im Feld steht „Erik#7KQ2M“, der Knopf „Anfrage senden“ ist markiert.' },
+      { t: 'Die Listen von Freunden ansehen',
+        b: '<p>Tippen Sie unten auf <span class="q">Übersicht</span>. Unter <b>„Listen deiner Freunde“</b> stehen alle Listen, die Ihre Freunde für Sie freigegeben haben.</p><p>Tippen Sie auf eine Liste, um die Wünsche zu sehen: mit Bild, Preis und Link zum Shop.</p>',
+        s: screen(st() + wlNav() + '<div class="m-body"><span class="m-h">Deine Wunschwelt</span><span class="m-h s">Listen deiner Freunde</span>' + friendLists(true) + '</div>' + tabbar('home', '')),
+        alt: 'Die Übersicht mit „Listen deiner Freunde“. Die Liste „Weihnachten“ von Erik ist markiert.' },
+      { t: 'Einen Wunsch reservieren',
+        b: '<p>Haben Sie ein passendes Geschenk gefunden? Tippen Sie beim Wunsch auf <span class="q">🎁 Reservieren</span>.</p>' +
+          '<p>Damit ist der Wunsch für Sie vorgemerkt. Alle anderen Schenkenden sehen sofort <b>„🔒 Reserviert von …“</b> und kaufen ihn nicht doppelt.</p>' +
+          '<p>Reservieren kostet nichts. Kaufen Sie das Geschenk wie gewohnt im Laden oder im Internet.</p>',
+        h: '<p>Aus Versehen getippt? Unten erscheint kurz <b>Rückgängig</b>. Auch später können Sie die Reservierung unter „Besorgen“ wieder freigeben.</p>',
+        s: screen(st() + wlNav() + '<div class="m-body"><span class="m-h s">🎄 Weihnachten · Erik</span>' +
+          '<div class="m-wish"><span class="m-img">🎧</span><span class="m-wb"><b>Kopfhörer</b><small>Fürs Pendeln · 129 €</small><span class="m-btn sm tap" style="justify-self:start">🎁 Reservieren</span></span></div>' +
+          '<div class="m-wish" style="margin-top:22px"><span class="m-img">📚</span><span class="m-wb"><b>Fantasy-Buchreihe</b><small>39 €</small><span class="m-state">🔒 Reserviert von Lena</span></span></div></div>'),
+        alt: 'Eine Wunschliste mit zwei Wünschen. Beim Kopfhörer ist der Knopf „Reservieren“ markiert, das Buch ist schon von Lena reserviert.' },
+      { t: 'Die Überraschung bleibt geheim',
+        b: '<p>Keine Sorge: Wer sich etwas wünscht, sieht auf seiner eigenen Liste <b>nie</b>, was reserviert wurde. Das nennt die Wunschliste <b>Überraschungsschutz</b>.</p>' +
+          '<p>Erik sieht also nicht, dass Sie die Kopfhörer reserviert haben. Nur die anderen Schenkenden sehen es, damit nichts doppelt unterm Baum liegt.</p>',
+        s: screen(st() + wlNav() + '<div class="m-body"><span class="m-h s">🎄 Weihnachten</span><span class="m-banner tap">🙈 <b>Überraschungsschutz:</b> Was reserviert wurde, siehst du auf deinen eigenen Listen nicht.</span>' +
+          '<div class="m-wish" style="margin-top:24px"><span class="m-img">🎧</span><span class="m-wb"><b>Kopfhörer</b><small>Fürs Pendeln · 129 €</small></span></div></div>'),
+        alt: 'So sieht Erik seine eigene Liste: oben der Hinweis „Überraschungsschutz“, beim Kopfhörer steht keine Reservierung.',
+        cap: 'So sieht Erik seine eigene Liste.' },
+      { t: 'Besorgen: Ihre Einkaufsliste',
+        b: '<p>Tippen Sie unten auf <span class="q">Besorgen</span>. Hier stehen alle Geschenke, die Sie reserviert haben, mit Preis und dem Knopf <b>Shop ↗</b> zum Online-Shop.</p>' +
+          '<p>Haben Sie ein Geschenk gekauft, setzen Sie den Haken bei <span class="q">Gekauft</span>. So behalten Sie den Überblick.</p>',
+        s: screen(st() + wlNav() + '<div class="m-body"><span class="m-eye">Deine Einkaufsliste</span><span class="m-h">Meine Geschenke</span>' +
+          '<div class="m-tiles"><span class="m-tile"><b>2</b><small>reserviert</small></span><span class="m-tile"><b>1</b><small>schon gekauft</small></span><span class="m-tile"><b>168 €</b><small>Budget</small></span></div>' +
+          '<span class="m-p"><b>Erik</b> · 🎄 Weihnachten</span>' +
+          '<div class="m-gift"><span class="m-check tap"><i></i>Gekauft</span><span class="m-th">🎧</span><span><b>Kopfhörer</b></span><span>129 €</span></div>' +
+          '<div class="m-gift" style="margin-top:26px"><span class="m-check on"><i></i>Gekauft</span><span class="m-th">🧣</span><span><b>Schal</b></span><span>39 €</span></div></div>' + tabbar('geschenke', 'geschenke')),
+        alt: 'Seite „Meine Geschenke“. Unten ist „Besorgen“ markiert, beim Kopfhörer der Haken „Gekauft“.' }
+    ];
+    if (os === 'android') steps.push({ t: 'Benachrichtigungen erlauben',
+      b: '<p>Nach dem ersten Anmelden fragt das Handy, ob die Wunschliste Ihnen Benachrichtigungen schicken darf. Tippen Sie auf <span class="q">Zulassen</span>.</p>' +
+        '<p>Dann erinnert Sie die App rechtzeitig an Geburtstage und andere Anlässe Ihrer Freunde, an Geschenke, die noch zu besorgen sind, und an Angebote, zum Beispiel am Black Friday.</p>',
+      h: '<p>Aus Versehen „Nicht zulassen“ getippt? Öffnen Sie die <b>Einstellungen</b> des Handys › <b>Apps</b> › <b>Wunschliste</b> › <b>Benachrichtigungen</b> und schalten Sie sie ein. Bei älteren Handys sind sie schon erlaubt, dort kommt keine Frage.</p>',
+      s: screen(st() + wlNav() + '<div class="m-body"><span class="m-h">Deine Wunschwelt</span></div><div class="m-dim"></div>' +
+        '<div class="m-dlg"><div class="m-center"><span style="font-size:24px">🔔</span><b>Wunschliste erlauben, dir Benachrichtigungen zu senden?</b></div><span class="m-btn tap">Zulassen</span><span class="m-btn ghost" style="margin-top:22px">Nicht zulassen</span></div>'),
+      alt: 'Frage des Handys „Wunschliste erlauben, dir Benachrichtigungen zu senden?“. Der Knopf „Zulassen“ ist markiert.' });
+    else steps.push({ t: 'Was bald ansteht',
+      b: '<p>Auf dem iPhone schickt die Wunschliste keine Benachrichtigungen. Schauen Sie deshalb ab und zu in die <b>Übersicht</b>.</p>' +
+        '<p>Unter <span class="q">Bald anstehend</span> stehen die nächsten Geburtstage und Anlässe Ihrer Freunde. Neuigkeiten, zum Beispiel Angebote am Black Friday, erscheinen oben als Hinweis.</p>',
+      s: screen(st() + wlNav() + '<div class="m-body"><span class="m-eye">Hallo, Oma Inge</span><span class="m-h">Deine Wunschwelt</span>' +
+        '<span class="m-banner">🏷️ <b>Black Friday</b><br>2 Wünsche deiner Freunde sind reduziert</span>' +
+        '<div class="m-card tap"><b>Bald anstehend</b><span class="m-p">🎂 <b>Lena</b> · Geburtstag · in 5 Tagen</span><span class="m-p">🎄 <b>Weihnachten</b> · in 27 Tagen</span></div></div>' + tabbar('home', '')),
+      alt: 'Die Übersicht. Der Kasten „Bald anstehend“ mit Lenas Geburtstag und Weihnachten ist markiert.' });
+    steps.push({ t: 'Geschafft!', done: true,
+      b: '<p>Jetzt wissen Sie alles Wichtige: Freunde hinzufügen, ihre Listen ansehen, Wünsche reservieren und unter „Besorgen“ abhaken.</p>' +
+        '<p>Viel Freude beim Schenken!</p>',
+      a: '<a class="btn" href="' + BASE + '">Wunschliste öffnen</a><button type="button" class="btn ghost" data-go="start">Noch einmal von vorn</button>',
+      h: '<p>Fragen oder Probleme? Melden Sie sich bei der Person, die Ihnen diese Anleitung geschickt hat, oder schreiben Sie im <a href="' + DISCORD + '">Skeison-Discord</a>.</p>' });
+    return steps;
+  }
+
+  var PATHS = { android: ANDROID.concat(common('android')), iphone: IPHONE.concat(common('iphone')) };
+  var NAMES = { android: 'Android-Handy', iphone: 'iPhone' };
+
+  // ---------- Darstellung ----------
+  // Adresse: #start, #android-3, #iphone-5. So funktionieren auch die Zurueck-Taste und das Neuladen.
+  function parse() {
+    var m = /^#(android|iphone)-(\d+)$/.exec(location.hash);
+    if (!m) return null;
+    var n = Math.max(1, Math.min(+m[2], PATHS[m[1]].length));
+    return { os: m[1], n: n };
+  }
+  function go(h) { if (location.hash === '#' + h) render(true); else location.hash = h; }
+
+  function detect() {
+    var ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iphone';
+    if (/Android/.test(ua)) return 'android';
+    return '';
+  }
+
+  function renderStart() {
+    var dev = detect();
+    prog.hidden = true; nav.hidden = true;
+    document.title = 'Wunschliste: Anleitung fürs Handy';
+    function pick(os, ic, name, sub) {
+      return '<button type="button" class="pick' + (dev === os ? ' mine' : '') + '" data-go="' + os + '-1"><span class="pi" aria-hidden="true">' + ic + '</span>' +
+        '<span><b>' + name + '</b><small>' + sub + '</small>' + (dev === os ? '<span class="you">Ihr Gerät</span>' : '') + '</span></button>';
+    }
+    main.innerHTML = '<article class="step nofig"><div class="txt">' +
+      '<h1 tabindex="-1">Die Wunschliste aufs Handy holen</h1>' +
+      '<p class="lead">Diese Anleitung zeigt Ihnen Schritt für Schritt, wie Sie die Wunschliste auf Ihr Handy holen und benutzen. Nehmen Sie sich ein paar Minuten Zeit. Sie können jederzeit zurückgehen.</p>' +
+      '<p class="hint desk-note" id="deskNote" hidden>Sie lesen am Computer? Öffnen Sie diese Seite am besten auf dem Handy: <span class="url">erschoenfeld2-tech.github.io/Skeison_Web/wunschliste/anleitung.html</span></p>' +
+      '<h2>Welches Handy haben Sie?</h2>' +
+      '<div class="choice">' + pick('android', '🤖', 'Android-Handy', 'Samsung, Xiaomi, Google Pixel, Motorola, Huawei und fast alle anderen') +
+      pick('iphone', '🍎', 'iPhone', 'von Apple, mit dem Apfel auf der Rückseite') + '</div>' +
+      '<div class="hint"><p>Nicht sicher? Hat Ihr Handy hinten einen <b>Apfel</b>, ist es ein <b>iPhone</b>. Sonst ist es fast immer ein <b>Android-Handy</b>.</p></div>' +
+      '</div></article>';
+    var desk = !dev && window.matchMedia && matchMedia('(pointer: fine)').matches;
+    document.getElementById('deskNote').hidden = !desk;
+  }
+
+  function render(focus) {
+    var r = parse();
+    if (!r) { renderStart(); finish(focus); return; }
+    var steps = PATHS[r.os], s = steps[r.n - 1], total = steps.length;
+    prog.hidden = false; nav.hidden = false;
+    progText.textContent = 'Schritt ' + r.n + ' von ' + total + ' · ' + NAMES[r.os];
+    progBar.style.width = Math.round(r.n / total * 100) + '%';
+    document.title = s.t + ' · Wunschliste-Anleitung';
+    main.innerHTML = '<article class="step' + (s.s ? '' : ' nofig') + '"><div class="txt">' +
+      (s.done ? '<span class="done-ic" aria-hidden="true">🎉</span>' : '') +
+      '<h1 tabindex="-1">' + s.t + '</h1>' + s.b +
+      (s.a ? '<div class="acts">' + s.a + '</div>' : '') +
+      (s.h ? '<div class="hint"><p><b>💡 Tipp</b></p>' + s.h + '</div>' : '') + '</div>' +
+      (s.s ? '<figure class="fig" role="img" aria-label="' + s.alt.replace(/"/g, '&quot;') + '">' + s.s + (s.cap ? '<figcaption>' + s.cap + '</figcaption>' : '') + '</figure>' : '') +
+      '</article>';
+    back.textContent = r.n === 1 ? '← Zur Auswahl' : '← Zurück';
+    back.dataset.go = r.n === 1 ? 'start' : r.os + '-' + (r.n - 1);
+    next.hidden = !!s.done;
+    nav.classList.toggle('solo', !!s.done);
+    if (!s.done) next.dataset.go = r.os + '-' + (r.n + 1);
+    finish(focus);
+  }
+
+  function finish(focus) {
+    if (!focus) return;
+    window.scrollTo(0, 0);
+    var h = main.querySelector('h1');
+    if (h) h.focus({ preventScroll: true });
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-go]');
+    if (!b) return;
+    e.preventDefault();
+    go(b.dataset.go);
+  });
+  document.getElementById('home').addEventListener('click', function () { go('start'); });
+  window.addEventListener('hashchange', function () { render(true); });
+
+  // Pfeiltasten: links zurueck, rechts weiter
+  document.addEventListener('keydown', function (e) {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || nav.hidden) return;
+    var t = e.target.tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
+    if (e.key === 'ArrowRight' && !next.hidden) { e.preventDefault(); next.click(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); back.click(); }
+  });
+
+  // Groessere Schrift: auf dem Geraet gemerkt (ohne Speicher einfach nur fuer diesen Besuch)
+  var bigBtn = document.getElementById('bigText');
+  function setBig(on) {
+    document.documentElement.classList.toggle('big', on);
+    // Der Knopf nennt, was er tut: groesser bzw. wieder kleiner
+    bigBtn.textContent = on ? 'A− Kleiner' : 'A+ Größer';
+  }
+  try { setBig(localStorage.getItem('wl-anleitung-big') === '1'); } catch (e) { setBig(false); }
+  bigBtn.addEventListener('click', function () {
+    var on = !document.documentElement.classList.contains('big');
+    setBig(on);
+    try { localStorage.setItem('wl-anleitung-big', on ? '1' : '0'); } catch (e) { /* ohne Speicher */ }
+  });
+
+  render(false);
+})();
+</script>
+</body>
+</html>

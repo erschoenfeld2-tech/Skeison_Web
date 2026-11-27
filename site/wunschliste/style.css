@@ -368,7 +368,11 @@ body.is-locked .nav-app, body.is-locked .menu-btn { display: none !important; }
 .help { font-size: .9rem; color: var(--muted); } .help summary { cursor: pointer; font-weight: 700; color: var(--accent2); } .help p { margin: 8px 0 0; }
 .support { flex: 1 1 320px; font-size: .88rem; }
 /* Hinweise auf die App nur im Browser; in der Android-App (Klasse in-app) und als installierte Web-App ausblenden */
-.app-hint { margin: 14px 0 0; font-size: .92rem; } .app-hint a { text-decoration: none; }
+.app-hint { margin: 14px 0 0; font-size: .92rem; display: flex; flex-wrap: wrap; gap: 6px 18px; } .app-hint a { text-decoration: none; }
+/* Unter der Anmelde-Maske: Anleitung fuer Einsteiger und App-Installation, gut sichtbar */
+.auth-guide { margin: 0; display: flex; flex-wrap: wrap; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.auth-guide a { flex: 1 1 180px; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); text-decoration: none; font-weight: 600; text-align: center; }
+.auth-guide a:hover { border-color: var(--accent, currentColor); }
 .in-app .web-only, .app-mode .web-only { display: none !important; }
 @media (display-mode: standalone) { .web-only { display: none !important; } }
 
