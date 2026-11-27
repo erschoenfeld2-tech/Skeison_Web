@@ -20,6 +20,8 @@ wait_for() {
   while [ $SECONDS -lt $end ]; do
     dump "$1"
     if grep -q "$2" "$OUT/$1.xml"; then log "OK      $1: \"$2\" sichtbar"; shot "$1"; return 0; fi
+    anr "$1" && continue
+
     if [ $restarted -eq 0 ] && ! adb shell pidof $PKG >/dev/null 2>&1; then
       restarted=1; end=$((end + 30))
       log "HINWEIS $1: App vom System beendet (kein Absturz), neuer Start"
@@ -29,6 +31,23 @@ wait_for() {
   done
   log "FEHLER  $1: \"$2\" nicht gefunden"; shot "$1"; FAIL=1; return 1
 }
+# Im Emulator haengt gelegentlich der Pixel Launcher (oder ein anderer Systemprozess) und Android legt den Dialog
+# "… isn't responding" ueber alles. Dann sieht der Test nur diesen Dialog statt der App. anr tippt auf "Wait"
+# (bzw. "Warten") und meldet das als Hinweis; die App selbst ist davon nicht betroffen.
+anr() {
+  grep -qE "isn't responding|reagiert nicht" "$OUT/$1.xml" 2>/dev/null || return 1
+  local b
+  b=$(grep -oE 'text="(Wait|Warten)"[^>]*bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' "$OUT/$1.xml" | grep -oE '\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]' | head -1)
+  if [ -n "$b" ]; then
+    local c; c=$(echo "$b" | sed -E 's/\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]/\1 \2 \3 \4/')
+    set -- $c
+    adb shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))
+  else
+    adb shell input keyevent KEYCODE_ENTER
+  fi
+  log "HINWEIS Systemdialog \"reagiert nicht\" (nicht die App) geschlossen"
+  sleep 1; return 0
+}
 alive() {
   if adb shell pidof $PKG >/dev/null 2>&1; then log "OK      $1: App laeuft"
   elif adb logcat -d 2>/dev/null | grep -q "Killing [0-9]*:$PKG.*dying proc"; then log "HINWEIS $1: App vom System beendet (Google-Dienste starteten neu), kein Absturz"
@@ -37,6 +56,8 @@ alive() {
 net() { adb shell svc wifi "$1"; adb shell svc data "$1"; }
 
 adb shell settings put global package_verifier_enable 0 >/dev/null 2>&1
+# Fehlerdialoge anderer Apps ("Pixel Launcher isn't responding") nicht anzeigen; sie verdecken sonst die App
+adb shell settings put global hide_error_dialogs 1 >/dev/null 2>&1
 adb install -r "$APK" >/dev/null || { log "FEHLER  Installation"; exit 1; }
 log "OK      Installation ($(stat -c %s "$APK") Bytes)"
 adb logcat -c

@@ -146,6 +146,7 @@ public class MainActivity extends Activity {
 
         if (state == null || web.restoreState(state) == null) web.loadUrl(startUrl(getIntent()));
         checkForUpdate(false);
+        Updater.schedule(this, false);   // automatische Updates im Hintergrund (alle 6 Stunden)
     }
 
     private void setupWindow() {
@@ -412,6 +413,9 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        Updater.inForeground = false;
+        // Kurz nach dem Schliessen nach einem Update sehen: dann stoert der Neustart der App niemanden
+        try { Updater.schedule(this, true); } catch (Exception ignored) { }
         backgroundSince = SystemClock.elapsedRealtime();
         if (web == null) return;
         web.onPause();
@@ -421,6 +425,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        Updater.inForeground = true;
         if (web == null) return;
         web.onResume();
         if (backgroundSince == 0) return;
@@ -643,23 +648,8 @@ public class MainActivity extends Activity {
         if (!force && now - prefs.getLong("lastUpdateCheck", 0) < UPDATE_CHECK_MS) return;
         prefs.edit().putLong("lastUpdateCheck", now).apply();
         new Thread(() -> {
-            HttpURLConnection c = null;
-            try {
-                c = (HttpURLConnection) new URL(RELEASE_API).openConnection();
-                c.setConnectTimeout(8000);
-                c.setReadTimeout(8000);
-                c.setRequestProperty("Accept", "application/vnd.github+json");
-                c.setRequestProperty("User-Agent", "SkeisonWunschlisteApp");
-                if (c.getResponseCode() != 200) return;
-                JSONObject j = new JSONObject(readAll(c.getInputStream()));
-                Matcher m = Pattern.compile("versionCode[:=]\\s*(\\d+)").matcher(j.optString("body") + " " + j.optString("name"));
-                if (!m.find()) return;
-                final int latest = Integer.parseInt(m.group(1));
-                if (latest > BuildConfig.VERSION_CODE) ui.post(() -> offerUpdate(latest));
-            } catch (Exception ignored) {
-            } finally {
-                if (c != null) c.disconnect();
-            }
+            final int latest = Updater.latestVersion();
+            if (latest > BuildConfig.VERSION_CODE) ui.post(() -> offerUpdate(latest));
         }).start();
     }
 
